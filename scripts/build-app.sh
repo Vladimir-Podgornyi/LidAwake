@@ -5,7 +5,10 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 APP_NAME="LidAwake"
+HELPER_NAME="LidAwakeHelper"
+HELPER_ID="com.vladimirpodgornyi.LidAwake.helper"
 APP="build/$APP_NAME.app"
+HELPER="$APP/Contents/MacOS/$HELPER_NAME"
 
 # The Swift driver links via clang with --sysroot, from which clang does not
 # read the SDK version, so LC_BUILD_VERSION would record the deployment target
@@ -17,9 +20,11 @@ swift build -c release \
 BIN_DIR="$(swift build -c release --show-bin-path)"
 
 rm -rf "$APP"
-mkdir -p "$APP/Contents/MacOS"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Library/LaunchDaemons"
 cp "$BIN_DIR/$APP_NAME" "$APP/Contents/MacOS/$APP_NAME"
+cp "$BIN_DIR/$HELPER_NAME" "$HELPER"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
+cp "Resources/$HELPER_ID.plist" "$APP/Contents/Library/LaunchDaemons/$HELPER_ID.plist"
 
 TEAM_ID="ZW984867UC"
 
@@ -34,15 +39,30 @@ else
 fi
 
 if [[ -z "$IDENTITY" || "$IDENTITY" == "-" ]]; then
+    codesign --force --sign - --identifier "$HELPER_ID" "$HELPER"
     codesign --force --sign - "$APP"
     echo "" >&2
     echo "WARNING: ad-hoc signature. No Developer ID Application certificate for team $TEAM_ID was used." >&2
     echo "WARNING: The privileged helper will not work in this build." >&2
     echo "" >&2
 else
+    codesign --force --sign "$IDENTITY" --options runtime --timestamp --identifier "$HELPER_ID" "$HELPER"
     codesign --force --sign "$IDENTITY" --options runtime --timestamp "$APP"
+
+    # Read the requirements back from the binaries, so the check uses exactly
+    # what the app and the helper enforce at run time.
+    APP_REQ="$(strings "$HELPER" | grep -m 1 -F "identifier \"com.vladimirpodgornyi.LidAwake\" " || true)"
+    HELPER_REQ="$(strings "$APP/Contents/MacOS/$APP_NAME" | grep -m 1 -F "identifier \"$HELPER_ID\" " || true)"
+    if [[ -z "$APP_REQ" || -z "$HELPER_REQ" ]]; then
+        echo "ERROR: code signing requirements not found in the binaries." >&2
+        exit 1
+    fi
+    codesign --verify --strict -R="$HELPER_REQ" "$HELPER"
+    codesign --verify --strict -R="$APP_REQ" "$APP"
+    echo "Signatures satisfy the app and helper requirements"
 fi
 
+codesign --verify --strict "$HELPER"
 codesign --verify --strict "$APP"
 
 echo "Built $APP"

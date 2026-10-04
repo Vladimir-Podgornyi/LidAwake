@@ -4,6 +4,7 @@ import SwiftUI
 
 struct ContentView: View {
     @ObservedObject var controller: ModeController
+    @ObservedObject var helper: HelperClient
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -19,6 +20,8 @@ struct ContentView: View {
                     .disabled(true)
             }
 
+            helperRow
+
             Divider()
 
             Button("Quit LidAwake") {
@@ -27,6 +30,48 @@ struct ContentView: View {
         }
         .padding()
         .frame(width: 260, alignment: .leading)
+        .task { await helper.refresh() }
+    }
+
+    private var helperRow: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(helperStatus)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Button(helperActionTitle) {
+                helperAction()
+            }
+            .disabled(helper.isBusy)
+        }
+    }
+
+    private var helperStatus: String {
+        switch helper.state {
+        case .notInstalled: return "Helper: not installed"
+        case .requiresApproval: return "Helper: waiting for approval"
+        case .ready: return "Helper: ready"
+        case .error(let message): return "Helper: \(message)"
+        case .outdated: return "Helper: outdated"
+        }
+    }
+
+    private var helperActionTitle: String {
+        switch helper.state {
+        case .notInstalled, .error, .outdated: return "Install Helper"
+        case .requiresApproval: return "Open System Settings"
+        case .ready: return "Remove Helper"
+        }
+    }
+
+    private func helperAction() {
+        switch helper.state {
+        case .notInstalled, .error, .outdated:
+            Task { await helper.install() }
+        case .requiresApproval:
+            helper.openSystemSettings()
+        case .ready:
+            Task { await helper.uninstall() }
+        }
     }
 
     private func modeRow(_ mode: Mode, title: String) -> some View {
