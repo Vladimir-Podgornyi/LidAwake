@@ -465,7 +465,7 @@ private struct SettingRow<Controls: View>: View {
     @ViewBuilder let controls: Controls
 
     var body: some View {
-        HStack(spacing: 8) {
+        SettingRowLayout(minHeight: minHeight) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.system(size: 13))
@@ -475,15 +475,48 @@ private struct SettingRow<Controls: View>: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            .fixedSize(horizontal: false, vertical: true)
             .accessibilityElement(children: .combine)
-            Spacer(minLength: 8)
             HStack(spacing: 8) {
                 controls
             }
             .fixedSize()
         }
-        .frame(minHeight: minHeight)
+    }
+}
+
+/// Lays out a setting row: the controls at their own size on the right, the text in all the
+/// width left of them. Sizing and placing use the same widths, so the row is always as tall
+/// as the wrapped text, and the text wraps only where it meets the controls.
+private struct SettingRowLayout: Layout {
+    var minHeight: CGFloat
+    var spacing: CGFloat = 12
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let measured = measure(width: proposal.width, subviews: subviews)
+        return CGSize(width: measured.width, height: measured.height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let measured = measure(width: bounds.width, subviews: subviews)
+        subviews[0].place(
+            at: CGPoint(x: bounds.minX, y: bounds.midY),
+            anchor: .leading,
+            proposal: ProposedViewSize(width: measured.textWidth, height: measured.textHeight)
+        )
+        subviews[1].place(
+            at: CGPoint(x: bounds.maxX, y: bounds.midY),
+            anchor: .trailing,
+            proposal: ProposedViewSize(measured.controls)
+        )
+    }
+
+    private func measure(width: CGFloat?, subviews: Subviews) -> (width: CGFloat, height: CGFloat, textWidth: CGFloat, textHeight: CGFloat, controls: CGSize) {
+        let controls = subviews[1].sizeThatFits(.unspecified)
+        let rowWidth = width ?? (subviews[0].sizeThatFits(.unspecified).width + spacing + controls.width)
+        let textWidth = max(0, rowWidth - spacing - controls.width)
+        let textHeight = subviews[0].sizeThatFits(ProposedViewSize(width: textWidth, height: nil)).height
+        let height = max(minHeight, textHeight, controls.height)
+        return (rowWidth, height, textWidth, textHeight, controls)
     }
 }
 
