@@ -1,5 +1,6 @@
 import Foundation
 import LidAwakeCore
+import LidAwakeShared
 
 enum HelperCommand {
     case status
@@ -40,7 +41,12 @@ enum HelperCommand {
 
         var line = Self.token(for: service.registration)
         do {
-            line += " protocol=\(try await connection.protocolVersion())"
+            let version = try await connection.protocolVersion()
+            line += " protocol=\(version)"
+            if version == HelperConstants.protocolVersion {
+                let status = try await connection.sessionStatus()
+                line += " sleep-disabled=\(status.flag.token) session=\(status.session.token)"
+            }
         } catch {
             printError("helper: \(error.localizedDescription)")
         }

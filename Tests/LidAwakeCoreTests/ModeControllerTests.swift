@@ -1,3 +1,4 @@
+import LidAwakeShared
 import XCTest
 @testable import LidAwakeCore
 
@@ -21,67 +22,257 @@ private final class FakeAssertion: PowerAssertion {
     }
 }
 
+@MainActor
+private final class FakeHelper: HelperPreparing {
+    var notReady: HelperError?
+    private(set) var prepareCount = 0
+
+    func prepareForSession() async throws {
+        prepareCount += 1
+        if let notReady { throw notReady }
+    }
+
+    func isReady() async -> Bool {
+        notReady == nil
+    }
+}
+
+private final class FakeSessions: LidSessionService {
+    var startError: Error?
+    var renewError: Error?
+    private(set) var calls: [String] = []
+
+    func startSession(leaseSeconds: Int) async throws {
+        calls.append("start \(leaseSeconds)")
+        if let startError { throw startError }
+    }
+
+    func renewSession(leaseSeconds: Int) async throws {
+        calls.append("renew \(leaseSeconds)")
+        if let renewError { throw renewError }
+    }
+
+    func endSession() async throws {
+        calls.append("end")
+    }
+
+    func clearLeftover() async throws {
+        calls.append("clear")
+    }
+
+    func sessionStatus() async throws -> HelperSessionStatus {
+        HelperSessionStatus(flag: .unknown, session: .noSession)
+    }
+}
+
+private final class FakeActivity: ActivityHolding {
+    private(set) var isActive = false
+
+    func begin() { isActive = true }
+    func end() { isActive = false }
+}
+
+@MainActor
 final class ModeControllerTests: XCTestCase {
+    private let assertion = FakeAssertion()
+    private let helper = FakeHelper()
+    private let sessions = FakeSessions()
+    private let activity = FakeActivity()
+
+    private func makeController() -> ModeController {
+        ModeController(
+            displayAssertion: assertion,
+            helper: helper,
+            sessions: sessions,
+            activity: activity,
+            leaseSeconds: 120,
+            renewalSleep: { try await Task.sleep(nanoseconds: 3_600_000_000_000) }
+        )
+    }
+
     func testStartsOff() {
-        let assertion = FakeAssertion()
-        let controller = ModeController(displayAssertion: assertion)
+        let controller = makeController()
         XCTAssertEqual(controller.mode, .off)
         XCTAssertFalse(assertion.isHeld)
     }
 
-    func testKeepScreenOnAcquiresAndOffReleases() throws {
-        let assertion = FakeAssertion()
-        let controller = ModeController(displayAssertion: assertion)
+    func testKeepScreenOnAcquiresAndOffReleases() async throws {
+        let controller = makeController()
 
-        try controller.select(.keepScreenOn)
+        try await controller.select(.keepScreenOn)
         XCTAssertEqual(controller.mode, .keepScreenOn)
         XCTAssertTrue(assertion.isHeld)
 
-        try controller.select(.off)
+        try await controller.select(.off)
         XCTAssertEqual(controller.mode, .off)
         XCTAssertFalse(assertion.isHeld)
     }
 
-    func testRepeatedKeepScreenOnCreatesOneAssertion() throws {
-        let assertion = FakeAssertion()
-        let controller = ModeController(displayAssertion: assertion)
+    func testRepeatedKeepScreenOnCreatesOneAssertion() async throws {
+        let controller = makeController()
 
-        try controller.select(.keepScreenOn)
-        try controller.select(.keepScreenOn)
+        try await controller.select(.keepScreenOn)
+        try await controller.select(.keepScreenOn)
 
         XCTAssertEqual(assertion.acquireCount, 1)
         XCTAssertEqual(controller.mode, .keepScreenOn)
     }
 
-    func testAcquireFailureLeavesModeOff() {
-        let assertion = FakeAssertion()
+    func testAcquireFailureLeavesModeOff() async {
         assertion.shouldFail = true
-        let controller = ModeController(displayAssertion: assertion)
+        let controller = makeController()
 
-        XCTAssertThrowsError(try controller.select(.keepScreenOn))
+        do {
+            try await controller.select(.keepScreenOn)
+            XCTFail("expected an error")
+        } catch {}
         XCTAssertEqual(controller.mode, .off)
+        XCTAssertFalse(assertion.isHeld)
+        XCTAssertNotNil(controller.lastError)
+    }
+
+    func testLidClosedStartsSession() async throws {
+        let controller = makeController()
+
+        try await controller.select(.lidClosed)
+        XCTAssertEqual(controller.mode, .lidClosed)
+        XCTAssertEqual(helper.prepareCount, 1)
+        XCTAssertEqual(sessions.calls, ["start 120"])
+        XCTAssertTrue(activity.isActive)
+        XCTAssertNil(controller.lastError)
+    }
+
+    func testLidClosedNeedsReadyHelper() async {
+        helper.notReady = .notReady("Install the helper to run with the lid closed.")
+        let controller = makeController()
+
+        do {
+            try await controller.select(.lidClosed)
+            XCTFail("expected an error")
+        } catch {}
+        XCTAssertEqual(controller.mode, .off)
+        XCTAssertEqual(sessions.calls, [])
+        XCTAssertFalse(activity.isActive)
+        XCTAssertEqual(controller.lastError, "Install the helper to run with the lid closed.")
+    }
+
+    func testLidClosedStartFailureKeepsKeepScreenOn() async throws {
+        sessions.startError = HelperError.helper(.flagReadFailed, "Could not read SleepDisabled")
+        let controller = makeController()
+        try await controller.select(.keepScreenOn)
+
+        do {
+            try await controller.select(.lidClosed)
+            XCTFail("expected an error")
+        } catch {}
+        XCTAssertEqual(controller.mode, .keepScreenOn)
+        XCTAssertTrue(assertion.isHeld)
+        XCTAssertFalse(activity.isActive)
+        XCTAssertEqual(controller.lastError, "Could not read SleepDisabled")
+    }
+
+    func testKeepScreenOnToLidClosedReleasesAssertion() async throws {
+        let controller = makeController()
+        try await controller.select(.keepScreenOn)
+
+        try await controller.select(.lidClosed)
+        XCTAssertEqual(controller.mode, .lidClosed)
         XCTAssertFalse(assertion.isHeld)
     }
 
-    func testLidClosedIsRejectedFromOff() {
-        let assertion = FakeAssertion()
-        let controller = ModeController(displayAssertion: assertion)
+    func testOffEndsSession() async throws {
+        let controller = makeController()
+        try await controller.select(.lidClosed)
 
-        XCTAssertThrowsError(try controller.select(.lidClosed)) { error in
-            XCTAssertEqual(error as? ModeError, .unavailable(.lidClosed))
-        }
+        try await controller.select(.off)
         XCTAssertEqual(controller.mode, .off)
-        XCTAssertEqual(assertion.acquireCount, 0)
+        XCTAssertEqual(sessions.calls, ["start 120", "end"])
+        XCTAssertFalse(activity.isActive)
     }
 
-    func testLidClosedIsRejectedFromKeepScreenOn() throws {
-        let assertion = FakeAssertion()
-        let controller = ModeController(displayAssertion: assertion)
-        try controller.select(.keepScreenOn)
+    func testKeepScreenOnEndsSession() async throws {
+        let controller = makeController()
+        try await controller.select(.lidClosed)
 
-        XCTAssertThrowsError(try controller.select(.lidClosed))
+        try await controller.select(.keepScreenOn)
         XCTAssertEqual(controller.mode, .keepScreenOn)
+        XCTAssertEqual(sessions.calls, ["start 120", "end"])
         XCTAssertTrue(assertion.isHeld)
-        XCTAssertEqual(assertion.releaseCount, 0)
+        XCTAssertFalse(activity.isActive)
+    }
+
+    func testRenewKeepsMode() async throws {
+        let controller = makeController()
+        try await controller.select(.lidClosed)
+
+        await controller.renew()
+        XCTAssertEqual(controller.mode, .lidClosed)
+        XCTAssertEqual(sessions.calls, ["start 120", "renew 120"])
+    }
+
+    func testRenewFailureReturnsToOff() async throws {
+        let controller = makeController()
+        try await controller.select(.lidClosed)
+
+        sessions.renewError = HelperError.timeout
+        await controller.renew()
+        XCTAssertEqual(controller.mode, .off)
+        XCTAssertEqual(sessions.calls, ["start 120", "renew 120", "end"])
+        XCTAssertFalse(activity.isActive)
+        XCTAssertEqual(controller.lastError, HelperError.timeout.localizedDescription)
+    }
+
+    func testMissingSessionReturnsToOff() async throws {
+        let controller = makeController()
+        try await controller.select(.lidClosed)
+
+        sessions.renewError = HelperError.helper(.noSession, "No active session.")
+        await controller.renew()
+        XCTAssertEqual(controller.mode, .off)
+        XCTAssertEqual(controller.lastError, "No active session.")
+    }
+
+    func testRenewalsRunOnSchedule() async throws {
+        let ticks = AsyncStream<Void>.makeStream()
+        var iterator = ticks.stream.makeAsyncIterator()
+        let tick = { () async throws -> Void in
+            _ = await iterator.next()
+            try Task.checkCancellation()
+        }
+        let controller = ModeController(
+            displayAssertion: assertion,
+            helper: helper,
+            sessions: sessions,
+            activity: activity,
+            leaseSeconds: 120,
+            renewalSleep: tick
+        )
+        try await controller.select(.lidClosed)
+
+        ticks.continuation.yield()
+        for _ in 0..<100 where sessions.calls.count < 2 {
+            await Task.yield()
+        }
+        XCTAssertEqual(sessions.calls, ["start 120", "renew 120"])
+
+        try await controller.select(.off)
+        ticks.continuation.yield()
+        for _ in 0..<20 {
+            await Task.yield()
+        }
+        XCTAssertEqual(sessions.calls, ["start 120", "renew 120", "end"])
+    }
+
+    func testClearLeftoverWhenHelperReady() async {
+        let controller = makeController()
+        await controller.clearLeftover()
+        XCTAssertEqual(sessions.calls, ["clear"])
+    }
+
+    func testClearLeftoverSkippedWithoutHelper() async {
+        helper.notReady = .notReady("Install the helper to run with the lid closed.")
+        let controller = makeController()
+        await controller.clearLeftover()
+        XCTAssertEqual(sessions.calls, [])
     }
 }

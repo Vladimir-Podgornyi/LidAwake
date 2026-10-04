@@ -20,10 +20,20 @@ public protocol HelperConnecting {
     func protocolVersion() async throws -> Int
 }
 
+public protocol LidSessionService {
+    func startSession(leaseSeconds: Int) async throws
+    func renewSession(leaseSeconds: Int) async throws
+    func endSession() async throws
+    func clearLeftover() async throws
+    func sessionStatus() async throws -> HelperSessionStatus
+}
+
 public enum HelperError: Error, Equatable, LocalizedError {
     case notInApplications
     case timeout
     case connection(String)
+    case notReady(String)
+    case helper(HelperResultCode, String)
 
     public var errorDescription: String? {
         switch self {
@@ -31,7 +41,7 @@ public enum HelperError: Error, Equatable, LocalizedError {
             return "LidAwake must be in /Applications to install the helper."
         case .timeout:
             return "The helper did not respond."
-        case .connection(let message):
+        case .connection(let message), .notReady(let message), .helper(_, let message):
             return message
         }
     }
@@ -73,14 +83,74 @@ public struct DaemonHelperService: HelperService {
     }
 }
 
-public struct XPCHelperConnection: HelperConnecting {
+public struct XPCHelperConnection: HelperConnecting, LidSessionService {
     private let timeout: TimeInterval
+    private let sessionTimeout: TimeInterval
 
-    public init(timeout: TimeInterval = 10) {
+    // Session calls may run pmset twice with a 10 second limit each.
+    public init(timeout: TimeInterval = 10, sessionTimeout: TimeInterval = 25) {
         self.timeout = timeout
+        self.sessionTimeout = sessionTimeout
     }
 
     public func protocolVersion() async throws -> Int {
+        try await call(timeout: timeout) { helper, done in
+            helper.protocolVersion { done(.success($0)) }
+        }
+    }
+
+    public func startSession(leaseSeconds: Int) async throws {
+        try await call(timeout: sessionTimeout) { helper, done in
+            helper.startSession(leaseSeconds: leaseSeconds) { done(Self.result($0, $1)) }
+        }
+    }
+
+    public func renewSession(leaseSeconds: Int) async throws {
+        try await call(timeout: sessionTimeout) { helper, done in
+            helper.renewSession(leaseSeconds: leaseSeconds) { done(Self.result($0, $1)) }
+        }
+    }
+
+    public func endSession() async throws {
+        try await call(timeout: sessionTimeout) { helper, done in
+            helper.endSession { done(Self.result($0, $1)) }
+        }
+    }
+
+    public func clearLeftover() async throws {
+        try await call(timeout: sessionTimeout) { helper, done in
+            helper.clearLeftover { done(Self.result($0, $1)) }
+        }
+    }
+
+    public func sessionStatus() async throws -> HelperSessionStatus {
+        try await call(timeout: sessionTimeout) { helper, done in
+            helper.sessionStatus { code, message, flag, session in
+                done(Self.result(code, message).flatMap {
+                    guard let flag = SleepFlagState(rawValue: flag),
+                          let session = SessionOwnership(rawValue: session) else {
+                        return .failure(HelperError.connection("Unexpected helper reply."))
+                    }
+                    return .success(HelperSessionStatus(flag: flag, session: session))
+                })
+            }
+        }
+    }
+
+    static func result(_ code: Int, _ message: String?) -> Result<Void, Error> {
+        guard let code = HelperResultCode(rawValue: code) else {
+            return .failure(HelperError.connection("Unexpected helper reply."))
+        }
+        guard code == .ok else {
+            return .failure(HelperError.helper(code, message ?? "The helper reported error \(code.rawValue)."))
+        }
+        return .success(())
+    }
+
+    private func call<T>(
+        timeout: TimeInterval,
+        _ body: @escaping (HelperProtocol, @escaping (Result<T, Error>) -> Void) -> Void
+    ) async throws -> T {
         let connection = NSXPCConnection(machServiceName: HelperConstants.machServiceName, options: .privileged)
         connection.remoteObjectInterface = NSXPCInterface(with: HelperProtocol.self)
         connection.setCodeSigningRequirement(HelperConstants.helperRequirement)
@@ -96,9 +166,7 @@ public struct XPCHelperConnection: HelperConnecting {
                 reply.resume(with: .failure(HelperError.connection("Unexpected helper interface.")))
                 return
             }
-            helper.protocolVersion { version in
-                reply.resume(with: .success(version))
-            }
+            body(helper) { reply.resume(with: $0) }
             DispatchQueue.global().asyncAfter(deadline: .now() + timeout) {
                 reply.resume(with: .failure(HelperError.timeout))
             }
@@ -107,15 +175,15 @@ public struct XPCHelperConnection: HelperConnecting {
 }
 
 // The XPC reply, the error handler and the timeout race; only the first may resume.
-private final class SingleReply: @unchecked Sendable {
+private final class SingleReply<T>: @unchecked Sendable {
     private let lock = NSLock()
-    private var continuation: CheckedContinuation<Int, Error>?
+    private var continuation: CheckedContinuation<T, Error>?
 
-    init(_ continuation: CheckedContinuation<Int, Error>) {
+    init(_ continuation: CheckedContinuation<T, Error>) {
         self.continuation = continuation
     }
 
-    func resume(with result: Result<Int, Error>) {
+    func resume(with result: Result<T, Error>) {
         lock.lock()
         let pending = continuation
         continuation = nil

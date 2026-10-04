@@ -4,11 +4,26 @@ import SwiftUI
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    let modeController = ModeController()
-    let helperClient = HelperClient()
+    let helperClient: HelperClient
+    let modeController: ModeController
 
-    func applicationWillTerminate(_ notification: Notification) {
-        try? modeController.select(.off)
+    override init() {
+        helperClient = HelperClient()
+        modeController = ModeController(helper: helperClient, sessions: XPCHelperConnection())
+        super.init()
+    }
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        Task { await modeController.clearLeftover() }
+    }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard modeController.mode != .off else { return .terminateNow }
+        Task {
+            try? await modeController.select(.off)
+            sender.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
     }
 }
 

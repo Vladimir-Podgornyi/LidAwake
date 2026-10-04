@@ -17,10 +17,17 @@ struct ContentView: View {
                 modeRow(.off, title: "Off")
                 modeRow(.keepScreenOn, title: "Keep Screen On")
                 modeRow(.lidClosed, title: "Run with Lid Closed")
-                    .disabled(true)
             }
+            .disabled(controller.isBusy)
 
             helperRow
+
+            if let error = controller.lastError {
+                Text(error)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
             Divider()
 
@@ -76,7 +83,7 @@ struct ContentView: View {
 
     private func modeRow(_ mode: Mode, title: String) -> some View {
         Button {
-            try? controller.select(mode)
+            Task { try? await controller.select(mode) }
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: "checkmark")

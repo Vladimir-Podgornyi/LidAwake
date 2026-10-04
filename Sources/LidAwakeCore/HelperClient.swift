@@ -11,7 +11,14 @@ public enum HelperState: Equatable {
 }
 
 @MainActor
-public final class HelperClient: ObservableObject {
+public protocol HelperPreparing: AnyObject {
+    /// Reinstalls an outdated helper; throws when the helper still cannot serve a session.
+    func prepareForSession() async throws
+    func isReady() async -> Bool
+}
+
+@MainActor
+public final class HelperClient: ObservableObject, HelperPreparing {
     @Published public private(set) var state: HelperState = .notInstalled
     @Published public private(set) var isBusy = false
 
@@ -67,6 +74,30 @@ public final class HelperClient: ObservableObject {
         await perform {
             try await self.service.unregister()
         }
+    }
+
+    public func prepareForSession() async throws {
+        await refresh()
+        if case .outdated = state {
+            await install()
+        }
+        switch state {
+        case .ready:
+            return
+        case .notInstalled:
+            throw HelperError.notReady("Install the helper to run with the lid closed.")
+        case .requiresApproval:
+            throw HelperError.notReady("Allow LidAwake in System Settings > General > Login Items & Extensions.")
+        case .outdated:
+            throw HelperError.notReady("The helper could not be updated.")
+        case .error(let message):
+            throw HelperError.notReady(message)
+        }
+    }
+
+    public func isReady() async -> Bool {
+        await refresh()
+        return state == .ready
     }
 
     public func openSystemSettings() {
