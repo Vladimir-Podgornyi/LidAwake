@@ -16,6 +16,11 @@ let package = Package(
             dependencies: ["LidAwakeShared"],
             path: "Sources/LidAwakeCore"
         ),
+        .target(
+            name: "LidAwakeHelperKit",
+            dependencies: ["LidAwakeShared"],
+            path: "Sources/LidAwakeHelperKit"
+        ),
         .executableTarget(
             name: "LidAwake",
             dependencies: ["LidAwakeCore", "LidAwakeShared"],
@@ -23,13 +28,18 @@ let package = Package(
         ),
         .executableTarget(
             name: "LidAwakeHelper",
-            dependencies: ["LidAwakeShared"],
+            dependencies: ["LidAwakeHelperKit", "LidAwakeShared"],
             path: "Sources/LidAwakeHelper"
         ),
         .testTarget(
             name: "LidAwakeCoreTests",
             dependencies: ["LidAwakeCore"],
             path: "Tests/LidAwakeCoreTests"
+        ),
+        .testTarget(
+            name: "LidAwakeHelperKitTests",
+            dependencies: ["LidAwakeHelperKit"],
+            path: "Tests/LidAwakeHelperKitTests"
         ),
         .testTarget(
             name: "LidAwakeSharedTests",
