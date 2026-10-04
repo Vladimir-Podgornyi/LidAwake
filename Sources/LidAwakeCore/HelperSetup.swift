@@ -23,6 +23,7 @@ public final class HelperSetup: ObservableObject {
     @Published public private(set) var isWorking = false
 
     private let helper: HelperInstalling
+    private let dismissModeMessage: () -> Void
     private let selectMode: (Mode) async throws -> Void
     private let pollSleep: () async throws -> Void
     private let approvalTimeout: TimeInterval
@@ -32,12 +33,14 @@ public final class HelperSetup: ObservableObject {
 
     public init(
         helper: HelperInstalling,
+        dismissModeMessage: @escaping () -> Void = {},
         selectMode: @escaping (Mode) async throws -> Void,
         pollSleep: @escaping () async throws -> Void = { try await Task.sleep(nanoseconds: 2_000_000_000) },
         approvalTimeout: TimeInterval = 300,
         now: @escaping () -> TimeInterval = { TimeInterval(clock_gettime_nsec_np(CLOCK_MONOTONIC)) / 1_000_000_000 }
     ) {
         self.helper = helper
+        self.dismissModeMessage = dismissModeMessage
         self.selectMode = selectMode
         self.pollSleep = pollSleep
         self.approvalTimeout = approvalTimeout
@@ -46,6 +49,7 @@ public final class HelperSetup: ObservableObject {
 
     /// The choice of a mode card.
     public func select(_ mode: Mode) async {
+        dismissModeMessage()
         guard mode == .lidClosed else {
             cancel()
             try? await selectMode(mode)

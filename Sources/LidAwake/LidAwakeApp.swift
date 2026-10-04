@@ -17,7 +17,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             notifier: UserNotificationNotifier()
         )
         modeController = controller
-        helperSetup = HelperSetup(helper: helperClient) { try await controller.select($0) }
+        helperSetup = HelperSetup(
+            helper: helperClient,
+            dismissModeMessage: { controller.dismissMessage() },
+            selectMode: { try await controller.select($0) }
+        )
         super.init()
     }
 

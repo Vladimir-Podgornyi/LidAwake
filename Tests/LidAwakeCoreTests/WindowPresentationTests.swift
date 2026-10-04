@@ -79,25 +79,84 @@ final class SafetyLayoutTests: XCTestCase {
     }
 }
 
-final class HelperPromptTests: XCTestCase {
-    func testMessages() {
-        XCTAssertEqual(
-            HelperPrompt.approval.message,
-            "Allow LidAwake in System Settings > General > Login Items & Extensions."
-        )
-        XCTAssertEqual(
-            HelperPrompt.moveToApplications.message,
-            "Move LidAwake to the Applications folder to use Run with Lid Closed."
-        )
-        XCTAssertEqual(HelperPrompt.failed("Broken").message, "Broken")
+final class WindowMessageTests: XCTestCase {
+    private func only(helper: HelperPrompt? = nil, mode: ModeMessage? = nil) -> WindowMessage? {
+        let messages = WindowMessage.list(helper: helper, mode: mode)
+        XCTAssertEqual(messages.count, 1)
+        return messages.first
     }
 
-    func testActions() {
-        XCTAssertEqual(HelperPrompt.approval.action, .openSystemSettings)
-        XCTAssertEqual(HelperPrompt.approval.actionTitle, "Open System Settings")
-        XCTAssertNil(HelperPrompt.moveToApplications.action)
-        XCTAssertNil(HelperPrompt.moveToApplications.actionTitle)
-        XCTAssertEqual(HelperPrompt.failed("Broken").action, .tryAgain)
-        XCTAssertEqual(HelperPrompt.failed("Broken").actionTitle, "Try Again")
+    func testNothingToSay() {
+        XCTAssertEqual(WindowMessage.list(helper: nil, mode: nil), [])
+    }
+
+    func testApproval() {
+        let message = only(helper: .approval)
+        XCTAssertEqual(message?.kind, .actionNeeded)
+        XCTAssertEqual(message?.title, "Permission needed")
+        XCTAssertEqual(
+            message?.text,
+            "Allow LidAwake in System Settings > General > Login Items & Extensions. The mode turns on as soon as you do."
+        )
+        XCTAssertEqual(message?.action, .openSystemSettings)
+        XCTAssertEqual(message?.actionTitle, "Open System Settings")
+    }
+
+    func testMoveToApplications() {
+        let message = only(helper: .moveToApplications)
+        XCTAssertEqual(message?.kind, .actionNeeded)
+        XCTAssertEqual(message?.title, "Move LidAwake to Applications")
+        XCTAssertEqual(message?.text, "Run with Lid Closed needs the app in the Applications folder.")
+        XCTAssertNil(message?.action)
+        XCTAssertNil(message?.actionTitle)
+    }
+
+    func testHelperFailed() {
+        let message = only(helper: .failed("Broken"))
+        XCTAssertEqual(message?.kind, .error)
+        XCTAssertEqual(message?.title, "The helper did not start")
+        XCTAssertEqual(message?.text, "Broken")
+        XCTAssertEqual(message?.action, .tryAgain)
+        XCTAssertEqual(message?.actionTitle, "Try Again")
+    }
+
+    func testCouldNotTurnOn() {
+        let message = only(mode: .couldNotTurnOn("The battery is at 12%, at or below the 20% limit."))
+        XCTAssertEqual(message?.kind, .error)
+        XCTAssertEqual(message?.title, "Could not turn on")
+        XCTAssertEqual(message?.text, "The battery is at 12%, at or below the 20% limit.")
+        XCTAssertNil(message?.action)
+        XCTAssertNil(message?.actionTitle)
+    }
+
+    func testTurnedOff() {
+        let message = only(mode: .turnedOff("The timer ran out."))
+        XCTAssertEqual(message?.kind, .info)
+        XCTAssertEqual(message?.title, "LidAwake turned off")
+        XCTAssertEqual(message?.text, "The timer ran out.")
+        XCTAssertNil(message?.action)
+        XCTAssertNil(message?.actionTitle)
+    }
+
+    func testTurnedOffWithError() {
+        let message = only(mode: .turnedOffWithError("The helper did not respond."))
+        XCTAssertEqual(message?.kind, .error)
+        XCTAssertEqual(message?.title, "LidAwake turned off")
+        XCTAssertEqual(message?.text, "The helper did not respond.")
+        XCTAssertNil(message?.actionTitle)
+    }
+
+    func testFailed() {
+        let message = only(mode: .failed("Broken"))
+        XCTAssertEqual(message?.kind, .error)
+        XCTAssertEqual(message?.title, "Something went wrong")
+        XCTAssertEqual(message?.text, "Broken")
+        XCTAssertNil(message?.actionTitle)
+    }
+
+    func testHelperMessageStandsAboveModeMessage() {
+        let messages = WindowMessage.list(helper: .approval, mode: .turnedOff("The timer ran out."))
+        XCTAssertEqual(messages.map(\.source), [.helper, .mode])
+        XCTAssertEqual(messages.map(\.title), ["Permission needed", "LidAwake turned off"])
     }
 }

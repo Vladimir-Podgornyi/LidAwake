@@ -14,8 +14,8 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 12) {
             header
             modeCards
-            if controller.lastError != nil || helperSetup.prompt != nil {
-                messages
+            if !messages.isEmpty {
+                messageBlock
             }
             switch SafetyLayout(mode: controller.mode) {
             case .all: allProtections
@@ -66,24 +66,15 @@ struct ContentView: View {
         .disabled(controller.isBusy)
     }
 
-    private var messages: some View {
+    private var messages: [WindowMessage] {
+        WindowMessage.list(helper: helperSetup.prompt, mode: controller.message)
+    }
+
+    private var messageBlock: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if let error = controller.lastError {
-                Text(error)
-                    .font(.system(size: 12))
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            if let prompt = helperSetup.prompt {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(prompt.message)
-                        .font(.system(size: 12))
-                        .fixedSize(horizontal: false, vertical: true)
-                    if let actionTitle = prompt.actionTitle {
-                        Button(actionTitle) {
-                            Task { await helperSetup.performPromptAction() }
-                        }
-                        .disabled(helperSetup.isWorking)
-                    }
+            ForEach(messages) { message in
+                MessageBanner(message: message, isActionDisabled: helperSetup.isWorking) {
+                    Task { await helperSetup.performPromptAction() }
                 }
             }
         }
@@ -275,6 +266,84 @@ private struct ModeCard: View {
         .accessibilityLabel(Text(mode.title))
         .accessibilityHint(Text(mode.summary))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+}
+
+private extension MessageKind {
+    var symbol: String {
+        switch self {
+        case .actionNeeded: return "exclamationmark.triangle.fill"
+        case .error: return "exclamationmark.octagon.fill"
+        case .info: return "info.circle.fill"
+        }
+    }
+
+    var iconColor: Color {
+        switch self {
+        case .actionNeeded: return .orange
+        case .error: return .red
+        case .info: return .secondary
+        }
+    }
+
+    var background: Color {
+        switch self {
+        case .actionNeeded: return Color.orange.opacity(0.14)
+        case .error: return Color.red.opacity(0.12)
+        case .info: return Palette.cardBackground
+        }
+    }
+
+    var border: Color {
+        switch self {
+        case .actionNeeded: return Color.orange.opacity(0.45)
+        case .error: return Color.red.opacity(0.45)
+        case .info: return Palette.cardBorder
+        }
+    }
+}
+
+private struct MessageBanner: View {
+    let message: WindowMessage
+    let isActionDisabled: Bool
+    let action: () -> Void
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: message.kind.symbol)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 18, height: 18)
+                .foregroundStyle(message.kind.iconColor)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(message.title)
+                        .font(.system(size: 13, weight: .semibold))
+                    Text(message.text)
+                        .font(.system(size: 12))
+                }
+                .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityElement(children: .combine)
+                if let actionTitle = message.actionTitle {
+                    Button(action: action) {
+                        Text(actionTitle)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(isActionDisabled)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        // The border is drawn inside the banner, so 13 matches the mockup's 12 padding plus a 1 border.
+        .padding(13)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(shape.fill(message.kind.background))
+        .overlay(shape.strokeBorder(message.kind.border, lineWidth: 1))
+        .accessibilityElement(children: .contain)
     }
 }
 

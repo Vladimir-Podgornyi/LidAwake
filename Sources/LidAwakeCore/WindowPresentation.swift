@@ -43,6 +43,16 @@ public enum StatusLine {
     }
 }
 
+/// How a message in the window looks: what it asks of the user.
+public enum MessageKind: Equatable {
+    /// The user has to take a step.
+    case actionNeeded
+    /// Something did not work.
+    case error
+    /// The app reports what happened.
+    case info
+}
+
 /// A message about the helper after Run with Lid Closed was chosen, with the action it offers.
 public enum HelperPrompt: Equatable {
     case approval
@@ -54,12 +64,29 @@ public enum HelperPrompt: Equatable {
         case tryAgain
     }
 
-    public var message: String {
+    public var kind: MessageKind {
+        switch self {
+        case .approval, .moveToApplications: return .actionNeeded
+        case .failed: return .error
+        }
+    }
+
+    public var title: String {
+        switch self {
+        case .approval: return String(localized: "Permission needed")
+        case .moveToApplications: return String(localized: "Move LidAwake to Applications")
+        case .failed: return String(localized: "The helper did not start")
+        }
+    }
+
+    public var text: String {
         switch self {
         case .approval:
-            return String(localized: "Allow LidAwake in System Settings > General > Login Items & Extensions.")
+            return String(
+                localized: "Allow LidAwake in System Settings > General > Login Items & Extensions. The mode turns on as soon as you do."
+            )
         case .moveToApplications:
-            return String(localized: "Move LidAwake to the Applications folder to use Run with Lid Closed.")
+            return String(localized: "Run with Lid Closed needs the app in the Applications folder.")
         case .failed(let message):
             return message
         }
@@ -79,6 +106,83 @@ public enum HelperPrompt: Equatable {
         case .tryAgain: return String(localized: "Try Again")
         case nil: return nil
         }
+    }
+}
+
+/// What the mode controller last has to say: a failure or the reason a mode ended.
+public enum ModeMessage: Equatable {
+    /// A mode was refused: a protection or the helper stood in the way.
+    case couldNotTurnOn(String)
+    /// A mode ended on its own and the helper or the app gave the reason.
+    case turnedOff(String)
+    /// Run with Lid Closed ended because the helper stopped answering or failed.
+    case turnedOffWithError(String)
+    /// The helper failed at something other than starting or keeping a mode.
+    case failed(String)
+
+    public var kind: MessageKind {
+        switch self {
+        case .turnedOff: return .info
+        case .couldNotTurnOn, .turnedOffWithError, .failed: return .error
+        }
+    }
+
+    public var title: String {
+        switch self {
+        case .couldNotTurnOn: return String(localized: "Could not turn on")
+        case .turnedOff, .turnedOffWithError: return String(localized: "LidAwake turned off")
+        case .failed: return String(localized: "Something went wrong")
+        }
+    }
+
+    public var text: String {
+        switch self {
+        case .couldNotTurnOn(let text), .turnedOff(let text), .turnedOffWithError(let text), .failed(let text):
+            return text
+        }
+    }
+}
+
+/// One notice in the window's message block.
+public struct WindowMessage: Equatable, Identifiable {
+    public enum Source: Equatable {
+        case helper
+        case mode
+    }
+
+    public let source: Source
+    public let kind: MessageKind
+    public let title: String
+    public let text: String
+    public let action: HelperPrompt.Action?
+    public let actionTitle: String?
+
+    public var id: Source { source }
+
+    /// The notices to show, helper first; empty when there is nothing to say.
+    public static func list(helper: HelperPrompt?, mode: ModeMessage?) -> [WindowMessage] {
+        var messages: [WindowMessage] = []
+        if let helper {
+            messages.append(WindowMessage(
+                source: .helper,
+                kind: helper.kind,
+                title: helper.title,
+                text: helper.text,
+                action: helper.action,
+                actionTitle: helper.actionTitle
+            ))
+        }
+        if let mode {
+            messages.append(WindowMessage(
+                source: .mode,
+                kind: mode.kind,
+                title: mode.title,
+                text: mode.text,
+                action: nil,
+                actionTitle: nil
+            ))
+        }
+        return messages
     }
 }
 

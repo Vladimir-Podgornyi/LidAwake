@@ -42,11 +42,13 @@ private final class FakeClock {
 final class HelperSetupTests: XCTestCase {
     private let clock = FakeClock()
     private var selected: [Mode] = []
+    private var dismissals = 0
 
     private func makeSetup(_ helper: FakeInstaller) -> HelperSetup {
         let clock = self.clock
         return HelperSetup(
             helper: helper,
+            dismissModeMessage: { [unowned self] in self.dismissals += 1 },
             selectMode: { [unowned self] in self.selected.append($0) },
             pollSleep: { await clock.sleep() },
             approvalTimeout: 300,
@@ -74,6 +76,18 @@ final class HelperSetupTests: XCTestCase {
         XCTAssertNil(setup.prompt)
         XCTAssertFalse(setup.isWaiting)
         XCTAssertEqual(helper.calls, [])
+    }
+
+    func testChoosingAnyModeDismissesModeMessage() async {
+        let (_, setup) = await waitingForApproval()
+        XCTAssertEqual(setup.prompt, .approval)
+        XCTAssertEqual(dismissals, 1)
+        XCTAssertEqual(selected, [])
+
+        await setup.select(.off)
+        XCTAssertEqual(dismissals, 2)
+        await setup.select(.keepScreenOn)
+        XCTAssertEqual(dismissals, 3)
     }
 
     func testReadyHelperStartsModeAtOnce() async {
@@ -139,8 +153,8 @@ final class HelperSetupTests: XCTestCase {
         XCTAssertEqual(helper.calls, ["refresh"])
         XCTAssertEqual(setup.prompt, .moveToApplications)
         XCTAssertEqual(
-            setup.prompt?.message,
-            "Move LidAwake to the Applications folder to use Run with Lid Closed."
+            setup.prompt?.text,
+            "Run with Lid Closed needs the app in the Applications folder."
         )
         XCTAssertFalse(setup.isWaiting)
         XCTAssertEqual(selected, [])

@@ -5,7 +5,7 @@ import LidAwakeShared
 @MainActor
 public final class ModeController: ObservableObject {
     @Published public private(set) var mode: Mode = .off
-    @Published public private(set) var lastError: String?
+    @Published public private(set) var message: ModeMessage?
     @Published public private(set) var isBusy = false
     /// Monotonic time the current mode started; the timer counts from here.
     @Published public private(set) var modeStartedAt: TimeInterval?
@@ -85,7 +85,7 @@ public final class ModeController: ObservableObject {
         guard newMode != mode, !isBusy else { return }
         isBusy = true
         defer { isBusy = false }
-        lastError = nil
+        message = nil
         if newMode != .off {
             requestNotificationAuthorization()
         }
@@ -112,9 +112,14 @@ public final class ModeController: ObservableObject {
                 await updatePauseState()
             }
         } catch {
-            lastError = error.localizedDescription
+            message = .couldNotTurnOn(error.localizedDescription)
             throw error
         }
+    }
+
+    /// Removes the current message; choosing a mode card does this so an old reason does not stay.
+    public func dismissMessage() {
+        message = nil
     }
 
     /// Clears a lid-closed flag left over from an earlier run and reports why the helper last stopped,
@@ -124,7 +129,7 @@ public final class ModeController: ObservableObject {
         do {
             try await sessions.clearLeftover()
         } catch {
-            lastError = error.localizedDescription
+            message = .failed(error.localizedDescription)
         }
         await reportStopReason()
     }
@@ -144,7 +149,7 @@ public final class ModeController: ObservableObject {
             if case HelperError.helper(.noSession, _) = error, await reportStopReason() {
                 return
             }
-            lastError = error.localizedDescription
+            message = .turnedOffWithError(error.localizedDescription)
         }
     }
 
@@ -217,7 +222,7 @@ public final class ModeController: ObservableObject {
         do {
             try await sessions.clearStopReason()
         } catch {
-            lastError = error.localizedDescription
+            message = .failed(error.localizedDescription)
         }
         return true
     }
@@ -226,7 +231,7 @@ public final class ModeController: ObservableObject {
     private func report(_ record: StopRecord) {
         let body = StopNotice.body(for: record)
         notifier.post(title: StopNotice.title, body: body)
-        lastError = body
+        message = .turnedOff(body)
     }
 
     private func leaveCurrentMode() async {
@@ -245,7 +250,7 @@ public final class ModeController: ObservableObject {
             do {
                 try await sessions.endSession()
             } catch {
-                lastError = error.localizedDescription
+                message = .failed(error.localizedDescription)
             }
             activity.end()
         }

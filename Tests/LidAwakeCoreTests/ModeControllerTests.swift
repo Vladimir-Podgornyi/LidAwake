@@ -230,7 +230,7 @@ final class ModeControllerTests: XCTestCase {
         } catch {}
         XCTAssertEqual(controller.mode, .off)
         XCTAssertFalse(assertion.isHeld)
-        XCTAssertNotNil(controller.lastError)
+        XCTAssertEqual(controller.message?.title, "Could not turn on")
     }
 
     func testLidClosedStartsSession() async throws {
@@ -241,7 +241,7 @@ final class ModeControllerTests: XCTestCase {
         XCTAssertEqual(helper.prepareCount, 1)
         XCTAssertEqual(sessions.calls, ["start 120"])
         XCTAssertTrue(activity.isActive)
-        XCTAssertNil(controller.lastError)
+        XCTAssertNil(controller.message)
     }
 
     func testLidClosedNeedsReadyHelper() async {
@@ -255,7 +255,7 @@ final class ModeControllerTests: XCTestCase {
         XCTAssertEqual(controller.mode, .off)
         XCTAssertEqual(sessions.calls, [])
         XCTAssertFalse(activity.isActive)
-        XCTAssertEqual(controller.lastError, "Install the helper to run with the lid closed.")
+        XCTAssertEqual(controller.message, .couldNotTurnOn("Install the helper to run with the lid closed."))
     }
 
     func testLidClosedStartFailureKeepsKeepScreenOn() async throws {
@@ -270,7 +270,7 @@ final class ModeControllerTests: XCTestCase {
         XCTAssertEqual(controller.mode, .keepScreenOn)
         XCTAssertTrue(assertion.isHeld)
         XCTAssertFalse(activity.isActive)
-        XCTAssertEqual(controller.lastError, "Could not read SleepDisabled")
+        XCTAssertEqual(controller.message, .couldNotTurnOn("Could not read SleepDisabled"))
     }
 
     func testKeepScreenOnToLidClosedReleasesAssertion() async throws {
@@ -321,7 +321,7 @@ final class ModeControllerTests: XCTestCase {
         XCTAssertEqual(controller.mode, .off)
         XCTAssertEqual(sessions.calls, ["start 120", "renew 120", "end"])
         XCTAssertFalse(activity.isActive)
-        XCTAssertEqual(controller.lastError, HelperError.timeout.localizedDescription)
+        XCTAssertEqual(controller.message, .turnedOffWithError(HelperError.timeout.localizedDescription))
     }
 
     func testMissingSessionReturnsToOff() async throws {
@@ -331,7 +331,7 @@ final class ModeControllerTests: XCTestCase {
         sessions.renewError = HelperError.helper(.noSession, "No active session.")
         await controller.renew()
         XCTAssertEqual(controller.mode, .off)
-        XCTAssertEqual(controller.lastError, "No active session.")
+        XCTAssertEqual(controller.message, .turnedOffWithError("No active session."))
     }
 
     func testRenewalsRunOnSchedule() async throws {
@@ -440,7 +440,7 @@ final class ModeControllerTests: XCTestCase {
         XCTAssertFalse(assertion.isHeld)
         XCTAssertNil(controller.timerRemaining())
         XCTAssertEqual(notifier.posts, ["LidAwake turned off: The timer ran out."])
-        XCTAssertEqual(controller.lastError, "The timer ran out.")
+        XCTAssertEqual(controller.message, .turnedOff("The timer ran out."))
         XCTAssertEqual(sessions.calls, [])
     }
 
@@ -526,7 +526,7 @@ final class ModeControllerTests: XCTestCase {
         XCTAssertFalse(activity.isActive)
         XCTAssertEqual(sessions.calls, ["start 120", "renew 120", "end", "reason", "clear reason"])
         XCTAssertEqual(notifier.posts, ["LidAwake turned off: The battery dropped to 15%."])
-        XCTAssertEqual(controller.lastError, "The battery dropped to 15%.")
+        XCTAssertEqual(controller.message, .turnedOff("The battery dropped to 15%."))
         XCTAssertNil(sessions.stopRecord)
     }
 
@@ -541,7 +541,7 @@ final class ModeControllerTests: XCTestCase {
         XCTAssertFalse(activity.isActive)
         XCTAssertEqual(sessions.calls, ["start 120", "renew 120", "end", "reason", "clear reason"])
         XCTAssertEqual(notifier.posts, ["LidAwake turned off: The Mac got too hot."])
-        XCTAssertEqual(controller.lastError, "The Mac got too hot.")
+        XCTAssertEqual(controller.message, .turnedOff("The Mac got too hot."))
     }
 
     func testNoSessionAfterUnreadableThermalStateNotifies() async throws {
@@ -565,7 +565,7 @@ final class ModeControllerTests: XCTestCase {
         } catch {}
         XCTAssertEqual(controller.mode, .off)
         XCTAssertFalse(activity.isActive)
-        XCTAssertEqual(controller.lastError, "The Mac is too hot (thermal state serious).")
+        XCTAssertEqual(controller.message, .couldNotTurnOn("The Mac is too hot (thermal state serious)."))
         XCTAssertEqual(notifier.posts, [])
     }
 
@@ -596,7 +596,7 @@ final class ModeControllerTests: XCTestCase {
             XCTFail("expected an error")
         } catch {}
         XCTAssertEqual(controller.mode, .off)
-        XCTAssertEqual(controller.lastError, "The battery is at 12%, at or below the 20% limit.")
+        XCTAssertEqual(controller.message, .couldNotTurnOn("The battery is at 12%, at or below the 20% limit."))
         XCTAssertEqual(notifier.posts, [])
     }
 
@@ -615,7 +615,41 @@ final class ModeControllerTests: XCTestCase {
         await controller.clearLeftover()
         XCTAssertEqual(sessions.calls, ["clear", "reason"])
         XCTAssertEqual(notifier.posts, [])
-        XCTAssertNil(controller.lastError)
+        XCTAssertNil(controller.message)
+    }
+
+    func testLaunchShowsUnclearedReasonInWindow() async {
+        sessions.stopRecord = StopRecord(reason: .timer, time: Date())
+        let controller = makeController()
+
+        await controller.clearLeftover()
+        XCTAssertEqual(controller.message, .turnedOff("The timer ran out."))
+    }
+
+    func testDismissMessageClearsReason() async throws {
+        preferences.timerEnabled = true
+        preferences.timerSeconds = 1800
+        let controller = makeController()
+        try await controller.select(.keepScreenOn)
+        time.now += 1800
+        await controller.checkTimer()
+        XCTAssertEqual(controller.message, .turnedOff("The timer ran out."))
+
+        controller.dismissMessage()
+        XCTAssertNil(controller.message)
+    }
+
+    func testChoosingModeClearsOldReason() async throws {
+        preferences.timerEnabled = true
+        preferences.timerSeconds = 1800
+        let controller = makeController()
+        try await controller.select(.keepScreenOn)
+        time.now += 1800
+        await controller.checkTimer()
+        XCTAssertNotNil(controller.message)
+
+        try await controller.select(.keepScreenOn)
+        XCTAssertNil(controller.message)
     }
 
     func testAuthorizationRequestedOnFirstMode() async throws {
@@ -720,7 +754,7 @@ final class ModeControllerTests: XCTestCase {
         XCTAssertFalse(controller.isPaused)
         XCTAssertEqual(controller.mode, .lidClosed)
         XCTAssertEqual(notifier.posts, [pausedNotice])
-        XCTAssertNil(controller.lastError)
+        XCTAssertNil(controller.message)
     }
 
     func testLeavingModeClearsPause() async throws {
@@ -758,7 +792,7 @@ final class ModeControllerTests: XCTestCase {
             XCTFail("expected an error")
         } catch {}
         XCTAssertEqual(controller.mode, .off)
-        XCTAssertEqual(controller.lastError, "The power source could not be read.")
+        XCTAssertEqual(controller.message, .couldNotTurnOn("The power source could not be read."))
         XCTAssertEqual(notifier.posts, [])
     }
 
