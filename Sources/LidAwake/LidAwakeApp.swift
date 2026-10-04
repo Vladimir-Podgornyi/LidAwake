@@ -7,6 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let helperClient: HelperClient
     let modeController: ModeController
     let helperSetup: HelperSetup
+    let launchAtLogin = LaunchAtLogin()
 
     override init() {
         helperClient = HelperClient()
@@ -26,6 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        launchAtLogin.enableOnFirstLaunch()
         Task {
             await helperClient.updateIfOutdated()
             await modeController.clearLeftover()
@@ -50,7 +52,8 @@ struct LidAwakeApp: App {
             ContentView(
                 controller: appDelegate.modeController,
                 preferences: appDelegate.modeController.preferences,
-                helperSetup: appDelegate.helperSetup
+                helperSetup: appDelegate.helperSetup,
+                launchAtLogin: appDelegate.launchAtLogin
             )
         } label: {
             MenuBarIcon(controller: appDelegate.modeController)

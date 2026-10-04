@@ -6,9 +6,12 @@ enum HelperCommand {
     case status
     case install
     case uninstall
+    case loginItemStatus
 
     init?(arguments: [String]) {
-        if arguments.contains("--helper-status") {
+        if arguments.contains("--login-item-status") {
+            self = .loginItemStatus
+        } else if arguments.contains("--helper-status") {
             self = .status
         } else if arguments.contains("--install-helper") {
             self = .install
@@ -21,12 +24,16 @@ enum HelperCommand {
 
     @MainActor
     func run() async -> Int32 {
+        if self == .loginItemStatus {
+            print("login-item=\(Self.token(for: MainAppLoginItemService().status))")
+            return 0
+        }
         let service = DaemonHelperService()
         let connection = XPCHelperConnection()
         let client = HelperClient(service: service, connection: connection)
 
         switch self {
-        case .status:
+        case .status, .loginItemStatus:
             break
         case .install:
             await client.install()
@@ -67,6 +74,15 @@ enum HelperCommand {
         case .notRegistered: return "not-registered"
         case .requiresApproval: return "requires-approval"
         case .enabled: return "enabled"
+        case .notFound: return "not-found"
+        }
+    }
+
+    private static func token(for status: LoginItemStatus) -> String {
+        switch status {
+        case .enabled: return "enabled"
+        case .notRegistered: return "not-registered"
+        case .requiresApproval: return "requires-approval"
         case .notFound: return "not-found"
         }
     }

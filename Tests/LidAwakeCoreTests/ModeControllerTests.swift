@@ -376,6 +376,20 @@ final class ModeControllerTests: XCTestCase {
         XCTAssertNil(controller.message)
     }
 
+    func testLaunchStaysOff() async {
+        preferences.timerEnabled = true
+        let controller = makeController()
+
+        await controller.clearLeftover()
+        await settle(until: { false })
+        XCTAssertEqual(controller.mode, .off)
+        XCTAssertFalse(assertion.isHeld)
+        XCTAssertEqual(assertion.acquireCount, 0)
+        XCTAssertFalse(sessions.calls.contains("start 120"))
+        XCTAssertFalse(activity.isActive)
+        XCTAssertNil(controller.modeStartedAt)
+    }
+
     func testLaunchEndsSessionOfEarlierRun() async {
         await assertLaunchEndsSession(.ours)
     }

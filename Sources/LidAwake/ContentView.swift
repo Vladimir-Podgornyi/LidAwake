@@ -7,6 +7,7 @@ struct ContentView: View {
     @ObservedObject var controller: ModeController
     @ObservedObject var preferences: SafetyPreferences
     @ObservedObject var helperSetup: HelperSetup
+    @ObservedObject var launchAtLogin: LaunchAtLogin
 
     private let power = IOKitPowerSource()
 
@@ -28,6 +29,10 @@ struct ContentView: View {
         .padding(.bottom, 8)
         .frame(width: 320, alignment: .leading)
         .tint(Palette.accent)
+        .onAppear { launchAtLogin.refresh() }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
+            launchAtLogin.refresh()
+        }
     }
 
     private var header: some View {
@@ -99,6 +104,7 @@ struct ContentView: View {
             }
             Divider()
             lockRow(minHeight: 36)
+            launchRow
             Divider()
         }
     }
@@ -126,6 +132,8 @@ struct ContentView: View {
             }
             .opacity(0.45)
             .disabled(true)
+            Divider()
+            launchRow
             Divider()
         }
     }
@@ -170,6 +178,24 @@ struct ContentView: View {
             }
             if let notice = controller.screenLockNotice {
                 Text(notice)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private var launchRow: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            SettingRow(title: "Launch at login", minHeight: 36) {
+                SwitchToggle(
+                    title: "Launch at login",
+                    isOn: Binding(get: { launchAtLogin.isEnabled }, set: { launchAtLogin.setEnabled($0) })
+                )
+                .disabled(!launchAtLogin.isInApplications)
+            }
+            if let notice = launchAtLogin.notice {
+                Text(notice.text)
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
