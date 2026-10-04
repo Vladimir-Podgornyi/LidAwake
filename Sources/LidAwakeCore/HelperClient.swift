@@ -27,27 +27,55 @@ public final class HelperClient: ObservableObject, HelperPreparing {
     private let bundleURL: URL
     private let expectedVersion: Int
     private let reinstallDelay: () async -> Void
+    private let registrationStore: HelperRegistrationStore
+    private let bundledPlist: () -> Data?
+    private let digest: (Data) -> String
 
     public init(
         service: HelperService = DaemonHelperService(),
         connection: HelperConnecting = XPCHelperConnection(),
         bundleURL: URL = Bundle.main.bundleURL,
         expectedVersion: Int = HelperConstants.protocolVersion,
-        reinstallDelay: @escaping () async -> Void = { try? await Task.sleep(nanoseconds: 2_000_000_000) }
+        reinstallDelay: @escaping () async -> Void = { try? await Task.sleep(nanoseconds: 2_000_000_000) },
+        registrationStore: HelperRegistrationStore = DefaultsRegistrationStore(),
+        bundledPlist: (() -> Data?)? = nil,
+        digest: @escaping (Data) -> String = HelperPlist.sha256
     ) {
         self.service = service
         self.connection = connection
         self.bundleURL = bundleURL
         self.expectedVersion = expectedVersion
         self.reinstallDelay = reinstallDelay
+        self.registrationStore = registrationStore
+        self.bundledPlist = bundledPlist ?? { HelperPlist.read(inBundle: bundleURL) }
+        self.digest = digest
     }
 
     public var isInApplications: Bool {
         bundleURL.resolvingSymlinksInPath().deletingLastPathComponent().path == "/Applications"
     }
 
+    /// False when the helper was registered with a plist other than the one in this bundle.
+    /// launchd keeps the job description from registration time, so a changed plist needs a new registration.
+    public var isRegistrationCurrent: Bool {
+        guard let bundled = bundledDigest else { return true }
+        return registrationStore.registrationDigest == bundled
+    }
+
+    private var bundledDigest: String? {
+        bundledPlist().map(digest)
+    }
+
     public func refresh() async {
         state = await currentState()
+    }
+
+    /// Reregisters a registered helper whose protocol version or plist is out of date.
+    public func updateIfOutdated() async {
+        await refresh()
+        if case .outdated = state {
+            await install()
+        }
     }
 
     public func install() async {
@@ -67,6 +95,7 @@ public final class HelperClient: ObservableObject, HelperPreparing {
             } catch where self.service.registration == .requiresApproval {
                 // Registration succeeded; the user still has to approve it.
             }
+            self.registrationStore.registrationDigest = self.bundledDigest
         }
     }
 
@@ -77,10 +106,7 @@ public final class HelperClient: ObservableObject, HelperPreparing {
     }
 
     public func prepareForSession() async throws {
-        await refresh()
-        if case .outdated = state {
-            await install()
-        }
+        await updateIfOutdated()
         switch state {
         case .ready:
             return
@@ -124,7 +150,7 @@ public final class HelperClient: ObservableObject, HelperPreparing {
         case .enabled:
             do {
                 let version = try await connection.protocolVersion()
-                return version == expectedVersion ? .ready : .outdated(version)
+                return version == expectedVersion && isRegistrationCurrent ? .ready : .outdated(version)
             } catch {
                 return .error(error.localizedDescription)
             }

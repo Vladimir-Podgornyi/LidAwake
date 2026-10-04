@@ -46,18 +46,36 @@ private final class FakeConnection: HelperConnecting {
     }
 }
 
+private final class FakeStore: HelperRegistrationStore {
+    var registrationDigest: String?
+
+    init(_ digest: String?) {
+        registrationDigest = digest
+    }
+}
+
 @MainActor
 final class HelperClientTests: XCTestCase {
     private let applications = URL(fileURLWithPath: "/Applications/LidAwake.app")
     private let elsewhere = URL(fileURLWithPath: "/Users/someone/Downloads/LidAwake.app")
 
-    private func client(_ service: FakeService, _ connection: FakeConnection, bundle: URL? = nil) -> HelperClient {
+    private var bundledPlist = "plist-v2"
+
+    private func client(
+        _ service: FakeService,
+        _ connection: FakeConnection,
+        bundle: URL? = nil,
+        store: FakeStore = FakeStore("digest:plist-v2")
+    ) -> HelperClient {
         HelperClient(
             service: service,
             connection: connection,
             bundleURL: bundle ?? applications,
             expectedVersion: 1,
-            reinstallDelay: {}
+            reinstallDelay: {},
+            registrationStore: store,
+            bundledPlist: { Data(self.bundledPlist.utf8) },
+            digest: { "digest:" + String(decoding: $0, as: UTF8.self) }
         )
     }
 
@@ -153,5 +171,131 @@ final class HelperClientTests: XCTestCase {
         let service = FakeService(.requiresApproval)
         client(service, FakeConnection(nil)).openSystemSettings()
         XCTAssertEqual(service.calls, ["settings"])
+    }
+
+    func testMatchingDigestIsReady() async {
+        let sut = client(FakeService(.enabled), FakeConnection(1))
+        await sut.refresh()
+        XCTAssertEqual(sut.state, .ready)
+        XCTAssertTrue(sut.isRegistrationCurrent)
+    }
+
+    func testMissingDigestIsOutdated() async {
+        let sut = client(FakeService(.enabled), FakeConnection(1), store: FakeStore(nil))
+        await sut.refresh()
+        XCTAssertEqual(sut.state, .outdated(1))
+        XCTAssertFalse(sut.isRegistrationCurrent)
+    }
+
+    func testDifferentDigestIsOutdated() async {
+        let sut = client(FakeService(.enabled), FakeConnection(1), store: FakeStore("digest:plist-v1"))
+        await sut.refresh()
+        XCTAssertEqual(sut.state, .outdated(1))
+        XCTAssertFalse(sut.isRegistrationCurrent)
+    }
+
+    func testReregistrationSavesNewDigest() async {
+        let service = FakeService(.enabled)
+        service.registerResult = .enabled
+        let store = FakeStore("digest:plist-v1")
+        let sut = client(service, FakeConnection(1), store: store)
+        await sut.install()
+        XCTAssertEqual(service.calls, ["unregister", "register"])
+        XCTAssertEqual(store.registrationDigest, "digest:plist-v2")
+        XCTAssertEqual(sut.state, .ready)
+    }
+
+    func testRegistrationAwaitingApprovalSavesDigest() async {
+        let service = FakeService(.notRegistered)
+        service.registerThrows = true
+        let store = FakeStore(nil)
+        let sut = client(service, FakeConnection(nil), store: store)
+        await sut.install()
+        XCTAssertEqual(store.registrationDigest, "digest:plist-v2")
+    }
+
+    func testFailedRegistrationKeepsDigest() async {
+        let service = FakeService(.notRegistered)
+        service.registerResult = .notRegistered
+        service.registerThrows = true
+        let store = FakeStore("digest:plist-v1")
+        let sut = client(service, FakeConnection(nil), store: store)
+        await sut.install()
+        XCTAssertEqual(store.registrationDigest, "digest:plist-v1")
+    }
+
+    func testLaunchUpdatesStaleRegistration() async {
+        let service = FakeService(.enabled)
+        service.registerResult = .enabled
+        let store = FakeStore(nil)
+        let sut = client(service, FakeConnection(1), store: store)
+        await sut.updateIfOutdated()
+        XCTAssertEqual(service.calls, ["unregister", "register"])
+        XCTAssertEqual(store.registrationDigest, "digest:plist-v2")
+        XCTAssertEqual(sut.state, .ready)
+    }
+
+    func testLaunchUpdatesOutdatedProtocol() async {
+        let service = FakeService(.enabled)
+        service.registerResult = .enabled
+        let connection = FakeConnection(2)
+        service.onRegister = { connection.version = 1 }
+        let sut = client(service, connection)
+        await sut.updateIfOutdated()
+        XCTAssertEqual(service.calls, ["unregister", "register"])
+        XCTAssertEqual(sut.state, .ready)
+    }
+
+    func testLaunchKeepsCurrentRegistration() async {
+        let service = FakeService(.enabled)
+        let sut = client(service, FakeConnection(1))
+        await sut.updateIfOutdated()
+        XCTAssertEqual(service.calls, [])
+        XCTAssertEqual(sut.state, .ready)
+    }
+
+    func testLaunchSkipsUninstalledHelper() async {
+        let service = FakeService(.notRegistered)
+        let store = FakeStore(nil)
+        let sut = client(service, FakeConnection(nil), store: store)
+        await sut.updateIfOutdated()
+        XCTAssertEqual(service.calls, [])
+        XCTAssertEqual(sut.state, .notInstalled)
+        XCTAssertNil(store.registrationDigest)
+    }
+
+    func testLaunchDoesNotRegisterHelperAwaitingApproval() async {
+        let service = FakeService(.requiresApproval)
+        let sut = client(service, FakeConnection(nil), store: FakeStore(nil))
+        await sut.updateIfOutdated()
+        XCTAssertEqual(service.calls, [])
+        XCTAssertEqual(sut.state, .requiresApproval)
+    }
+
+    func testLaunchOutsideApplicationsDoesNotReregister() async {
+        let service = FakeService(.enabled)
+        let store = FakeStore(nil)
+        let sut = client(service, FakeConnection(1), bundle: elsewhere, store: store)
+        await sut.updateIfOutdated()
+        XCTAssertEqual(service.calls, [])
+        XCTAssertEqual(sut.state, .error(HelperError.notInApplications.localizedDescription))
+        XCTAssertNil(store.registrationDigest)
+    }
+
+    func testPrepareForSessionReregistersStaleRegistration() async throws {
+        let service = FakeService(.enabled)
+        service.registerResult = .enabled
+        let store = FakeStore("digest:plist-v1")
+        let sut = client(service, FakeConnection(1), store: store)
+        try await sut.prepareForSession()
+        XCTAssertEqual(service.calls, ["unregister", "register"])
+        XCTAssertEqual(store.registrationDigest, "digest:plist-v2")
+    }
+
+    func testDigestIsSHA256OfPlist() {
+        XCTAssertEqual(
+            HelperPlist.sha256(Data("abc".utf8)),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        )
     }
 }

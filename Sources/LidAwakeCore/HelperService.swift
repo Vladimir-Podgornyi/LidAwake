@@ -66,10 +66,7 @@ public struct DaemonHelperService: HelperService {
     }
 
     private var plistExists: Bool {
-        let plist = Bundle.main.bundleURL
-            .appendingPathComponent("Contents/Library/LaunchDaemons")
-            .appendingPathComponent(HelperConstants.plistName)
-        return FileManager.default.fileExists(atPath: plist.path)
+        FileManager.default.fileExists(atPath: HelperPlist.url(inBundle: Bundle.main.bundleURL).path)
     }
 
     public func register() throws {

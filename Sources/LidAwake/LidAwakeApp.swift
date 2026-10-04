@@ -19,7 +19,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        Task { await modeController.clearLeftover() }
+        Task {
+            await helperClient.updateIfOutdated()
+            await modeController.clearLeftover()
+        }
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {

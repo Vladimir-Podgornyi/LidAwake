@@ -39,7 +39,8 @@ enum HelperCommand {
             return 1
         }
 
-        var line = Self.token(for: service.registration)
+        let registration = service.registration
+        var line = Self.token(for: registration)
         do {
             let version = try await connection.protocolVersion()
             line += " protocol=\(version)"
@@ -51,6 +52,9 @@ enum HelperCommand {
             }
         } catch {
             printError("helper: \(error.localizedDescription)")
+        }
+        if registration == .enabled || registration == .requiresApproval {
+            line += " registration=\(client.isRegistrationCurrent ? "current" : "stale")"
         }
         print(line)
         return 0
