@@ -13,10 +13,13 @@ HELPER="$APP/Contents/MacOS/$HELPER_NAME"
 # The Swift driver links via clang with --sysroot, from which clang does not
 # read the SDK version, so LC_BUILD_VERSION would record the deployment target
 # as the SDK. Passing -isysroot to the linking clang records the real SDK.
+# The linker's -S drops the debug map, which records the absolute paths of the
+# source directories and object files.
 SDK_PATH="$(xcrun --sdk macosx --show-sdk-path)"
 swift build -c release \
     -Xswiftc -Xclang-linker -Xswiftc -isysroot \
-    -Xswiftc -Xclang-linker -Xswiftc "$SDK_PATH"
+    -Xswiftc -Xclang-linker -Xswiftc "$SDK_PATH" \
+    -Xlinker -S
 BIN_DIR="$(swift build -c release --show-bin-path)"
 
 rm -rf "$APP"
