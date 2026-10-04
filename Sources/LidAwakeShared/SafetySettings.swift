@@ -3,16 +3,19 @@ import Foundation
 public struct SafetySettings: Equatable {
     public static let timerRange = 60...86_400
     public static let batteryLimitRange = 1...100
-    public static let off = SafetySettings(timerSeconds: 0, batteryLimitPercent: 0)
+    public static let off = SafetySettings(timerSeconds: 0, batteryLimitPercent: 0, thermalProtection: false)
 
     /// 0 turns the timer off.
     public let timerSeconds: Int
     /// 0 turns the battery limit off.
     public let batteryLimitPercent: Int
+    /// Ends the session when the Mac gets too hot.
+    public let thermalProtection: Bool
 
-    public init(timerSeconds: Int, batteryLimitPercent: Int) {
+    public init(timerSeconds: Int, batteryLimitPercent: Int, thermalProtection: Bool) {
         self.timerSeconds = timerSeconds
         self.batteryLimitPercent = batteryLimitPercent
+        self.thermalProtection = thermalProtection
     }
 
     public var isValid: Bool {
@@ -25,6 +28,8 @@ public enum StopReason: String, Codable, Equatable {
     case timer
     case battery
     case batteryUnreadable
+    case thermal
+    case thermalUnreadable
     case leaseExpired
 }
 

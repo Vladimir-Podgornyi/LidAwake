@@ -103,7 +103,8 @@ public struct XPCHelperConnection: HelperConnecting, LidSessionService {
             helper.startSession(
                 leaseSeconds: leaseSeconds,
                 timerSeconds: safety.timerSeconds,
-                batteryLimitPercent: safety.batteryLimitPercent
+                batteryLimitPercent: safety.batteryLimitPercent,
+                thermalProtection: safety.thermalProtection
             ) { done(Self.result($0, $1)) }
         }
     }
@@ -113,7 +114,8 @@ public struct XPCHelperConnection: HelperConnecting, LidSessionService {
             helper.renewSession(
                 leaseSeconds: leaseSeconds,
                 timerSeconds: safety.timerSeconds,
-                batteryLimitPercent: safety.batteryLimitPercent
+                batteryLimitPercent: safety.batteryLimitPercent,
+                thermalProtection: safety.thermalProtection
             ) { done(Self.result($0, $1)) }
         }
     }
@@ -132,19 +134,21 @@ public struct XPCHelperConnection: HelperConnecting, LidSessionService {
 
     public func sessionStatus() async throws -> HelperSessionStatus {
         try await call(timeout: sessionTimeout) { helper, done in
-            helper.sessionStatus { code, message, flag, session, timer, battery, source in
+            helper.sessionStatus { code, message, flag, session, timer, battery, source, thermal in
                 done(Self.result(code, message).flatMap {
                     guard let flag = SleepFlagState(rawValue: flag),
                           let session = SessionOwnership(rawValue: session),
                           let battery = BatteryLevel(wireValue: battery),
-                          let source = PowerSource(rawValue: source) else {
+                          let source = PowerSource(rawValue: source),
+                          let thermal = ThermalState(rawValue: thermal) else {
                         return .failure(HelperError.connection("Unexpected helper reply."))
                     }
                     return .success(HelperSessionStatus(
                         flag: flag,
                         session: session,
                         timerRemaining: timer < 0 ? nil : timer,
-                        power: PowerReading(battery: battery, source: source)
+                        power: PowerReading(battery: battery, source: source),
+                        thermal: thermal
                     ))
                 })
             }

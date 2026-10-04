@@ -7,6 +7,7 @@ public enum HelperResultCode: Int, Equatable {
     case invalidArgument = 5
     case batteryLimitReached = 6
     case stopReasonFailed = 7
+    case thermalLimitReached = 8
 }
 
 public enum SleepFlagState: Int, Equatable {
@@ -43,11 +44,19 @@ public struct HelperSessionStatus: Equatable {
     /// Nil when the timer is off or no session is active.
     public let timerRemaining: Int?
     public let power: PowerReading
+    public let thermal: ThermalState
 
-    public init(flag: SleepFlagState, session: SessionOwnership, timerRemaining: Int?, power: PowerReading) {
+    public init(
+        flag: SleepFlagState,
+        session: SessionOwnership,
+        timerRemaining: Int?,
+        power: PowerReading,
+        thermal: ThermalState
+    ) {
         self.flag = flag
         self.session = session
         self.timerRemaining = timerRemaining
         self.power = power
+        self.thermal = thermal
     }
 }

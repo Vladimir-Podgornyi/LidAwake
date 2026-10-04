@@ -69,7 +69,8 @@ private final class FakeSessions: LidSessionService {
             flag: .unknown,
             session: .noSession,
             timerRemaining: nil,
-            power: PowerReading(battery: .unknown, source: .unknown)
+            power: PowerReading(battery: .unknown, source: .unknown),
+            thermal: .unknown
         )
     }
 
@@ -333,7 +334,11 @@ final class ModeControllerTests: XCTestCase {
         XCTAssertEqual(preferences.timerSeconds, 7200)
         XCTAssertTrue(preferences.batteryLimitEnabled)
         XCTAssertEqual(preferences.batteryLimitPercent, 20)
-        XCTAssertEqual(preferences.helperSettings, SafetySettings(timerSeconds: 0, batteryLimitPercent: 20))
+        XCTAssertTrue(preferences.thermalProtectionEnabled)
+        XCTAssertEqual(
+            preferences.helperSettings,
+            SafetySettings(timerSeconds: 0, batteryLimitPercent: 20, thermalProtection: true)
+        )
     }
 
     func testPreferencesUseTheirKeys() {
@@ -342,12 +347,18 @@ final class ModeControllerTests: XCTestCase {
         defaults.set(5400, forKey: "timerSeconds")
         defaults.set(false, forKey: "batteryLimitEnabled")
         defaults.set(15, forKey: "batteryLimitPercent")
+        defaults.set(false, forKey: "thermalProtectionEnabled")
 
         let loaded = SafetyPreferences(defaults: defaults)
-        XCTAssertEqual(loaded.helperSettings, SafetySettings(timerSeconds: 5400, batteryLimitPercent: 0))
+        XCTAssertEqual(
+            loaded.helperSettings,
+            SafetySettings(timerSeconds: 5400, batteryLimitPercent: 0, thermalProtection: false)
+        )
 
         loaded.batteryLimitPercent = 40
         XCTAssertEqual(defaults.integer(forKey: "batteryLimitPercent"), 40)
+        loaded.thermalProtectionEnabled = true
+        XCTAssertTrue(defaults.bool(forKey: "thermalProtectionEnabled"))
     }
 
     func testLidClosedSendsSafetySettings() async throws {
@@ -358,8 +369,8 @@ final class ModeControllerTests: XCTestCase {
         try await controller.select(.lidClosed)
         await controller.renew()
         XCTAssertEqual(sessions.safety, [
-            SafetySettings(timerSeconds: 3600, batteryLimitPercent: 20),
-            SafetySettings(timerSeconds: 3600, batteryLimitPercent: 20),
+            SafetySettings(timerSeconds: 3600, batteryLimitPercent: 20, thermalProtection: true),
+            SafetySettings(timerSeconds: 3600, batteryLimitPercent: 20, thermalProtection: true),
         ])
     }
 
@@ -416,11 +427,35 @@ final class ModeControllerTests: XCTestCase {
         preferences.batteryLimitPercent = 30
         await settle { sessions.calls.count >= 2 }
         XCTAssertEqual(sessions.calls, ["start 120", "renew 120"])
-        XCTAssertEqual(sessions.safety.last, SafetySettings(timerSeconds: 0, batteryLimitPercent: 30))
+        XCTAssertEqual(
+            sessions.safety.last,
+            SafetySettings(timerSeconds: 0, batteryLimitPercent: 30, thermalProtection: true)
+        )
 
         preferences.timerEnabled = true
         await settle { sessions.calls.count >= 3 }
-        XCTAssertEqual(sessions.safety.last, SafetySettings(timerSeconds: 7200, batteryLimitPercent: 30))
+        XCTAssertEqual(
+            sessions.safety.last,
+            SafetySettings(timerSeconds: 7200, batteryLimitPercent: 30, thermalProtection: true)
+        )
+    }
+
+    func testThermalSettingChangeSendsRenewal() async throws {
+        let controller = makeController()
+        try await controller.select(.lidClosed)
+
+        preferences.thermalProtectionEnabled = false
+        await settle { sessions.calls.count >= 2 }
+        XCTAssertEqual(sessions.calls, ["start 120", "renew 120"])
+        XCTAssertEqual(
+            sessions.safety.last,
+            SafetySettings(timerSeconds: 0, batteryLimitPercent: 20, thermalProtection: false)
+        )
+
+        preferences.thermalProtectionEnabled = true
+        await settle { sessions.calls.count >= 3 }
+        XCTAssertEqual(sessions.safety.last?.thermalProtection, true)
+        XCTAssertEqual(controller.mode, .lidClosed)
     }
 
     func testSettingChangeWhileOffSendsNothing() async {
@@ -445,6 +480,45 @@ final class ModeControllerTests: XCTestCase {
         XCTAssertEqual(notifier.posts, ["LidAwake turned off: The battery dropped to 15%."])
         XCTAssertEqual(controller.lastError, "The battery dropped to 15%.")
         XCTAssertNil(sessions.stopRecord)
+    }
+
+    func testNoSessionAfterThermalStopTurnsOffWithNotification() async throws {
+        let controller = makeController()
+        try await controller.select(.lidClosed)
+
+        sessions.stopRecord = StopRecord(reason: .thermal, time: Date())
+        sessions.renewError = HelperError.helper(.noSession, "No active session.")
+        await controller.renew()
+        XCTAssertEqual(controller.mode, .off)
+        XCTAssertFalse(activity.isActive)
+        XCTAssertEqual(sessions.calls, ["start 120", "renew 120", "end", "reason", "clear reason"])
+        XCTAssertEqual(notifier.posts, ["LidAwake turned off: The Mac got too hot."])
+        XCTAssertEqual(controller.lastError, "The Mac got too hot.")
+    }
+
+    func testNoSessionAfterUnreadableThermalStateNotifies() async throws {
+        let controller = makeController()
+        try await controller.select(.lidClosed)
+
+        sessions.stopRecord = StopRecord(reason: .thermalUnreadable, time: Date())
+        sessions.renewError = HelperError.helper(.noSession, "No active session.")
+        await controller.renew()
+        XCTAssertEqual(controller.mode, .off)
+        XCTAssertEqual(notifier.posts, ["LidAwake turned off: The thermal state could not be read."])
+    }
+
+    func testThermalRefusalShowsError() async {
+        sessions.startError = HelperError.helper(.thermalLimitReached, "The Mac is too hot (thermal state serious).")
+        let controller = makeController()
+
+        do {
+            try await controller.select(.lidClosed)
+            XCTFail("expected an error")
+        } catch {}
+        XCTAssertEqual(controller.mode, .off)
+        XCTAssertFalse(activity.isActive)
+        XCTAssertEqual(controller.lastError, "The Mac is too hot (thermal state serious).")
+        XCTAssertEqual(notifier.posts, [])
     }
 
     func testLidClosedTimerAsksHelperEarly() async throws {
@@ -523,6 +597,11 @@ final class ModeControllerTests: XCTestCase {
         XCTAssertEqual(
             StopNotice.body(for: StopRecord(reason: .leaseExpired, time: time)),
             "LidAwake closed unexpectedly, so normal sleep was restored."
+        )
+        XCTAssertEqual(StopNotice.body(for: StopRecord(reason: .thermal, time: time)), "The Mac got too hot.")
+        XCTAssertEqual(
+            StopNotice.body(for: StopRecord(reason: .thermalUnreadable, time: time)),
+            "The thermal state could not be read."
         )
     }
 }

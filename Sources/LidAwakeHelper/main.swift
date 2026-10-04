@@ -12,6 +12,7 @@ private let session = LidSession(
     marker: FileOwnershipMarker(),
     clock: MonotonicClock(),
     power: IOKitPowerSource(),
+    thermal: ProcessInfoThermalState(),
     stopReasons: FileStopReasonStore()
 )
 
@@ -24,9 +25,14 @@ final class Helper: NSObject, HelperProtocol {
         leaseSeconds: Int,
         timerSeconds: Int,
         batteryLimitPercent: Int,
+        thermalProtection: Bool,
         reply: @escaping (Int, String?) -> Void
     ) {
-        let safety = SafetySettings(timerSeconds: timerSeconds, batteryLimitPercent: batteryLimitPercent)
+        let safety = SafetySettings(
+            timerSeconds: timerSeconds,
+            batteryLimitPercent: batteryLimitPercent,
+            thermalProtection: thermalProtection
+        )
         withLease(leaseSeconds, reply: reply) { session.start(lease: $0, safety: safety) }
     }
 
@@ -34,9 +40,14 @@ final class Helper: NSObject, HelperProtocol {
         leaseSeconds: Int,
         timerSeconds: Int,
         batteryLimitPercent: Int,
+        thermalProtection: Bool,
         reply: @escaping (Int, String?) -> Void
     ) {
-        let safety = SafetySettings(timerSeconds: timerSeconds, batteryLimitPercent: batteryLimitPercent)
+        let safety = SafetySettings(
+            timerSeconds: timerSeconds,
+            batteryLimitPercent: batteryLimitPercent,
+            thermalProtection: thermalProtection
+        )
         withLease(leaseSeconds, reply: reply) { session.renew(lease: $0, safety: safety) }
     }
 
@@ -48,7 +59,7 @@ final class Helper: NSObject, HelperProtocol {
         perform(reply: reply) { session.clearLeftover() }
     }
 
-    func sessionStatus(reply: @escaping (Int, String?, Int, Int, Int, Int, Int) -> Void) {
+    func sessionStatus(reply: @escaping (Int, String?, Int, Int, Int, Int, Int, Int) -> Void) {
         DispatchQueue.main.async {
             let status = session.status()
             reply(
@@ -58,7 +69,8 @@ final class Helper: NSObject, HelperProtocol {
                 status.session.rawValue,
                 status.timerRemaining ?? -1,
                 status.power.battery.wireValue,
-                status.power.source.rawValue
+                status.power.source.rawValue,
+                status.thermal.rawValue
             )
         }
     }

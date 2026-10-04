@@ -22,6 +22,10 @@ public enum StopNotice {
             return "The battery dropped to \(percent)%."
         case .batteryUnreadable:
             return "The battery level could not be read."
+        case .thermal:
+            return "The Mac got too hot."
+        case .thermalUnreadable:
+            return "The thermal state could not be read."
         case .leaseExpired:
             return "LidAwake closed unexpectedly, so normal sleep was restored."
         }

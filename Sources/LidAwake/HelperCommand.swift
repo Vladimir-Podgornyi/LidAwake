@@ -49,6 +49,7 @@ enum HelperCommand {
                 line += " sleep-disabled=\(status.flag.token) session=\(status.session.token)"
                 line += " timer=\(status.timerRemaining.map(String.init) ?? "off")"
                 line += " battery=\(status.power.battery.token) power=\(status.power.source.token)"
+                line += " thermal=\(status.thermal.token)"
             }
         } catch {
             printError("helper: \(error.localizedDescription)")

@@ -73,18 +73,9 @@ struct ContentView: View {
 
     private var safetyRows: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Toggle("Turn off after", isOn: $preferences.timerEnabled)
-                Spacer()
-                Picker("Turn off after", selection: $preferences.timerSeconds) {
-                    ForEach(Self.choices(SafetyPreferences.timerChoices, current: preferences.timerSeconds), id: \.self) {
-                        Text(Self.timerLabel($0)).tag($0)
-                    }
-                }
-                .labelsHidden()
-                .fixedSize()
-                .disabled(!preferences.timerEnabled)
-            }
+            // Only the timer applies to Keep Screen On.
+            Toggle("Stop when the Mac gets hot", isOn: $preferences.thermalProtectionEnabled)
+                .opacity(controller.mode == .keepScreenOn ? 0.4 : 1)
             HStack {
                 Toggle("Stop on low battery", isOn: $preferences.batteryLimitEnabled)
                 Spacer()
@@ -100,8 +91,19 @@ struct ContentView: View {
                 .fixedSize()
                 .disabled(!preferences.batteryLimitEnabled)
             }
-            // The battery limit does not apply to Keep Screen On.
             .opacity(controller.mode == .keepScreenOn ? 0.4 : 1)
+            HStack {
+                Toggle("Turn off after", isOn: $preferences.timerEnabled)
+                Spacer()
+                Picker("Turn off after", selection: $preferences.timerSeconds) {
+                    ForEach(Self.choices(SafetyPreferences.timerChoices, current: preferences.timerSeconds), id: \.self) {
+                        Text(Self.timerLabel($0)).tag($0)
+                    }
+                }
+                .labelsHidden()
+                .fixedSize()
+                .disabled(!preferences.timerEnabled)
+            }
         }
         .toggleStyle(.switch)
         .controlSize(.small)

@@ -51,6 +51,16 @@ private final class FakePower: PowerSourceReading {
     }
 }
 
+private final class FakeThermal: ThermalStateReading {
+    var state = ThermalState.nominal
+    private(set) var readCount = 0
+
+    func read() -> ThermalState {
+        readCount += 1
+        return state
+    }
+}
+
 private final class FakeStopReasons: StopReasonStore {
     var record: StopRecord?
 
@@ -64,6 +74,7 @@ final class LidSessionTests: XCTestCase {
     private var marker = FakeMarker()
     private let clock = FakeClock()
     private let power = FakePower()
+    private let thermal = FakeThermal()
     private let stopReasons = FakeStopReasons()
     private let wallTime = Date(timeIntervalSince1970: 1_800_000_000)
     private let noLimits = SafetySettings.off
@@ -74,6 +85,7 @@ final class LidSessionTests: XCTestCase {
             marker: marker,
             clock: clock,
             power: power,
+            thermal: thermal,
             stopReasons: stopReasons,
             wallClock: { [wallTime] in wallTime }
         )
@@ -391,6 +403,7 @@ final class LidSessionTests: XCTestCase {
             marker: FileOwnershipMarker(directory: directory),
             clock: clock,
             power: power,
+            thermal: thermal,
             stopReasons: stopReasons
         )
         XCTAssertEqual(first.start(lease: 120, safety: noLimits), .ok)
@@ -398,7 +411,14 @@ final class LidSessionTests: XCTestCase {
 
         let fileMarker = FileOwnershipMarker(directory: directory)
         XCTAssertTrue(fileMarker.isSet)
-        let second = LidSession(flag: flag, marker: fileMarker, clock: clock, power: power, stopReasons: stopReasons)
+        let second = LidSession(
+            flag: flag,
+            marker: fileMarker,
+            clock: clock,
+            power: power,
+            thermal: thermal,
+            stopReasons: stopReasons
+        )
         XCTAssertFalse(second.isActive)
         XCTAssertEqual(second.clearLeftover(), .ok)
         XCTAssertFalse(flag.value)
@@ -407,8 +427,8 @@ final class LidSessionTests: XCTestCase {
 
     // MARK: Safety limits
 
-    private func limits(timer: Int = 0, battery: Int = 0) -> SafetySettings {
-        SafetySettings(timerSeconds: timer, batteryLimitPercent: battery)
+    private func limits(timer: Int = 0, battery: Int = 0, thermal: Bool = false) -> SafetySettings {
+        SafetySettings(timerSeconds: timer, batteryLimitPercent: battery, thermalProtection: thermal)
     }
 
     func testTimerEndsSession() {
@@ -613,6 +633,7 @@ final class LidSessionTests: XCTestCase {
                 marker: self.marker,
                 clock: self.clock,
                 power: self.power,
+                thermal: self.thermal,
                 stopReasons: FileStopReasonStore(directory: directory),
                 wallClock: { [wallTime = self.wallTime] in wallTime }
             )
@@ -667,5 +688,178 @@ final class LidSessionTests: XCTestCase {
         XCTAssertEqual(session.status().timerRemaining, 3600)
         clock.now += 99.5
         XCTAssertEqual(session.status().timerRemaining, 3500)
+    }
+
+    // MARK: Thermal protection
+
+    func testSeriousAndCriticalEndSession() {
+        for state in [ThermalState.serious, .critical] {
+            flag = FakeFlag(false)
+            marker = FakeMarker()
+            thermal.state = .nominal
+            let session = makeSession()
+            XCTAssertEqual(session.start(lease: 120, safety: limits(thermal: true)), .ok)
+
+            thermal.state = state
+            XCTAssertEqual(session.enforceLimits(), .ok, "\(state)")
+            XCTAssertFalse(session.isActive)
+            XCTAssertFalse(flag.value)
+            XCTAssertFalse(marker.isSet)
+            XCTAssertEqual(stopReasons.record, StopRecord(reason: .thermal, time: wallTime))
+        }
+    }
+
+    func testNominalAndFairKeepSession() {
+        let session = makeSession()
+        XCTAssertEqual(session.start(lease: 120, safety: limits(thermal: true)), .ok)
+
+        for state in [ThermalState.nominal, .fair] {
+            thermal.state = state
+            XCTAssertNil(session.enforceLimits(), "\(state)")
+            XCTAssertTrue(session.isActive)
+            XCTAssertTrue(flag.value)
+        }
+        XCTAssertNil(stopReasons.record)
+    }
+
+    func testThermalProtectionOffKeepsSessionWhenCritical() {
+        thermal.state = .critical
+        let session = makeSession()
+        XCTAssertEqual(session.start(lease: 120, safety: limits(thermal: false)), .ok)
+
+        XCTAssertNil(session.enforceLimits())
+        XCTAssertTrue(session.isActive)
+        XCTAssertTrue(flag.value)
+
+        thermal.state = .unknown
+        XCTAssertNil(session.enforceLimits())
+        XCTAssertTrue(session.isActive)
+        XCTAssertNil(stopReasons.record)
+    }
+
+    func testUnreadableThermalStateEndsSession() {
+        let session = makeSession()
+        XCTAssertEqual(session.start(lease: 120, safety: limits(thermal: true)), .ok)
+
+        thermal.state = .unknown
+        XCTAssertEqual(session.enforceLimits(), .ok)
+        XCTAssertFalse(session.isActive)
+        XCTAssertFalse(flag.value)
+        XCTAssertEqual(stopReasons.record, StopRecord(reason: .thermalUnreadable, time: wallTime))
+    }
+
+    func testUnrecognizedSystemValueIsUnknown() {
+        XCTAssertEqual(ThermalState(.nominal), .nominal)
+        XCTAssertEqual(ThermalState(.fair), .fair)
+        XCTAssertEqual(ThermalState(.serious), .serious)
+        XCTAssertEqual(ThermalState(.critical), .critical)
+        XCTAssertEqual(ThermalState(ProcessInfo.ThermalState(rawValue: 42)!), .unknown)
+    }
+
+    func testStartRefusedWhenHot() {
+        for state in [ThermalState.serious, .critical, .unknown] {
+            thermal.state = state
+            let session = makeSession()
+
+            let result = session.start(lease: 120, safety: limits(thermal: true))
+            XCTAssertEqual(result.code, .thermalLimitReached, "\(state)")
+            XCTAssertNotNil(result.message)
+            XCTAssertFalse(session.isActive)
+            XCTAssertFalse(marker.isSet)
+            XCTAssertEqual(flag.writes, [])
+            XCTAssertNil(stopReasons.record)
+        }
+
+        thermal.state = .critical
+        XCTAssertEqual(makeSession().start(lease: 120, safety: limits(thermal: false)), .ok)
+    }
+
+    func testThermalProtectionEndsForeignSessionWithoutTouchingFlag() {
+        flag = FakeFlag(true)
+        let session = makeSession()
+        XCTAssertEqual(session.start(lease: 120, safety: limits(thermal: true)), .ok)
+        XCTAssertEqual(session.ownership, .foreign)
+
+        thermal.state = .serious
+        XCTAssertEqual(session.enforceLimits(), .ok)
+        XCTAssertFalse(session.isActive)
+        XCTAssertTrue(flag.value)
+        XCTAssertEqual(flag.writes, [])
+        XCTAssertFalse(marker.isSet)
+        XCTAssertEqual(stopReasons.record?.reason, .thermal)
+    }
+
+    func testRenewTurnsThermalProtectionOn() {
+        thermal.state = .serious
+        let session = makeSession()
+        XCTAssertEqual(session.start(lease: 120, safety: noLimits), .ok)
+        XCTAssertNil(session.enforceLimits())
+
+        XCTAssertEqual(session.renew(lease: 120, safety: limits(thermal: true)), .ok)
+        XCTAssertEqual(session.enforceLimits(), .ok)
+        XCTAssertEqual(stopReasons.record?.reason, .thermal)
+    }
+
+    func testLimitsAreCheckedTimerThermalBatteryLease() {
+        let all = limits(timer: 60, battery: 20, thermal: true)
+        let tripped = {
+            self.thermal.state = .critical
+            self.power.reading = PowerReading(battery: .percent(5), source: .battery)
+        }
+        let reset = {
+            self.flag = FakeFlag(false)
+            self.marker = FakeMarker()
+            self.thermal.state = .nominal
+            self.power.reading = PowerReading(battery: .percent(80), source: .ac)
+        }
+
+        reset()
+        var session = makeSession()
+        XCTAssertEqual(session.start(lease: 60, safety: all), .ok)
+        clock.now += 60
+        tripped()
+        XCTAssertEqual(session.enforceLimits(), .ok)
+        XCTAssertEqual(stopReasons.record?.reason, .timer)
+
+        reset()
+        session = makeSession()
+        XCTAssertEqual(session.start(lease: 60, safety: all), .ok)
+        clock.now += 59
+        tripped()
+        XCTAssertEqual(session.enforceLimits(), .ok)
+        XCTAssertEqual(stopReasons.record?.reason, .thermal)
+
+        reset()
+        session = makeSession()
+        XCTAssertEqual(session.start(lease: 30, safety: all), .ok)
+        clock.now += 30
+        power.reading = PowerReading(battery: .percent(5), source: .battery)
+        XCTAssertEqual(session.enforceLimits(), .ok)
+        XCTAssertEqual(stopReasons.record?.reason, .battery)
+
+        reset()
+        session = makeSession()
+        XCTAssertEqual(session.start(lease: 30, safety: all), .ok)
+        clock.now += 30
+        XCTAssertEqual(session.enforceLimits(), .ok)
+        XCTAssertEqual(stopReasons.record?.reason, .leaseExpired)
+    }
+
+    func testStartChecksThermalBeforeBattery() {
+        thermal.state = .serious
+        power.reading = PowerReading(battery: .percent(5), source: .battery)
+        let session = makeSession()
+
+        XCTAssertEqual(session.start(lease: 120, safety: limits(battery: 20, thermal: true)).code, .thermalLimitReached)
+        XCTAssertEqual(session.start(lease: 120, safety: limits(battery: 20)).code, .batteryLimitReached)
+    }
+
+    func testStatusReportsThermalState() {
+        thermal.state = .fair
+        let session = makeSession()
+        XCTAssertEqual(session.status().thermal, .fair)
+
+        thermal.state = .unknown
+        XCTAssertEqual(session.status().thermal, .unknown)
     }
 }

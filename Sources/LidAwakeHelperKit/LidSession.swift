@@ -18,6 +18,7 @@ public struct SessionStatus: Equatable {
     /// Whole seconds, rounded up; nil when the timer is off or no session is active.
     public let timerRemaining: Int?
     public let power: PowerReading
+    public let thermal: ThermalState
     public let message: String?
 }
 
@@ -30,7 +31,7 @@ public final class LidSession {
         case foreign
     }
 
-    private struct BatteryStop {
+    private struct LimitStop {
         let reason: StopReason
         let percent: Int?
         let message: String
@@ -40,6 +41,7 @@ public final class LidSession {
     private let marker: OwnershipMarker
     private let clock: SessionClock
     private let power: PowerSourceReading
+    private let thermal: ThermalStateReading
     private let stopReasons: StopReasonStore
     private let wallClock: () -> Date
 
@@ -58,6 +60,7 @@ public final class LidSession {
         marker: OwnershipMarker,
         clock: SessionClock,
         power: PowerSourceReading,
+        thermal: ThermalStateReading,
         stopReasons: StopReasonStore,
         wallClock: @escaping () -> Date = Date.init
     ) {
@@ -65,6 +68,7 @@ public final class LidSession {
         self.marker = marker
         self.clock = clock
         self.power = power
+        self.thermal = thermal
         self.stopReasons = stopReasons
         self.wallClock = wallClock
     }
@@ -73,6 +77,9 @@ public final class LidSession {
         guard safety.isValid else { return Self.invalidSafety }
         if isActive {
             return renew(lease: lease, safety: safety)
+        }
+        if let stop = thermalStop(enabled: safety.thermalProtection) {
+            return SessionResult(code: .thermalLimitReached, message: stop.message)
         }
         if let stop = batteryStop(limit: safety.batteryLimitPercent) {
             return SessionResult(code: .batteryLimitReached, message: stop.message)
@@ -149,12 +156,16 @@ public final class LidSession {
         return releaseFlag()
     }
 
-    /// Ends the session when the timer, the battery limit or the lease runs out.
+    /// Ends the session when the timer runs out, the Mac gets too hot, the battery reaches its limit
+    /// or the lease runs out, checked in that order.
     @discardableResult
     public func enforceLimits() -> SessionResult? {
         guard isActive else { return nil }
         if let remaining = timerRemaining, remaining <= 0 {
             return stop(.timer, batteryPercent: nil)
+        }
+        if let thermal = thermalStop(enabled: safety.thermalProtection) {
+            return stop(thermal.reason, batteryPercent: nil)
         }
         if let battery = batteryStop(limit: safety.batteryLimitPercent) {
             return stop(battery.reason, batteryPercent: battery.percent)
@@ -196,12 +207,14 @@ public final class LidSession {
         }
         let remaining = timerRemaining.map { Int(max(0, $0).rounded(.up)) }
         let reading = power.read()
+        let thermalState = thermal.read()
         do {
             return SessionStatus(
                 flag: try flag.read() ? .on : .off,
                 session: session,
                 timerRemaining: remaining,
                 power: reading,
+                thermal: thermalState,
                 message: nil
             )
         } catch {
@@ -210,6 +223,7 @@ public final class LidSession {
                 session: session,
                 timerRemaining: remaining,
                 power: reading,
+                thermal: thermalState,
                 message: error.localizedDescription
             )
         }
@@ -239,23 +253,36 @@ public final class LidSession {
         return TimeInterval(safety.timerSeconds) - (clock.now - startedAt)
     }
 
-    private func batteryStop(limit: Int) -> BatteryStop? {
+    private func thermalStop(enabled: Bool) -> LimitStop? {
+        guard enabled else { return nil }
+        let state = thermal.read()
+        switch state {
+        case .nominal, .fair:
+            return nil
+        case .serious, .critical:
+            return LimitStop(reason: .thermal, percent: nil, message: "The Mac is too hot (thermal state \(state.token)).")
+        case .unknown:
+            return LimitStop(reason: .thermalUnreadable, percent: nil, message: "The thermal state could not be read.")
+        }
+    }
+
+    private func batteryStop(limit: Int) -> LimitStop? {
         guard limit > 0 else { return nil }
         let reading = power.read()
         switch reading.battery {
         case .none:
             return nil
         case .unknown:
-            return BatteryStop(reason: .batteryUnreadable, percent: nil, message: "The battery level could not be read.")
+            return LimitStop(reason: .batteryUnreadable, percent: nil, message: "The battery level could not be read.")
         case .percent(let percent):
             switch reading.source {
             case .ac:
                 return nil
             case .unknown:
-                return BatteryStop(reason: .batteryUnreadable, percent: nil, message: "The power source could not be read.")
+                return LimitStop(reason: .batteryUnreadable, percent: nil, message: "The power source could not be read.")
             case .battery:
                 guard percent <= limit else { return nil }
-                return BatteryStop(
+                return LimitStop(
                     reason: .battery,
                     percent: percent,
                     message: "The battery is at \(percent)%, at or below the \(limit)% limit."
