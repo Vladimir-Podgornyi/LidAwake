@@ -101,6 +101,7 @@ final class LocalizationTests: XCTestCase {
             ("Accent", "Akzent", "Акцент"),
             ("Blue", "Blau", "Синий"),
             ("Amber", "Bernstein", "Янтарный"),
+            ("Settings", "Einstellungen", "Настройки"),
             ("Quit LidAwake", "LidAwake beenden", "Завершить LidAwake"),
             ("Permission needed", "Erlaubnis erforderlich", "Нужно разрешение"),
             ("Open System Settings", "Systemeinstellungen öffnen", "Открыть «Системные настройки»"),

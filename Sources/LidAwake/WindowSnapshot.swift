@@ -3,9 +3,9 @@ import LidAwakeCore
 import LidAwakeShared
 import SwiftUI
 
-/// `--render-window <folder>`: draws the window in the Off mode with default settings
-/// into window-light.png and window-dark.png, without touching the helper,
-/// the login item or the saved settings.
+/// `--render-window <folder>`: draws the window with default settings in the Off and the
+/// Keep Screen On positions, with the settings collapsed and expanded, without touching the
+/// helper, the login item, the display or the saved settings.
 enum WindowSnapshot {
     static let flag = "--render-window"
 
@@ -31,9 +31,9 @@ enum WindowSnapshot {
         _ = ActiveLookingApplication.shared
         do {
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-            for (name, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
-                let file = folder.appendingPathComponent("window-\(name).png")
-                try render(appearance: NSAppearance(named: appearance)!).write(to: file)
+            for shot in Shot.all {
+                let file = folder.appendingPathComponent(shot.fileName)
+                try render(shot).write(to: file)
                 print(file.path)
             }
             return 0
@@ -43,10 +43,35 @@ enum WindowSnapshot {
         }
     }
 
+    private struct Shot {
+        let mode: Mode
+        let isExpanded: Bool
+        let isDark: Bool
+
+        static let all = [
+            Shot(mode: .off, isExpanded: false, isDark: false),
+            Shot(mode: .off, isExpanded: true, isDark: false),
+            Shot(mode: .off, isExpanded: true, isDark: true),
+            Shot(mode: .keepScreenOn, isExpanded: false, isDark: false),
+            Shot(mode: .keepScreenOn, isExpanded: true, isDark: false),
+        ]
+
+        var fileName: String {
+            let position = mode == .off ? "off" : "screen"
+            return "\(position)-\(isExpanded ? "expanded" : "collapsed")-\(isDark ? "dark" : "light").png"
+        }
+
+        var appearance: NSAppearance {
+            NSAppearance(named: isDark ? .darkAqua : .aqua)!
+        }
+    }
+
     @MainActor
-    private static func render(appearance: NSAppearance) throws -> Data {
+    private static func render(_ shot: Shot) throws -> Data {
+        let appearance = shot.appearance
         // Only read: register(defaults:) stays in memory, so nothing is saved.
         let defaults = UserDefaults(suiteName: "com.vladimirpodgornyi.LidAwake.window-snapshot")!
+        defaults.register(defaults: [SettingsDisclosurePreference.key: shot.isExpanded])
         let inert = Inert()
         let controller = ModeController(
             displayAssertion: inert,
@@ -58,6 +83,13 @@ enum WindowSnapshot {
             powerSourceMonitor: inert,
             lidMonitor: inert
         )
+        // The display assertion is inert, so selecting Keep Screen On keeps nothing awake.
+        Task { try? await controller.select(shot.mode) }
+        let deadline = Date(timeIntervalSinceNow: 2)
+        while controller.mode != shot.mode, Date() < deadline {
+            RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.01))
+        }
+        guard controller.mode == shot.mode else { throw CocoaError(.fileWriteUnknown) }
         let content = ContentView(
             controller: controller,
             preferences: controller.preferences,
@@ -68,7 +100,8 @@ enum WindowSnapshot {
                 bundleURL: URL(fileURLWithPath: "/Applications/LidAwake.app")
             ),
             accent: AccentPreference(defaults: defaults),
-            windowStyle: WindowAppearancePreference(defaults: defaults)
+            windowStyle: WindowAppearancePreference(defaults: defaults),
+            disclosure: SettingsDisclosurePreference(defaults: defaults)
         )
         .background(Color(nsColor: .windowBackgroundColor))
 

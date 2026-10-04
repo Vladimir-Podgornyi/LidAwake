@@ -10,6 +10,7 @@ struct ContentView: View {
     @ObservedObject var launchAtLogin: LaunchAtLogin
     @ObservedObject var accent: AccentPreference
     @ObservedObject var windowStyle: WindowAppearancePreference
+    @ObservedObject var disclosure: SettingsDisclosurePreference
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
@@ -23,9 +24,8 @@ struct ContentView: View {
             if !messages.isEmpty {
                 messageBlock
             }
-            switch SafetyLayout(mode: controller.mode) {
-            case .all: allProtections
-            case .timerOnly: timerOnlyProtections
+            ForEach(blocks, id: \.self) { block in
+                view(for: block)
             }
             quitRow
         }
@@ -93,65 +93,72 @@ struct ContentView: View {
         }
     }
 
+    private var blocks: [WindowBlock] {
+        WindowBlock.list(
+            mode: controller.mode,
+            isExpanded: disclosure.isExpanded,
+            showsAppearance: WindowLook.showsStyleSetting(isSystem26OrLater: isSystem26OrLater)
+        )
+    }
+
+    @ViewBuilder
+    private func view(for block: WindowBlock) -> some View {
+        switch block {
+        case .timer: timerSection
+        case .settingsToggle: SettingsToggleRow(isExpanded: $disclosure.isExpanded)
+        case .safety: safetySection
+        case .dimmedSafety: dimmedSafetySection
+        case .settingsDivider, .closingDivider: Divider()
+        case .lockScreen: lockRow(minHeight: 36)
+        case .launchAtLogin: launchRow
+        case .appearance: appearanceRow
+        case .accent: accentRow
+        }
+    }
+
     // Off and Run with Lid Closed.
-    private var allProtections: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                SectionHeader(title: "Safety")
-                SettingRow(title: "Stop when the Mac gets hot", detail: "Ends the session under thermal pressure") {
-                    thermalToggle
-                }
-                SettingRow(title: "Stop on low battery", detail: "When the charge drops below the limit") {
-                    batteryValue
-                    batteryToggle
-                }
-                SettingRow(title: "Only while charging", detail: "Pauses on battery, resumes on power") {
-                    chargingToggle
-                }
-                timerRow
+    private var safetySection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            SectionHeader(title: "Safety")
+            SettingRow(title: "Stop when the Mac gets hot", detail: "Ends the session under thermal pressure") {
+                thermalToggle
             }
-            Divider()
-            lockRow(minHeight: 36)
-            launchRow
-            if WindowLook.showsStyleSetting(isSystem26OrLater: isSystem26OrLater) {
-                appearanceRow
+            SettingRow(title: "Stop on low battery", detail: "When the charge drops below the limit") {
+                batteryValue
+                batteryToggle
             }
-            accentRow
-            Divider()
+            SettingRow(title: "Only while charging", detail: "Pauses on battery, resumes on power") {
+                chargingToggle
+            }
+            timerRow
         }
     }
 
     // Keep Screen On: only the timer applies.
-    private var timerOnlyProtections: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                SectionHeader(title: "Timer")
-                timerRow
-            }
-            VStack(alignment: .leading, spacing: 4) {
-                SectionHeader(title: "Safety · lid closed only")
-                SettingRow(title: "Stop when the Mac gets hot", minHeight: 40) {
-                    thermalToggle
-                }
-                SettingRow(title: "Stop on low battery", minHeight: 40) {
-                    batteryValue
-                    batteryToggle
-                }
-                SettingRow(title: "Only while charging", minHeight: 40) {
-                    chargingToggle
-                }
-                lockRow(minHeight: 40)
-            }
-            .opacity(0.45)
-            .disabled(true)
-            Divider()
-            launchRow
-            if WindowLook.showsStyleSetting(isSystem26OrLater: isSystem26OrLater) {
-                appearanceRow
-            }
-            accentRow
-            Divider()
+    private var timerSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            SectionHeader(title: "Timer")
+            timerRow
         }
+    }
+
+    private var dimmedSafetySection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            SectionHeader(title: "Safety · lid closed only")
+            SettingRow(title: "Stop when the Mac gets hot", minHeight: 40) {
+                thermalToggle
+            }
+            SettingRow(title: "Stop on low battery", minHeight: 40) {
+                batteryValue
+                batteryToggle
+            }
+            SettingRow(title: "Only while charging", minHeight: 40) {
+                chargingToggle
+            }
+            lockRow(minHeight: 40)
+        }
+        .opacity(0.45)
+        .disabled(true)
     }
 
     private var timerRow: some View {
@@ -441,6 +448,32 @@ private struct MessageBanner: View {
         .background(shape.fill(message.kind.background(look)))
         .overlay(shape.strokeBorder(message.kind.border(look), lineWidth: 1))
         .accessibilityElement(children: .contain)
+    }
+}
+
+private struct SettingsToggleRow: View {
+    @Binding var isExpanded: Bool
+
+    var body: some View {
+        Button {
+            isExpanded.toggle()
+        } label: {
+            HStack {
+                Text("Settings")
+                    .font(.system(size: 13))
+                Spacer()
+                Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 14)
+                    .accessibilityHidden(true)
+            }
+            .frame(minHeight: 36)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text("Settings"))
+        .accessibilityValue(Text(isExpanded ? "Expanded" : "Collapsed"))
     }
 }
 

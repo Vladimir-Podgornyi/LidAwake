@@ -48,6 +48,9 @@
 "Accent" = "Акцент";
 "Blue" = "Синий";
 "Amber" = "Янтарный";
+"Settings" = "Настройки";
+"Collapsed" = "Свёрнуто";
+"Expanded" = "Раскрыто";
 "Quit LidAwake" = "Завершить LidAwake";
 
 /* Helper messages */

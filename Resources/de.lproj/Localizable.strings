@@ -48,6 +48,9 @@
 "Accent" = "Akzent";
 "Blue" = "Blau";
 "Amber" = "Bernstein";
+"Settings" = "Einstellungen";
+"Collapsed" = "Eingeklappt";
+"Expanded" = "Ausgeklappt";
 "Quit LidAwake" = "LidAwake beenden";
 
 /* Helper messages */

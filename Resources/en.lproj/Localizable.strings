@@ -48,6 +48,9 @@
 "Accent" = "Accent";
 "Blue" = "Blue";
 "Amber" = "Amber";
+"Settings" = "Settings";
+"Collapsed" = "Collapsed";
+"Expanded" = "Expanded";
 "Quit LidAwake" = "Quit LidAwake";
 
 /* Helper messages */
