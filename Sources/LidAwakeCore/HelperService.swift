@@ -21,11 +21,13 @@ public protocol HelperConnecting {
 }
 
 public protocol LidSessionService {
-    func startSession(leaseSeconds: Int) async throws
-    func renewSession(leaseSeconds: Int) async throws
+    func startSession(leaseSeconds: Int, safety: SafetySettings) async throws
+    func renewSession(leaseSeconds: Int, safety: SafetySettings) async throws
     func endSession() async throws
     func clearLeftover() async throws
     func sessionStatus() async throws -> HelperSessionStatus
+    func lastStopReason() async throws -> StopRecord?
+    func clearStopReason() async throws
 }
 
 public enum HelperError: Error, Equatable, LocalizedError {
@@ -99,15 +101,23 @@ public struct XPCHelperConnection: HelperConnecting, LidSessionService {
         }
     }
 
-    public func startSession(leaseSeconds: Int) async throws {
+    public func startSession(leaseSeconds: Int, safety: SafetySettings) async throws {
         try await call(timeout: sessionTimeout) { helper, done in
-            helper.startSession(leaseSeconds: leaseSeconds) { done(Self.result($0, $1)) }
+            helper.startSession(
+                leaseSeconds: leaseSeconds,
+                timerSeconds: safety.timerSeconds,
+                batteryLimitPercent: safety.batteryLimitPercent
+            ) { done(Self.result($0, $1)) }
         }
     }
 
-    public func renewSession(leaseSeconds: Int) async throws {
+    public func renewSession(leaseSeconds: Int, safety: SafetySettings) async throws {
         try await call(timeout: sessionTimeout) { helper, done in
-            helper.renewSession(leaseSeconds: leaseSeconds) { done(Self.result($0, $1)) }
+            helper.renewSession(
+                leaseSeconds: leaseSeconds,
+                timerSeconds: safety.timerSeconds,
+                batteryLimitPercent: safety.batteryLimitPercent
+            ) { done(Self.result($0, $1)) }
         }
     }
 
@@ -125,15 +135,46 @@ public struct XPCHelperConnection: HelperConnecting, LidSessionService {
 
     public func sessionStatus() async throws -> HelperSessionStatus {
         try await call(timeout: sessionTimeout) { helper, done in
-            helper.sessionStatus { code, message, flag, session in
+            helper.sessionStatus { code, message, flag, session, timer, battery, source in
                 done(Self.result(code, message).flatMap {
                     guard let flag = SleepFlagState(rawValue: flag),
-                          let session = SessionOwnership(rawValue: session) else {
+                          let session = SessionOwnership(rawValue: session),
+                          let battery = BatteryLevel(wireValue: battery),
+                          let source = PowerSource(rawValue: source) else {
                         return .failure(HelperError.connection("Unexpected helper reply."))
                     }
-                    return .success(HelperSessionStatus(flag: flag, session: session))
+                    return .success(HelperSessionStatus(
+                        flag: flag,
+                        session: session,
+                        timerRemaining: timer < 0 ? nil : timer,
+                        power: PowerReading(battery: battery, source: source)
+                    ))
                 })
             }
+        }
+    }
+
+    public func lastStopReason() async throws -> StopRecord? {
+        try await call(timeout: timeout) { helper, done in
+            helper.lastStopReason { code, message, reason, time, percent in
+                done(Self.result(code, message).flatMap {
+                    guard let reason else { return .success(nil) }
+                    guard let parsed = StopReason(rawValue: reason) else {
+                        return .failure(HelperError.connection("Unexpected helper reply."))
+                    }
+                    return .success(StopRecord(
+                        reason: parsed,
+                        time: Date(timeIntervalSince1970: time),
+                        batteryPercent: percent < 0 ? nil : percent
+                    ))
+                })
+            }
+        }
+    }
+
+    public func clearStopReason() async throws {
+        try await call(timeout: timeout) { helper, done in
+            helper.clearStopReason { done(Self.result($0, $1)) }
         }
     }
 

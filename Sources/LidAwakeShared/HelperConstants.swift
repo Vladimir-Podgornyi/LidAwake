@@ -4,7 +4,7 @@ public enum HelperConstants {
     public static let machServiceName = helperIdentifier
     public static let plistName = "\(helperIdentifier).plist"
     public static let teamIdentifier = "ZW984867UC"
-    public static let protocolVersion = 2
+    public static let protocolVersion = 3
 
     // Kept as single literals so the build script can read them back from the
     // compiled binaries and check the signatures against what is enforced.

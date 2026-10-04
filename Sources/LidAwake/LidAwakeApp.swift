@@ -9,7 +9,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     override init() {
         helperClient = HelperClient()
-        modeController = ModeController(helper: helperClient, sessions: XPCHelperConnection())
+        modeController = ModeController(
+            helper: helperClient,
+            sessions: XPCHelperConnection(),
+            preferences: SafetyPreferences(),
+            notifier: UserNotificationNotifier()
+        )
         super.init()
     }
 
@@ -32,7 +37,11 @@ struct LidAwakeApp: App {
 
     var body: some Scene {
         MenuBarExtra("LidAwake", systemImage: "laptopcomputer") {
-            ContentView(controller: appDelegate.modeController, helper: appDelegate.helperClient)
+            ContentView(
+                controller: appDelegate.modeController,
+                preferences: appDelegate.modeController.preferences,
+                helper: appDelegate.helperClient
+            )
         }
         .menuBarExtraStyle(.window)
     }

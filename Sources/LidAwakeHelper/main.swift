@@ -3,23 +3,41 @@ import LidAwakeHelperKit
 import LidAwakeShared
 
 private let idleTimeout: TimeInterval = 120
-private let expiryCheckInterval: TimeInterval = 5
+private let limitCheckInterval: TimeInterval = 5
 private let maximumLease = 600
 
 // Accessed only on the main queue.
-private let session = LidSession(flag: PmsetSleepFlag(), marker: FileOwnershipMarker(), clock: MonotonicClock())
+private let session = LidSession(
+    flag: PmsetSleepFlag(),
+    marker: FileOwnershipMarker(),
+    clock: MonotonicClock(),
+    power: IOKitPowerSource(),
+    stopReasons: FileStopReasonStore()
+)
 
 final class Helper: NSObject, HelperProtocol {
     func protocolVersion(reply: @escaping (Int) -> Void) {
         reply(HelperConstants.protocolVersion)
     }
 
-    func startSession(leaseSeconds: Int, reply: @escaping (Int, String?) -> Void) {
-        withLease(leaseSeconds, reply: reply) { session.start(lease: $0) }
+    func startSession(
+        leaseSeconds: Int,
+        timerSeconds: Int,
+        batteryLimitPercent: Int,
+        reply: @escaping (Int, String?) -> Void
+    ) {
+        let safety = SafetySettings(timerSeconds: timerSeconds, batteryLimitPercent: batteryLimitPercent)
+        withLease(leaseSeconds, reply: reply) { session.start(lease: $0, safety: safety) }
     }
 
-    func renewSession(leaseSeconds: Int, reply: @escaping (Int, String?) -> Void) {
-        withLease(leaseSeconds, reply: reply) { session.renew(lease: $0) }
+    func renewSession(
+        leaseSeconds: Int,
+        timerSeconds: Int,
+        batteryLimitPercent: Int,
+        reply: @escaping (Int, String?) -> Void
+    ) {
+        let safety = SafetySettings(timerSeconds: timerSeconds, batteryLimitPercent: batteryLimitPercent)
+        withLease(leaseSeconds, reply: reply) { session.renew(lease: $0, safety: safety) }
     }
 
     func endSession(reply: @escaping (Int, String?) -> Void) {
@@ -30,11 +48,36 @@ final class Helper: NSObject, HelperProtocol {
         perform(reply: reply) { session.clearLeftover() }
     }
 
-    func sessionStatus(reply: @escaping (Int, String?, Int, Int) -> Void) {
+    func sessionStatus(reply: @escaping (Int, String?, Int, Int, Int, Int, Int) -> Void) {
         DispatchQueue.main.async {
             let status = session.status()
-            reply(HelperResultCode.ok.rawValue, status.message, status.flag.rawValue, status.session.rawValue)
+            reply(
+                HelperResultCode.ok.rawValue,
+                status.message,
+                status.flag.rawValue,
+                status.session.rawValue,
+                status.timerRemaining ?? -1,
+                status.power.battery.wireValue,
+                status.power.source.rawValue
+            )
         }
+    }
+
+    func lastStopReason(reply: @escaping (Int, String?, String?, Double, Int) -> Void) {
+        DispatchQueue.main.async {
+            let record = session.lastStopReason()
+            reply(
+                HelperResultCode.ok.rawValue,
+                nil,
+                record?.reason.rawValue,
+                record?.time.timeIntervalSince1970 ?? 0,
+                record?.batteryPercent ?? -1
+            )
+        }
+    }
+
+    func clearStopReason(reply: @escaping (Int, String?) -> Void) {
+        perform(reply: reply) { session.clearStopReason() }
     }
 
     private func withLease(
@@ -64,7 +107,7 @@ final class ListenerDelegate: NSObject, NSXPCListenerDelegate {
     func scheduleIdleExit() {
         idleExit?.cancel()
         let item = DispatchWorkItem { [weak self] in
-            // An active session needs the helper to expire its lease.
+            // An active session needs the helper to enforce its lease and limits.
             if session.isActive {
                 self?.scheduleIdleExit()
             } else {
@@ -100,10 +143,10 @@ final class ListenerDelegate: NSObject, NSXPCListenerDelegate {
     }
 }
 
-let expiryTimer = DispatchSource.makeTimerSource(queue: .main)
-expiryTimer.schedule(deadline: .now() + expiryCheckInterval, repeating: expiryCheckInterval)
-expiryTimer.setEventHandler { session.expireIfNeeded() }
-expiryTimer.resume()
+let limitTimer = DispatchSource.makeTimerSource(queue: .main)
+limitTimer.schedule(deadline: .now() + limitCheckInterval, repeating: limitCheckInterval)
+limitTimer.setEventHandler { session.enforceLimits() }
+limitTimer.resume()
 
 let delegate = ListenerDelegate()
 let listener = NSXPCListener(machServiceName: HelperConstants.machServiceName)

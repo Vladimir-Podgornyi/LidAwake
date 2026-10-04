@@ -40,15 +40,19 @@ private final class FakeHelper: HelperPreparing {
 private final class FakeSessions: LidSessionService {
     var startError: Error?
     var renewError: Error?
+    var stopRecord: StopRecord?
     private(set) var calls: [String] = []
+    private(set) var safety: [SafetySettings] = []
 
-    func startSession(leaseSeconds: Int) async throws {
+    func startSession(leaseSeconds: Int, safety: SafetySettings) async throws {
         calls.append("start \(leaseSeconds)")
+        self.safety.append(safety)
         if let startError { throw startError }
     }
 
-    func renewSession(leaseSeconds: Int) async throws {
+    func renewSession(leaseSeconds: Int, safety: SafetySettings) async throws {
         calls.append("renew \(leaseSeconds)")
+        self.safety.append(safety)
         if let renewError { throw renewError }
     }
 
@@ -61,8 +65,41 @@ private final class FakeSessions: LidSessionService {
     }
 
     func sessionStatus() async throws -> HelperSessionStatus {
-        HelperSessionStatus(flag: .unknown, session: .noSession)
+        HelperSessionStatus(
+            flag: .unknown,
+            session: .noSession,
+            timerRemaining: nil,
+            power: PowerReading(battery: .unknown, source: .unknown)
+        )
     }
+
+    func lastStopReason() async throws -> StopRecord? {
+        calls.append("reason")
+        return stopRecord
+    }
+
+    func clearStopReason() async throws {
+        calls.append("clear reason")
+        stopRecord = nil
+    }
+}
+
+@MainActor
+private final class FakeNotifier: StopNotifying {
+    private(set) var authorizationRequests = 0
+    private(set) var posts: [String] = []
+
+    func requestAuthorization() {
+        authorizationRequests += 1
+    }
+
+    func post(title: String, body: String) {
+        posts.append("\(title): \(body)")
+    }
+}
+
+private final class FakeTime {
+    var now: TimeInterval = 1000
 }
 
 private final class FakeActivity: ActivityHolding {
@@ -78,16 +115,36 @@ final class ModeControllerTests: XCTestCase {
     private let helper = FakeHelper()
     private let sessions = FakeSessions()
     private let activity = FakeActivity()
+    private let notifier = FakeNotifier()
+    private let time = FakeTime()
+    private let suiteName = "ModeControllerTests-\(UUID().uuidString)"
+    private lazy var preferences = SafetyPreferences(defaults: UserDefaults(suiteName: suiteName)!)
 
-    private func makeController() -> ModeController {
-        ModeController(
+    override func tearDown() {
+        UserDefaults().removePersistentDomain(forName: suiteName)
+        super.tearDown()
+    }
+
+    private func makeController(renewalSleep: (() async throws -> Void)? = nil) -> ModeController {
+        let time = self.time
+        return ModeController(
             displayAssertion: assertion,
             helper: helper,
             sessions: sessions,
+            preferences: preferences,
+            notifier: notifier,
             activity: activity,
             leaseSeconds: 120,
-            renewalSleep: { try await Task.sleep(nanoseconds: 3_600_000_000_000) }
+            renewalSleep: renewalSleep ?? { try await Task.sleep(nanoseconds: 3_600_000_000_000) },
+            timerCheckSleep: { try await Task.sleep(nanoseconds: 3_600_000_000_000) },
+            now: { time.now }
         )
+    }
+
+    private func settle(until done: () -> Bool) async {
+        for _ in 0..<200 where !done() {
+            await Task.yield()
+        }
     }
 
     func testStartsOff() {
@@ -239,14 +296,7 @@ final class ModeControllerTests: XCTestCase {
             _ = await iterator.next()
             try Task.checkCancellation()
         }
-        let controller = ModeController(
-            displayAssertion: assertion,
-            helper: helper,
-            sessions: sessions,
-            activity: activity,
-            leaseSeconds: 120,
-            renewalSleep: tick
-        )
+        let controller = makeController(renewalSleep: tick)
         try await controller.select(.lidClosed)
 
         ticks.continuation.yield()
@@ -266,7 +316,7 @@ final class ModeControllerTests: XCTestCase {
     func testClearLeftoverWhenHelperReady() async {
         let controller = makeController()
         await controller.clearLeftover()
-        XCTAssertEqual(sessions.calls, ["clear"])
+        XCTAssertEqual(sessions.calls, ["clear", "reason"])
     }
 
     func testClearLeftoverSkippedWithoutHelper() async {
@@ -274,5 +324,205 @@ final class ModeControllerTests: XCTestCase {
         let controller = makeController()
         await controller.clearLeftover()
         XCTAssertEqual(sessions.calls, [])
+    }
+
+    // MARK: Safety limits and notifications
+
+    func testDefaultPreferences() {
+        XCTAssertFalse(preferences.timerEnabled)
+        XCTAssertEqual(preferences.timerSeconds, 7200)
+        XCTAssertTrue(preferences.batteryLimitEnabled)
+        XCTAssertEqual(preferences.batteryLimitPercent, 20)
+        XCTAssertEqual(preferences.helperSettings, SafetySettings(timerSeconds: 0, batteryLimitPercent: 20))
+    }
+
+    func testPreferencesUseTheirKeys() {
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.set(true, forKey: "timerEnabled")
+        defaults.set(5400, forKey: "timerSeconds")
+        defaults.set(false, forKey: "batteryLimitEnabled")
+        defaults.set(15, forKey: "batteryLimitPercent")
+
+        let loaded = SafetyPreferences(defaults: defaults)
+        XCTAssertEqual(loaded.helperSettings, SafetySettings(timerSeconds: 5400, batteryLimitPercent: 0))
+
+        loaded.batteryLimitPercent = 40
+        XCTAssertEqual(defaults.integer(forKey: "batteryLimitPercent"), 40)
+    }
+
+    func testLidClosedSendsSafetySettings() async throws {
+        preferences.timerEnabled = true
+        preferences.timerSeconds = 3600
+        let controller = makeController()
+
+        try await controller.select(.lidClosed)
+        await controller.renew()
+        XCTAssertEqual(sessions.safety, [
+            SafetySettings(timerSeconds: 3600, batteryLimitPercent: 20),
+            SafetySettings(timerSeconds: 3600, batteryLimitPercent: 20),
+        ])
+    }
+
+    func testKeepScreenOnTimerTurnsOff() async throws {
+        preferences.timerEnabled = true
+        preferences.timerSeconds = 3600
+        let controller = makeController()
+        try await controller.select(.keepScreenOn)
+        XCTAssertEqual(controller.timerRemaining(), 3600)
+
+        time.now += 3599
+        await controller.checkTimer()
+        XCTAssertEqual(controller.mode, .keepScreenOn)
+        XCTAssertEqual(controller.timerRemaining(), 1)
+
+        time.now += 1
+        await controller.checkTimer()
+        XCTAssertEqual(controller.mode, .off)
+        XCTAssertFalse(assertion.isHeld)
+        XCTAssertNil(controller.timerRemaining())
+        XCTAssertEqual(notifier.posts, ["LidAwake turned off: The timer ran out."])
+        XCTAssertEqual(controller.lastError, "The timer ran out.")
+        XCTAssertEqual(sessions.calls, [])
+    }
+
+    func testKeepScreenOnIgnoresBatteryLimit() async throws {
+        preferences.batteryLimitPercent = 50
+        let controller = makeController()
+        try await controller.select(.keepScreenOn)
+
+        time.now += 100_000
+        await controller.checkTimer()
+        XCTAssertEqual(controller.mode, .keepScreenOn)
+        XCTAssertNil(controller.timerRemaining())
+        XCTAssertEqual(sessions.calls, [])
+    }
+
+    func testKeepScreenOnTimerChangeCountsFromStart() async throws {
+        preferences.timerEnabled = true
+        let controller = makeController()
+        try await controller.select(.keepScreenOn)
+
+        time.now += 2000
+        preferences.timerSeconds = 1800
+        await settle { controller.mode == .off }
+        XCTAssertEqual(controller.mode, .off)
+        XCTAssertEqual(notifier.posts, ["LidAwake turned off: The timer ran out."])
+    }
+
+    func testSettingChangeSendsRenewal() async throws {
+        let controller = makeController()
+        try await controller.select(.lidClosed)
+
+        preferences.batteryLimitPercent = 30
+        await settle { sessions.calls.count >= 2 }
+        XCTAssertEqual(sessions.calls, ["start 120", "renew 120"])
+        XCTAssertEqual(sessions.safety.last, SafetySettings(timerSeconds: 0, batteryLimitPercent: 30))
+
+        preferences.timerEnabled = true
+        await settle { sessions.calls.count >= 3 }
+        XCTAssertEqual(sessions.safety.last, SafetySettings(timerSeconds: 7200, batteryLimitPercent: 30))
+    }
+
+    func testSettingChangeWhileOffSendsNothing() async {
+        _ = makeController()
+        preferences.batteryLimitPercent = 30
+        for _ in 0..<20 {
+            await Task.yield()
+        }
+        XCTAssertEqual(sessions.calls, [])
+    }
+
+    func testNoSessionTurnsOffWithNotification() async throws {
+        let controller = makeController()
+        try await controller.select(.lidClosed)
+
+        sessions.stopRecord = StopRecord(reason: .battery, time: Date(), batteryPercent: 15)
+        sessions.renewError = HelperError.helper(.noSession, "No active session.")
+        await controller.renew()
+        XCTAssertEqual(controller.mode, .off)
+        XCTAssertFalse(activity.isActive)
+        XCTAssertEqual(sessions.calls, ["start 120", "renew 120", "end", "reason", "clear reason"])
+        XCTAssertEqual(notifier.posts, ["LidAwake turned off: The battery dropped to 15%."])
+        XCTAssertEqual(controller.lastError, "The battery dropped to 15%.")
+        XCTAssertNil(sessions.stopRecord)
+    }
+
+    func testLidClosedTimerAsksHelperEarly() async throws {
+        preferences.timerEnabled = true
+        preferences.timerSeconds = 1800
+        let controller = makeController()
+        try await controller.select(.lidClosed)
+
+        time.now += 1799
+        await controller.checkTimer()
+        XCTAssertEqual(sessions.calls, ["start 120"])
+
+        time.now += 1
+        sessions.stopRecord = StopRecord(reason: .timer, time: Date())
+        sessions.renewError = HelperError.helper(.noSession, "No active session.")
+        await controller.checkTimer()
+        XCTAssertEqual(controller.mode, .off)
+        XCTAssertEqual(notifier.posts, ["LidAwake turned off: The timer ran out."])
+    }
+
+    func testBatteryRefusalShowsError() async {
+        sessions.startError = HelperError.helper(.batteryLimitReached, "The battery is at 12%, at or below the 20% limit.")
+        let controller = makeController()
+
+        do {
+            try await controller.select(.lidClosed)
+            XCTFail("expected an error")
+        } catch {}
+        XCTAssertEqual(controller.mode, .off)
+        XCTAssertEqual(controller.lastError, "The battery is at 12%, at or below the 20% limit.")
+        XCTAssertEqual(notifier.posts, [])
+    }
+
+    func testLaunchReportsUnclearedReason() async {
+        sessions.stopRecord = StopRecord(reason: .leaseExpired, time: Date())
+        let controller = makeController()
+
+        await controller.clearLeftover()
+        XCTAssertEqual(sessions.calls, ["clear", "reason", "clear reason"])
+        XCTAssertEqual(notifier.posts, ["LidAwake turned off: LidAwake closed unexpectedly, so normal sleep was restored."])
+        XCTAssertNil(sessions.stopRecord)
+    }
+
+    func testLaunchWithoutReasonStaysQuiet() async {
+        let controller = makeController()
+        await controller.clearLeftover()
+        XCTAssertEqual(sessions.calls, ["clear", "reason"])
+        XCTAssertEqual(notifier.posts, [])
+        XCTAssertNil(controller.lastError)
+    }
+
+    func testAuthorizationRequestedOnFirstMode() async throws {
+        let controller = makeController()
+        try await controller.select(.off)
+        XCTAssertEqual(notifier.authorizationRequests, 0)
+
+        try await controller.select(.keepScreenOn)
+        try await controller.select(.lidClosed)
+        try await controller.select(.off)
+        try await controller.select(.keepScreenOn)
+        XCTAssertEqual(notifier.authorizationRequests, 1)
+    }
+
+    func testNoticeTexts() {
+        let time = Date()
+        XCTAssertEqual(StopNotice.title, "LidAwake turned off")
+        XCTAssertEqual(StopNotice.body(for: StopRecord(reason: .timer, time: time)), "The timer ran out.")
+        XCTAssertEqual(
+            StopNotice.body(for: StopRecord(reason: .battery, time: time, batteryPercent: 9)),
+            "The battery dropped to 9%."
+        )
+        XCTAssertEqual(
+            StopNotice.body(for: StopRecord(reason: .batteryUnreadable, time: time)),
+            "The battery level could not be read."
+        )
+        XCTAssertEqual(
+            StopNotice.body(for: StopRecord(reason: .leaseExpired, time: time)),
+            "LidAwake closed unexpectedly, so normal sleep was restored."
+        )
     }
 }

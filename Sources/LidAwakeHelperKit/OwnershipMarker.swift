@@ -26,20 +26,8 @@ public struct FileOwnershipMarker: OwnershipMarker {
     }
 
     public func set() throws {
-        let manager = FileManager.default
-        try manager.createDirectory(
-            at: directory,
-            withIntermediateDirectories: true,
-            attributes: [.posixPermissions: 0o755]
-        )
-        if getuid() == 0 {
-            // The directory may predate the helper; only root may write to it.
-            try manager.setAttributes(
-                [.ownerAccountID: 0, .groupOwnerAccountID: 0, .posixPermissions: 0o755],
-                ofItemAtPath: directory.path
-            )
-        }
-        guard manager.createFile(atPath: file.path, contents: Data(), attributes: [.posixPermissions: 0o644]) else {
+        try prepareSupportDirectory(directory)
+        guard FileManager.default.createFile(atPath: file.path, contents: Data(), attributes: [.posixPermissions: 0o644]) else {
             throw CocoaError(.fileWriteUnknown, userInfo: [NSFilePathErrorKey: file.path])
         }
     }
@@ -47,5 +35,21 @@ public struct FileOwnershipMarker: OwnershipMarker {
     public func clear() throws {
         guard isSet else { return }
         try FileManager.default.removeItem(at: file)
+    }
+}
+
+func prepareSupportDirectory(_ directory: URL) throws {
+    let manager = FileManager.default
+    try manager.createDirectory(
+        at: directory,
+        withIntermediateDirectories: true,
+        attributes: [.posixPermissions: 0o755]
+    )
+    if getuid() == 0 {
+        // The directory may predate the helper; only root may write to it.
+        try manager.setAttributes(
+            [.ownerAccountID: 0, .groupOwnerAccountID: 0, .posixPermissions: 0o755],
+            ofItemAtPath: directory.path
+        )
     }
 }

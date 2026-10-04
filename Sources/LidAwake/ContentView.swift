@@ -1,10 +1,14 @@
 import AppKit
 import LidAwakeCore
+import LidAwakeShared
 import SwiftUI
 
 struct ContentView: View {
     @ObservedObject var controller: ModeController
+    @ObservedObject var preferences: SafetyPreferences
     @ObservedObject var helper: HelperClient
+
+    private let power = IOKitPowerSource()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -19,6 +23,20 @@ struct ContentView: View {
                 modeRow(.lidClosed, title: "Run with Lid Closed")
             }
             .disabled(controller.isBusy)
+
+            TimelineView(.periodic(from: .now, by: 15)) { _ in
+                if let status = statusLine {
+                    Text(status)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Divider()
+
+            safetyRows
+
+            Divider()
 
             helperRow
 
@@ -36,8 +54,83 @@ struct ContentView: View {
             }
         }
         .padding()
-        .frame(width: 260, alignment: .leading)
+        .frame(width: 300, alignment: .leading)
         .task { await helper.refresh() }
+    }
+
+    private var statusLine: String? {
+        var parts: [String] = []
+        if let remaining = controller.timerRemaining() {
+            parts.append("\(Self.duration(Int(remaining.rounded(.up)))) left")
+        }
+        switch power.read().battery {
+        case .percent(let percent): parts.append("Battery \(percent)%")
+        case .unknown: parts.append("Battery unknown")
+        case .none: break
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    private var safetyRows: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Toggle("Turn off after", isOn: $preferences.timerEnabled)
+                Spacer()
+                Picker("Turn off after", selection: $preferences.timerSeconds) {
+                    ForEach(Self.choices(SafetyPreferences.timerChoices, current: preferences.timerSeconds), id: \.self) {
+                        Text(Self.timerLabel($0)).tag($0)
+                    }
+                }
+                .labelsHidden()
+                .fixedSize()
+                .disabled(!preferences.timerEnabled)
+            }
+            HStack {
+                Toggle("Stop on low battery", isOn: $preferences.batteryLimitEnabled)
+                Spacer()
+                Picker("Stop on low battery", selection: $preferences.batteryLimitPercent) {
+                    ForEach(
+                        Self.choices(SafetyPreferences.batteryLimitChoices, current: preferences.batteryLimitPercent),
+                        id: \.self
+                    ) {
+                        Text("\($0)%").tag($0)
+                    }
+                }
+                .labelsHidden()
+                .fixedSize()
+                .disabled(!preferences.batteryLimitEnabled)
+            }
+            // The battery limit does not apply to Keep Screen On.
+            .opacity(controller.mode == .keepScreenOn ? 0.4 : 1)
+        }
+        .toggleStyle(.switch)
+        .controlSize(.small)
+    }
+
+    private static func choices(_ list: [Int], current: Int) -> [Int] {
+        list.contains(current) ? list : (list + [current]).sorted()
+    }
+
+    private static func timerLabel(_ seconds: Int) -> String {
+        switch seconds {
+        case 1800: return "30 min"
+        case 3600: return "1 hour"
+        case 7200: return "2 hours"
+        case 14_400: return "4 hours"
+        case 28_800: return "8 hours"
+        default: return duration(seconds)
+        }
+    }
+
+    private static func duration(_ seconds: Int) -> String {
+        let minutes = (seconds + 59) / 60
+        let hours = minutes / 60
+        let rest = minutes % 60
+        switch (hours, rest) {
+        case (0, _): return "\(rest) min"
+        case (_, 0): return "\(hours) h"
+        default: return "\(hours) h \(rest) min"
+        }
     }
 
     private var helperRow: some View {
