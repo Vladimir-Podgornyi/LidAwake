@@ -45,13 +45,15 @@ struct ContentView: View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             Text(verbatim: "LidAwake")
                 .font(.system(size: 13, weight: .semibold))
+                .fixedSize()
             Spacer(minLength: 0)
             TimelineView(.periodic(from: .now, by: 15)) { _ in
                 if let status = statusLine {
                     Text(status)
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                        .multilineTextAlignment(.trailing)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }
@@ -336,8 +338,8 @@ private struct ModeCard: View {
                     Text(mode.summary)
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
                 }
+                .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
                 if isSelected {
                     Image(systemName: "checkmark")
@@ -451,6 +453,7 @@ private struct SectionHeader: View {
             .kerning(0.6)
             .textCase(.uppercase)
             .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
             .accessibilityAddTraits(.isHeader)
     }
 }
@@ -475,7 +478,10 @@ private struct SettingRow<Controls: View>: View {
             .fixedSize(horizontal: false, vertical: true)
             .accessibilityElement(children: .combine)
             Spacer(minLength: 8)
-            controls
+            HStack(spacing: 8) {
+                controls
+            }
+            .fixedSize()
         }
         .frame(minHeight: minHeight)
     }
