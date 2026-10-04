@@ -11,6 +11,7 @@ public final class SafetyPreferences: ObservableObject {
         public static let batteryLimitPercent = "batteryLimitPercent"
         public static let thermalProtectionEnabled = "thermalProtectionEnabled"
         public static let chargingOnlyEnabled = "chargingOnlyEnabled"
+        public static let lockOnLidCloseEnabled = "lockOnLidCloseEnabled"
     }
 
     public static let timerChoices = [1800, 3600, 7200, 14_400, 28_800]
@@ -34,6 +35,10 @@ public final class SafetyPreferences: ObservableObject {
     @Published public var chargingOnlyEnabled: Bool {
         didSet { save(chargingOnlyEnabled, Key.chargingOnlyEnabled) }
     }
+    /// Not sent to the helper, so changing it does not fire `changes`.
+    @Published public var lockOnLidCloseEnabled: Bool {
+        didSet { defaults.set(lockOnLidCloseEnabled, forKey: Key.lockOnLidCloseEnabled) }
+    }
 
     /// Fires after any setting has changed.
     public let changes = PassthroughSubject<Void, Never>()
@@ -49,6 +54,7 @@ public final class SafetyPreferences: ObservableObject {
             Key.batteryLimitPercent: 20,
             Key.thermalProtectionEnabled: true,
             Key.chargingOnlyEnabled: false,
+            Key.lockOnLidCloseEnabled: true,
         ])
         timerEnabled = defaults.bool(forKey: Key.timerEnabled)
         timerSeconds = defaults.integer(forKey: Key.timerSeconds)
@@ -56,6 +62,7 @@ public final class SafetyPreferences: ObservableObject {
         batteryLimitPercent = defaults.integer(forKey: Key.batteryLimitPercent)
         thermalProtectionEnabled = defaults.bool(forKey: Key.thermalProtectionEnabled)
         chargingOnlyEnabled = defaults.bool(forKey: Key.chargingOnlyEnabled)
+        lockOnLidCloseEnabled = defaults.bool(forKey: Key.lockOnLidCloseEnabled)
     }
 
     /// The timer applies in both modes; the other protections only in Run with Lid Closed.

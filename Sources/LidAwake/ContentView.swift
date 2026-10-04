@@ -38,6 +38,10 @@ struct ContentView: View {
 
             Divider()
 
+            lockRow
+
+            Divider()
+
             helperRow
 
             if let error = controller.lastError {
@@ -112,6 +116,22 @@ struct ContentView: View {
         }
         .toggleStyle(.switch)
         .controlSize(.small)
+    }
+
+    private var lockRow: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Toggle("Lock screen when the lid closes", isOn: $preferences.lockOnLidCloseEnabled)
+                .toggleStyle(.switch)
+                .controlSize(.small)
+            if let notice = controller.screenLockNotice {
+                Text(notice)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        // Only Run with Lid Closed locks the screen; elsewhere the Mac sleeps as usual.
+        .opacity(controller.mode == .lidClosed ? 1 : 0.4)
     }
 
     private static func choices(_ list: [Int], current: Int) -> [Int] {

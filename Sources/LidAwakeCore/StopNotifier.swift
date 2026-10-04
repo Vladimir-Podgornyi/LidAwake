@@ -39,6 +39,10 @@ public enum PauseNotice {
     public static let body = "Running on battery. It resumes when you plug in."
 }
 
+public enum ScreenLockNotice {
+    public static let unavailable = "Screen lock is not available on this macOS version."
+}
+
 @MainActor
 public final class UserNotificationNotifier: NSObject, StopNotifying, UNUserNotificationCenterDelegate {
     override public init() {

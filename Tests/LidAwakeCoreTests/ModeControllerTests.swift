@@ -116,6 +116,27 @@ private final class FakePowerSourceMonitor: PowerSourceMonitoring {
     }
 }
 
+private final class FakeLidMonitor: LidMonitoring {
+    private var handler: ((Bool) -> Void)?
+
+    func start(_ handler: @escaping (Bool) -> Void) {
+        self.handler = handler
+    }
+
+    func change(closed: Bool) {
+        handler?(closed)
+    }
+}
+
+private final class FakeScreenLocker: ScreenLocking {
+    var isAvailable = true
+    private(set) var lockCount = 0
+
+    func lock() {
+        lockCount += 1
+    }
+}
+
 private final class FakeTime {
     var now: TimeInterval = 1000
 }
@@ -135,6 +156,8 @@ final class ModeControllerTests: XCTestCase {
     private let activity = FakeActivity()
     private let notifier = FakeNotifier()
     private let powerMonitor = FakePowerSourceMonitor()
+    private let lidMonitor = FakeLidMonitor()
+    private let locker = FakeScreenLocker()
     private let time = FakeTime()
     private let suiteName = "ModeControllerTests-\(UUID().uuidString)"
     private lazy var preferences = SafetyPreferences(defaults: UserDefaults(suiteName: suiteName)!)
@@ -154,6 +177,8 @@ final class ModeControllerTests: XCTestCase {
             notifier: notifier,
             activity: activity,
             powerSourceMonitor: powerMonitor,
+            lidMonitor: lidMonitor,
+            screenLocker: locker,
             leaseSeconds: 120,
             renewalSleep: renewalSleep ?? { try await Task.sleep(nanoseconds: 3_600_000_000_000) },
             timerCheckSleep: { try await Task.sleep(nanoseconds: 3_600_000_000_000) },
@@ -746,5 +771,83 @@ final class ModeControllerTests: XCTestCase {
         await controller.renew()
         XCTAssertEqual(controller.mode, .off)
         XCTAssertEqual(notifier.posts, ["LidAwake turned off: The power source could not be read."])
+    }
+
+    func testLockSettingDefaultsOnAndSendsNothing() async throws {
+        XCTAssertTrue(preferences.lockOnLidCloseEnabled)
+        let controller = makeController()
+        try await controller.select(.lidClosed)
+
+        preferences.lockOnLidCloseEnabled = false
+        XCTAssertFalse(UserDefaults(suiteName: suiteName)!.bool(forKey: "lockOnLidCloseEnabled"))
+        for _ in 0..<20 {
+            await Task.yield()
+        }
+        XCTAssertEqual(sessions.calls, ["start 120"])
+    }
+
+    func testLidCloseLocksInLidClosed() async throws {
+        let controller = makeController()
+        try await controller.select(.lidClosed)
+
+        lidMonitor.change(closed: true)
+        XCTAssertEqual(locker.lockCount, 1)
+        XCTAssertEqual(controller.mode, .lidClosed)
+    }
+
+    func testLidCloseWithSettingOffDoesNotLock() async throws {
+        preferences.lockOnLidCloseEnabled = false
+        let controller = makeController()
+        try await controller.select(.lidClosed)
+
+        lidMonitor.change(closed: true)
+        XCTAssertEqual(locker.lockCount, 0)
+    }
+
+    func testLidCloseOutsideLidClosedDoesNotLock() async throws {
+        let controller = makeController()
+        lidMonitor.change(closed: true)
+        lidMonitor.change(closed: false)
+
+        try await controller.select(.keepScreenOn)
+        lidMonitor.change(closed: true)
+        XCTAssertEqual(locker.lockCount, 0)
+    }
+
+    func testLidCloseLocksWhilePaused() async throws {
+        sessions.paused = true
+        let controller = makeController()
+        try await controller.select(.lidClosed)
+        XCTAssertTrue(controller.isPaused)
+
+        lidMonitor.change(closed: true)
+        XCTAssertEqual(locker.lockCount, 1)
+    }
+
+    func testLidOpenDoesNotLock() async throws {
+        let controller = makeController()
+        try await controller.select(.lidClosed)
+
+        lidMonitor.change(closed: false)
+        XCTAssertEqual(locker.lockCount, 0)
+    }
+
+    func testUnavailableLockShowsNotice() async throws {
+        locker.isAvailable = false
+        let controller = makeController()
+        XCTAssertEqual(controller.screenLockNotice, "Screen lock is not available on this macOS version.")
+
+        try await controller.select(.lidClosed)
+        lidMonitor.change(closed: true)
+        XCTAssertEqual(locker.lockCount, 0)
+        XCTAssertEqual(controller.mode, .lidClosed)
+
+        preferences.lockOnLidCloseEnabled = false
+        XCTAssertNil(controller.screenLockNotice)
+    }
+
+    func testAvailableLockShowsNoNotice() {
+        let controller = makeController()
+        XCTAssertNil(controller.screenLockNotice)
     }
 }

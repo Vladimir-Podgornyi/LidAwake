@@ -20,6 +20,8 @@ public final class ModeController: ObservableObject {
     private let activity: ActivityHolding
     private let powerSourceMonitor: PowerSourceMonitoring
     private let notifier: StopNotifying
+    private let lidMonitor: LidMonitoring
+    private let screenLocker: ScreenLocking
     private let leaseSeconds: Int
     private let renewalSleep: () async throws -> Void
     private let timerCheckSleep: () async throws -> Void
@@ -37,6 +39,8 @@ public final class ModeController: ObservableObject {
         notifier: StopNotifying,
         activity: ActivityHolding = AppNapActivity(),
         powerSourceMonitor: PowerSourceMonitoring = IOKitPowerSourceMonitor(),
+        lidMonitor: LidMonitoring = IOKitLidMonitor(),
+        screenLocker: ScreenLocking = LoginScreenLocker(),
         leaseSeconds: Int = 120,
         renewalSleep: @escaping () async throws -> Void = { try await Task.sleep(nanoseconds: 30_000_000_000) },
         timerCheckSleep: @escaping () async throws -> Void = { try await Task.sleep(nanoseconds: 5_000_000_000) },
@@ -49,6 +53,8 @@ public final class ModeController: ObservableObject {
         self.notifier = notifier
         self.activity = activity
         self.powerSourceMonitor = powerSourceMonitor
+        self.lidMonitor = lidMonitor
+        self.screenLocker = screenLocker
         self.leaseSeconds = leaseSeconds
         self.renewalSleep = renewalSleep
         self.timerCheckSleep = timerCheckSleep
@@ -59,6 +65,14 @@ public final class ModeController: ObservableObject {
         powerSourceMonitor.start { [weak self] in
             Task { @MainActor in await self?.powerSourceChanged() }
         }
+        lidMonitor.start { [weak self] closed in
+            MainActor.assumeIsolated { self?.lidChanged(closed: closed) }
+        }
+    }
+
+    /// Shown under the lock setting when it is on but this macOS cannot lock the screen.
+    public var screenLockNotice: String? {
+        preferences.lockOnLidCloseEnabled && !screenLocker.isAvailable ? ScreenLockNotice.unavailable : nil
     }
 
     /// Seconds left on the timer of the current mode; nil when the timer is off or no mode runs.
@@ -160,6 +174,12 @@ public final class ModeController: ObservableObject {
         case .lidClosed:
             await renew()
         }
+    }
+
+    // Run with Lid Closed keeps the Mac awake, so the usual lock on sleep never happens.
+    private func lidChanged(closed: Bool) {
+        guard closed, mode == .lidClosed, preferences.lockOnLidCloseEnabled, screenLocker.isAvailable else { return }
+        screenLocker.lock()
     }
 
     private func powerSourceChanged() async {
