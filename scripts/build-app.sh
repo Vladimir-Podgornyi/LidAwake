@@ -45,6 +45,11 @@ for ICON_FILE in Assets.car AppIcon.icns; do
     fi
 done
 
+for LPROJ in Resources/*.lproj; do
+    plutil -lint -s "$LPROJ"/*.strings
+    cp -R "$LPROJ" "$APP/Contents/Resources/"
+done
+
 TEAM_ID="ZW984867UC"
 
 if [[ -n "${SIGN_IDENTITY:-}" ]]; then

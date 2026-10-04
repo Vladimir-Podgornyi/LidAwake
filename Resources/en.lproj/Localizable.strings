@@ -1,0 +1,83 @@
+/* Modes */
+"Off" = "Off";
+"Keep Screen On" = "Keep Screen On";
+"Run with Lid Closed" = "Run with Lid Closed";
+"The Mac sleeps as usual." = "The Mac sleeps as usual.";
+"For stepping away from the desk. Closing the lid still puts the Mac to sleep." = "For stepping away from the desk. Closing the lid still puts the Mac to sleep.";
+"For the road. Keeps working with the lid shut or the screen locked." = "For the road. Keeps working with the lid shut or the screen locked.";
+
+/* Status line */
+"%@ left" = "%@ left";
+"Screen stays on" = "Screen stays on";
+"Paused · on battery" = "Paused · on battery";
+"Battery %lld%%" = "Battery %lld%%";
+"Battery unknown" = "Battery unknown";
+
+/* Durations and values */
+"%lld min" = "%lld min";
+"%lld h" = "%lld h";
+"%lld h %lld min" = "%lld h %lld min";
+"30 min" = "30 min";
+"1 hour" = "1 hour";
+"2 hours" = "2 hours";
+"4 hours" = "4 hours";
+"8 hours" = "8 hours";
+"%lld%%" = "%lld%%";
+
+/* Settings */
+"Safety" = "Safety";
+"Timer" = "Timer";
+"Safety · lid closed only" = "Safety · lid closed only";
+"Stop when the Mac gets hot" = "Stop when the Mac gets hot";
+"Ends the session under thermal pressure" = "Ends the session under thermal pressure";
+"Stop on low battery" = "Stop on low battery";
+"When the charge drops below the limit" = "When the charge drops below the limit";
+"Battery limit" = "Battery limit";
+"Only while charging" = "Only while charging";
+"Pauses on battery, resumes on power" = "Pauses on battery, resumes on power";
+"Turn off after" = "Turn off after";
+"Counts from the moment you switch on" = "Counts from the moment you switch on";
+"Lock screen when the lid closes" = "Lock screen when the lid closes";
+"Screen lock is not available on this macOS version." = "Screen lock is not available on this macOS version.";
+"Launch at login" = "Launch at login";
+"Turn it on in System Settings > General > Login Items & Extensions." = "Turn it on in System Settings > General > Login Items & Extensions.";
+"Move LidAwake to the Applications folder to launch it at login." = "Move LidAwake to the Applications folder to launch it at login.";
+"Appearance" = "Appearance";
+"Glass" = "Glass";
+"Solid" = "Solid";
+"Accent" = "Accent";
+"Blue" = "Blue";
+"Amber" = "Amber";
+"Quit LidAwake" = "Quit LidAwake";
+
+/* Helper messages */
+"Permission needed" = "Permission needed";
+"Allow LidAwake in System Settings > General > Login Items & Extensions. The mode turns on as soon as you do." = "Allow LidAwake in System Settings > General > Login Items & Extensions. The mode turns on as soon as you do.";
+"Allow LidAwake in System Settings > General > Login Items & Extensions, then choose Run with Lid Closed again." = "Allow LidAwake in System Settings > General > Login Items & Extensions, then choose Run with Lid Closed again.";
+"Allow LidAwake in System Settings > General > Login Items & Extensions." = "Allow LidAwake in System Settings > General > Login Items & Extensions.";
+"Move LidAwake to Applications" = "Move LidAwake to Applications";
+"Run with Lid Closed needs the app in the Applications folder." = "Run with Lid Closed needs the app in the Applications folder.";
+"LidAwake must be in /Applications to install the helper." = "LidAwake must be in /Applications to install the helper.";
+"The helper did not start" = "The helper did not start";
+"Install the helper to run with the lid closed." = "Install the helper to run with the lid closed.";
+"The helper could not be installed." = "The helper could not be installed.";
+"The helper could not be updated." = "The helper could not be updated.";
+"The helper did not respond." = "The helper did not respond.";
+"Open System Settings" = "Open System Settings";
+"Try Again" = "Try Again";
+
+/* Mode messages and notifications */
+"Could not turn on" = "Could not turn on";
+"Something went wrong" = "Something went wrong";
+"LidAwake turned off" = "LidAwake turned off";
+"LidAwake was restarted. Turn the mode on again if you need it." = "LidAwake was restarted. Turn the mode on again if you need it.";
+"The timer ran out." = "The timer ran out.";
+"The battery dropped below the limit." = "The battery dropped below the limit.";
+"The battery dropped to %lld%%." = "The battery dropped to %lld%%.";
+"The battery level could not be read." = "The battery level could not be read.";
+"The Mac got too hot." = "The Mac got too hot.";
+"The thermal state could not be read." = "The thermal state could not be read.";
+"The power source could not be read." = "The power source could not be read.";
+"LidAwake closed unexpectedly, so normal sleep was restored." = "LidAwake closed unexpectedly, so normal sleep was restored.";
+"LidAwake paused" = "LidAwake paused";
+"Running on battery. It resumes when you plug in." = "Running on battery. It resumes when you plug in.";

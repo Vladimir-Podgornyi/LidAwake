@@ -14,6 +14,12 @@
 	<string>com.vladimirpodgornyi.LidAwake</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>de</string>
+		<string>ru</string>
+	</array>
 	<key>CFBundleName</key>
 	<string>LidAwake</string>
 	<key>CFBundlePackageType</key>

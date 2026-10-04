@@ -1,0 +1,83 @@
+/* Modes */
+"Off" = "Выкл.";
+"Keep Screen On" = "Не гасить экран";
+"Run with Lid Closed" = "С закрытой крышкой";
+"The Mac sleeps as usual." = "Mac засыпает как обычно.";
+"For stepping away from the desk. Closing the lid still puts the Mac to sleep." = "Чтобы отойти от стола. Если закрыть крышку, Mac всё равно уснёт.";
+"For the road. Keeps working with the lid shut or the screen locked." = "В дорогу. Mac работает с закрытой крышкой и при заблокированном экране.";
+
+/* Status line */
+"%@ left" = "осталось %@";
+"Screen stays on" = "Экран не гаснет";
+"Paused · on battery" = "Пауза · от батареи";
+"Battery %lld%%" = "Батарея %lld %%";
+"Battery unknown" = "Заряд неизвестен";
+
+/* Durations and values */
+"%lld min" = "%lld мин";
+"%lld h" = "%lld ч";
+"%lld h %lld min" = "%lld ч %lld мин";
+"30 min" = "30 мин";
+"1 hour" = "1 час";
+"2 hours" = "2 часа";
+"4 hours" = "4 часа";
+"8 hours" = "8 часов";
+"%lld%%" = "%lld %%";
+
+/* Settings */
+"Safety" = "Защита";
+"Timer" = "Таймер";
+"Safety · lid closed only" = "Защита · только с закрытой крышкой";
+"Stop when the Mac gets hot" = "Остановить при перегреве";
+"Ends the session under thermal pressure" = "Завершает сеанс, если Mac перегрелся";
+"Stop on low battery" = "Остановить при низком заряде";
+"When the charge drops below the limit" = "Когда заряд опускается ниже порога";
+"Battery limit" = "Порог заряда";
+"Only while charging" = "Только от зарядки";
+"Pauses on battery, resumes on power" = "На батарее пауза, от сети работа продолжается";
+"Turn off after" = "Выключить через";
+"Counts from the moment you switch on" = "Отсчёт с момента включения";
+"Lock screen when the lid closes" = "Блокировать при закрытии крышки";
+"Screen lock is not available on this macOS version." = "Блокировка экрана недоступна в этой версии macOS.";
+"Launch at login" = "Запускать при входе";
+"Turn it on in System Settings > General > Login Items & Extensions." = "Включается здесь: «Системные настройки» > «Основные» > «Объекты входа и расширения».";
+"Move LidAwake to the Applications folder to launch it at login." = "Для запуска при входе LidAwake должен лежать в папке «Программы».";
+"Appearance" = "Оформление";
+"Glass" = "Стекло";
+"Solid" = "Плотный";
+"Accent" = "Акцент";
+"Blue" = "Синий";
+"Amber" = "Янтарный";
+"Quit LidAwake" = "Завершить LidAwake";
+
+/* Helper messages */
+"Permission needed" = "Нужно разрешение";
+"Allow LidAwake in System Settings > General > Login Items & Extensions. The mode turns on as soon as you do." = "Разрешите LidAwake: «Системные настройки» > «Основные» > «Объекты входа и расширения». Режим включится сразу после этого.";
+"Allow LidAwake in System Settings > General > Login Items & Extensions, then choose Run with Lid Closed again." = "Разрешите LidAwake: «Системные настройки» > «Основные» > «Объекты входа и расширения». Затем снова выберите «С закрытой крышкой».";
+"Allow LidAwake in System Settings > General > Login Items & Extensions." = "Разрешите LidAwake: «Системные настройки» > «Основные» > «Объекты входа и расширения».";
+"Move LidAwake to Applications" = "Переместить LidAwake в «Программы»";
+"Run with Lid Closed needs the app in the Applications folder." = "Для режима «С закрытой крышкой» приложение должно лежать в папке «Программы».";
+"LidAwake must be in /Applications to install the helper." = "Чтобы установить помощник, LidAwake должен лежать в папке «Программы».";
+"The helper did not start" = "Помощник не запустился";
+"Install the helper to run with the lid closed." = "Для работы с закрытой крышкой нужно установить помощник.";
+"The helper could not be installed." = "Не удалось установить помощник.";
+"The helper could not be updated." = "Не удалось обновить помощник.";
+"The helper did not respond." = "Помощник не ответил.";
+"Open System Settings" = "Открыть «Системные настройки»";
+"Try Again" = "Повторить";
+
+/* Mode messages and notifications */
+"Could not turn on" = "Не удалось включить";
+"Something went wrong" = "Что-то пошло не так";
+"LidAwake turned off" = "LidAwake выключился";
+"LidAwake was restarted. Turn the mode on again if you need it." = "LidAwake перезапустился. Если режим нужен, включите его снова.";
+"The timer ran out." = "Время таймера вышло.";
+"The battery dropped below the limit." = "Заряд опустился ниже порога.";
+"The battery dropped to %lld%%." = "Заряд опустился до %lld %%.";
+"The battery level could not be read." = "Не удалось узнать уровень заряда.";
+"The Mac got too hot." = "Mac перегрелся.";
+"The thermal state could not be read." = "Не удалось узнать температурное состояние.";
+"The power source could not be read." = "Не удалось определить источник питания.";
+"LidAwake closed unexpectedly, so normal sleep was restored." = "LidAwake неожиданно завершился, обычный сон восстановлен.";
+"LidAwake paused" = "LidAwake на паузе";
+"Running on battery. It resumes when you plug in." = "Mac работает от батареи. Режим продолжится после подключения зарядки.";

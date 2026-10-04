@@ -1,0 +1,83 @@
+/* Modes */
+"Off" = "Aus";
+"Keep Screen On" = "Bildschirm anlassen";
+"Run with Lid Closed" = "Mit geschlossenem Deckel";
+"The Mac sleeps as usual." = "Der Mac schläft wie gewohnt.";
+"For stepping away from the desk. Closing the lid still puts the Mac to sleep." = "Zum kurzen Weggehen vom Schreibtisch. Beim Zuklappen schläft der Mac trotzdem ein.";
+"For the road. Keeps working with the lid shut or the screen locked." = "Für unterwegs. Läuft weiter bei geschlossenem Deckel oder gesperrtem Bildschirm.";
+
+/* Status line */
+"%@ left" = "noch %@";
+"Screen stays on" = "Bildschirm bleibt an";
+"Paused · on battery" = "Pausiert · Akkubetrieb";
+"Battery %lld%%" = "Akku %lld %%";
+"Battery unknown" = "Akku unbekannt";
+
+/* Durations and values */
+"%lld min" = "%lld Min.";
+"%lld h" = "%lld Std.";
+"%lld h %lld min" = "%lld Std. %lld Min.";
+"30 min" = "30 Min.";
+"1 hour" = "1 Stunde";
+"2 hours" = "2 Stunden";
+"4 hours" = "4 Stunden";
+"8 hours" = "8 Stunden";
+"%lld%%" = "%lld %%";
+
+/* Settings */
+"Safety" = "Schutz";
+"Timer" = "Timer";
+"Safety · lid closed only" = "Schutz · nur bei geschlossenem Deckel";
+"Stop when the Mac gets hot" = "Bei Überhitzung beenden";
+"Ends the session under thermal pressure" = "Beendet die Sitzung, wenn der Mac zu heiß wird";
+"Stop on low battery" = "Bei niedrigem Akkustand beenden";
+"When the charge drops below the limit" = "Wenn der Akkustand unter die Grenze fällt";
+"Battery limit" = "Akkugrenze";
+"Only while charging" = "Nur am Netzteil";
+"Pauses on battery, resumes on power" = "Pausiert im Akkubetrieb, läuft am Netzteil weiter";
+"Turn off after" = "Ausschalten nach";
+"Counts from the moment you switch on" = "Gezählt ab dem Einschalten";
+"Lock screen when the lid closes" = "Beim Zuklappen sperren";
+"Screen lock is not available on this macOS version." = "Die Bildschirmsperre ist in dieser macOS-Version nicht verfügbar.";
+"Launch at login" = "Bei der Anmeldung öffnen";
+"Turn it on in System Settings > General > Login Items & Extensions." = "Einschalten unter Systemeinstellungen > Allgemein > Anmeldeobjekte & Erweiterungen.";
+"Move LidAwake to the Applications folder to launch it at login." = "Zum Öffnen bei der Anmeldung muss LidAwake im Ordner „Programme“ liegen.";
+"Appearance" = "Erscheinungsbild";
+"Glass" = "Glas";
+"Solid" = "Deckend";
+"Accent" = "Akzent";
+"Blue" = "Blau";
+"Amber" = "Bernstein";
+"Quit LidAwake" = "LidAwake beenden";
+
+/* Helper messages */
+"Permission needed" = "Erlaubnis erforderlich";
+"Allow LidAwake in System Settings > General > Login Items & Extensions. The mode turns on as soon as you do." = "Erlaube LidAwake unter Systemeinstellungen > Allgemein > Anmeldeobjekte & Erweiterungen. Danach schaltet sich der Modus sofort ein.";
+"Allow LidAwake in System Settings > General > Login Items & Extensions, then choose Run with Lid Closed again." = "Erlaube LidAwake unter Systemeinstellungen > Allgemein > Anmeldeobjekte & Erweiterungen und wähle danach erneut „Mit geschlossenem Deckel“.";
+"Allow LidAwake in System Settings > General > Login Items & Extensions." = "Erlaube LidAwake unter Systemeinstellungen > Allgemein > Anmeldeobjekte & Erweiterungen.";
+"Move LidAwake to Applications" = "LidAwake in „Programme“ bewegen";
+"Run with Lid Closed needs the app in the Applications folder." = "Für „Mit geschlossenem Deckel“ muss die App im Ordner „Programme“ liegen.";
+"LidAwake must be in /Applications to install the helper." = "Zum Installieren des Hilfsprogramms muss LidAwake im Ordner „Programme“ liegen.";
+"The helper did not start" = "Das Hilfsprogramm ist nicht gestartet";
+"Install the helper to run with the lid closed." = "Für den Betrieb mit geschlossenem Deckel muss das Hilfsprogramm installiert sein.";
+"The helper could not be installed." = "Das Hilfsprogramm konnte nicht installiert werden.";
+"The helper could not be updated." = "Das Hilfsprogramm konnte nicht aktualisiert werden.";
+"The helper did not respond." = "Das Hilfsprogramm antwortet nicht.";
+"Open System Settings" = "Systemeinstellungen öffnen";
+"Try Again" = "Erneut versuchen";
+
+/* Mode messages and notifications */
+"Could not turn on" = "Einschalten fehlgeschlagen";
+"Something went wrong" = "Etwas ist schiefgelaufen";
+"LidAwake turned off" = "LidAwake wurde ausgeschaltet";
+"LidAwake was restarted. Turn the mode on again if you need it." = "LidAwake wurde neu gestartet. Schalte den Modus bei Bedarf wieder ein.";
+"The timer ran out." = "Der Timer ist abgelaufen.";
+"The battery dropped below the limit." = "Der Akkustand ist unter die Grenze gefallen.";
+"The battery dropped to %lld%%." = "Der Akkustand ist auf %lld %% gefallen.";
+"The battery level could not be read." = "Der Akkustand konnte nicht gelesen werden.";
+"The Mac got too hot." = "Der Mac ist zu heiß geworden.";
+"The thermal state could not be read." = "Der Temperaturzustand konnte nicht gelesen werden.";
+"The power source could not be read." = "Die Stromquelle konnte nicht gelesen werden.";
+"LidAwake closed unexpectedly, so normal sleep was restored." = "LidAwake wurde unerwartet beendet. Der normale Ruhezustand ist wiederhergestellt.";
+"LidAwake paused" = "LidAwake pausiert";
+"Running on battery. It resumes when you plug in." = "Akkubetrieb. Es geht weiter, sobald das Netzteil angeschlossen ist.";
