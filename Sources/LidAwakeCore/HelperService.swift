@@ -143,7 +143,7 @@ public struct XPCHelperConnection: HelperConnecting, LidSessionService {
                           let battery = BatteryLevel(wireValue: battery),
                           let source = PowerSource(rawValue: source),
                           let thermal = ThermalState(rawValue: thermal) else {
-                        return .failure(HelperError.connection("Unexpected helper reply."))
+                        return .failure(HelperError.connection(String(localized: "Unexpected helper reply.")))
                     }
                     return .success(HelperSessionStatus(
                         flag: flag,
@@ -164,7 +164,7 @@ public struct XPCHelperConnection: HelperConnecting, LidSessionService {
                 done(Self.result(code, message).flatMap {
                     guard let reason else { return .success(nil) }
                     guard let parsed = StopReason(rawValue: reason) else {
-                        return .failure(HelperError.connection("Unexpected helper reply."))
+                        return .failure(HelperError.connection(String(localized: "Unexpected helper reply.")))
                     }
                     return .success(StopRecord(
                         reason: parsed,
@@ -184,10 +184,10 @@ public struct XPCHelperConnection: HelperConnecting, LidSessionService {
 
     static func result(_ code: Int, _ message: String?) -> Result<Void, Error> {
         guard let code = HelperResultCode(rawValue: code) else {
-            return .failure(HelperError.connection("Unexpected helper reply."))
+            return .failure(HelperError.connection(String(localized: "Unexpected helper reply.")))
         }
         guard code == .ok else {
-            return .failure(HelperError.helper(code, message ?? "The helper reported error \(code.rawValue)."))
+            return .failure(HelperError.helper(code, message ?? String(localized: "The helper reported error \(code.rawValue).")))
         }
         return .success(())
     }
@@ -208,7 +208,7 @@ public struct XPCHelperConnection: HelperConnecting, LidSessionService {
                 reply.resume(with: .failure(HelperError.connection(error.localizedDescription)))
             }
             guard let helper = proxy as? HelperProtocol else {
-                reply.resume(with: .failure(HelperError.connection("Unexpected helper interface.")))
+                reply.resume(with: .failure(HelperError.connection(String(localized: "Unexpected helper interface."))))
                 return
             }
             body(helper) { reply.resume(with: $0) }

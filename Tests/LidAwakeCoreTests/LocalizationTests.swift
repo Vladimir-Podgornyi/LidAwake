@@ -53,16 +53,28 @@ final class LocalizationTests: XCTestCase {
         }
     }
 
-    func testFormattedValuesUseASpaceBeforePercent() throws {
+    func testFormattedValuesUseANoBreakSpaceBeforePercentAndUnits() throws {
         XCTAssertEqual(String(format: try table("en")["Battery %lld%%"]!, 82), "Battery 82%")
-        XCTAssertEqual(String(format: try table("de")["Battery %lld%%"]!, 82), "Akku 82 %")
-        XCTAssertEqual(String(format: try table("ru")["Battery %lld%%"]!, 82), "Батарея 82 %")
-        XCTAssertEqual(String(format: try table("de")["%lld%%"]!, 20), "20 %")
-        XCTAssertEqual(String(format: try table("ru")["%lld%%"]!, 20), "20 %")
-        XCTAssertEqual(String(format: try table("de")["%lld h %lld min"]!, 1, 20), "1 Std. 20 Min.")
-        XCTAssertEqual(String(format: try table("ru")["%lld h %lld min"]!, 1, 20), "1 ч 20 мин")
-        XCTAssertEqual(String(format: try table("de")["%@ left"]!, "45 Min."), "noch 45 Min.")
-        XCTAssertEqual(String(format: try table("ru")["%@ left"]!, "45 мин"), "осталось 45 мин")
+        XCTAssertEqual(String(format: try table("de")["Battery %lld%%"]!, 82), "Akku 82\u{00A0}%")
+        XCTAssertEqual(String(format: try table("ru")["Battery %lld%%"]!, 82), "Батарея 82\u{00A0}%")
+        XCTAssertEqual(String(format: try table("de")["%lld%%"]!, 20), "20\u{00A0}%")
+        XCTAssertEqual(String(format: try table("ru")["%lld%%"]!, 20), "20\u{00A0}%")
+        XCTAssertEqual(String(format: try table("de")["%lld h %lld min"]!, 1, 20), "1\u{00A0}Std. 20\u{00A0}Min.")
+        XCTAssertEqual(String(format: try table("ru")["%lld h %lld min"]!, 1, 20), "1\u{00A0}ч 20\u{00A0}мин")
+        XCTAssertEqual(String(format: try table("de")["%@ left"]!, "45\u{00A0}Min."), "noch 45\u{00A0}Min.")
+        XCTAssertEqual(String(format: try table("ru")["%@ left"]!, "45\u{00A0}мин"), "осталось 45\u{00A0}мин")
+    }
+
+    func testNumbersAreNotSplitFromPercentOrUnits() throws {
+        let ordinarySpace = try NSRegularExpression(
+            pattern: "(%lld|\\d) (%|Min\\.|Std\\.|Stunden?|мин|ч|час|часа|часов)(?!\\p{L})"
+        )
+        for language in ["de", "ru"] {
+            for (key, value) in try table(language) {
+                let range = NSRange(value.startIndex..., in: value)
+                XCTAssertNil(ordinarySpace.firstMatch(in: value, range: range), "\(language): \(key)")
+            }
+        }
     }
 
     func testGlossaryTerms() throws {
@@ -73,8 +85,12 @@ final class LocalizationTests: XCTestCase {
             ("Safety", "Schutz", "Защита"),
             ("Timer", "Timer", "Таймер"),
             ("Safety · lid closed only", "Schutz · nur bei geschlossenem Deckel", "Защита · только с закрытой крышкой"),
-            ("Stop when the Mac gets hot", "Bei Überhitzung beenden", "Остановить при перегреве"),
-            ("Stop on low battery", "Bei niedrigem Akkustand beenden", "Остановить при низком заряде"),
+            ("Stop when the Mac gets hot", "Bei Überhitzung beenden", "Стоп при перегреве"),
+            ("Ends the session under thermal pressure", "Wenn der Mac zu heiß wird", "Если Mac перегрелся"),
+            ("Stop on low battery", "Bei schwachem Akku beenden", "Стоп при низком заряде"),
+            ("When the charge drops below the limit", "Unter der eingestellten Grenze", "Когда заряд ниже порога"),
+            ("Pauses on battery, resumes on power", "Pause im Akkubetrieb, weiter am Netzteil", "Пауза на батарее, работа от сети"),
+            ("Counts from the moment you switch on", "Ab dem Einschalten", "Отсчёт с момента включения"),
             ("Only while charging", "Nur am Netzteil", "Только от зарядки"),
             ("Turn off after", "Ausschalten nach", "Выключить через"),
             ("Lock screen when the lid closes", "Beim Zuklappen sperren", "Блокировать при закрытии крышки"),
@@ -91,11 +107,11 @@ final class LocalizationTests: XCTestCase {
             ("Try Again", "Erneut versuchen", "Повторить"),
             ("LidAwake turned off", "LidAwake wurde ausgeschaltet", "LidAwake выключился"),
             ("LidAwake paused", "LidAwake pausiert", "LidAwake на паузе"),
-            ("30 min", "30 Min.", "30 мин"),
-            ("1 hour", "1 Stunde", "1 час"),
-            ("2 hours", "2 Stunden", "2 часа"),
-            ("4 hours", "4 Stunden", "4 часа"),
-            ("8 hours", "8 Stunden", "8 часов"),
+            ("30 min", "30\u{00A0}Min.", "30\u{00A0}мин"),
+            ("1 hour", "1\u{00A0}Stunde", "1\u{00A0}час"),
+            ("2 hours", "2\u{00A0}Stunden", "2\u{00A0}часа"),
+            ("4 hours", "4\u{00A0}Stunden", "4\u{00A0}часа"),
+            ("8 hours", "8\u{00A0}Stunden", "8\u{00A0}часов"),
         ]
         let german = try table("de")
         let russian = try table("ru")

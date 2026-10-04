@@ -63,6 +63,9 @@
 "The helper could not be installed." = "The helper could not be installed.";
 "The helper could not be updated." = "The helper could not be updated.";
 "The helper did not respond." = "The helper did not respond.";
+"Unexpected helper reply." = "Unexpected helper reply.";
+"Unexpected helper interface." = "Unexpected helper interface.";
+"The helper reported error %lld." = "The helper reported error %lld.";
 "Open System Settings" = "Open System Settings";
 "Try Again" = "Try Again";
 

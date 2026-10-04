@@ -10,33 +10,33 @@
 "%@ left" = "noch %@";
 "Screen stays on" = "Bildschirm bleibt an";
 "Paused · on battery" = "Pausiert · Akkubetrieb";
-"Battery %lld%%" = "Akku %lld %%";
+"Battery %lld%%" = "Akku %lld %%";
 "Battery unknown" = "Akku unbekannt";
 
 /* Durations and values */
-"%lld min" = "%lld Min.";
-"%lld h" = "%lld Std.";
-"%lld h %lld min" = "%lld Std. %lld Min.";
-"30 min" = "30 Min.";
-"1 hour" = "1 Stunde";
-"2 hours" = "2 Stunden";
-"4 hours" = "4 Stunden";
-"8 hours" = "8 Stunden";
-"%lld%%" = "%lld %%";
+"%lld min" = "%lld Min.";
+"%lld h" = "%lld Std.";
+"%lld h %lld min" = "%lld Std. %lld Min.";
+"30 min" = "30 Min.";
+"1 hour" = "1 Stunde";
+"2 hours" = "2 Stunden";
+"4 hours" = "4 Stunden";
+"8 hours" = "8 Stunden";
+"%lld%%" = "%lld %%";
 
 /* Settings */
 "Safety" = "Schutz";
 "Timer" = "Timer";
 "Safety · lid closed only" = "Schutz · nur bei geschlossenem Deckel";
 "Stop when the Mac gets hot" = "Bei Überhitzung beenden";
-"Ends the session under thermal pressure" = "Beendet die Sitzung, wenn der Mac zu heiß wird";
-"Stop on low battery" = "Bei niedrigem Akkustand beenden";
-"When the charge drops below the limit" = "Wenn der Akkustand unter die Grenze fällt";
+"Ends the session under thermal pressure" = "Wenn der Mac zu heiß wird";
+"Stop on low battery" = "Bei schwachem Akku beenden";
+"When the charge drops below the limit" = "Unter der eingestellten Grenze";
 "Battery limit" = "Akkugrenze";
 "Only while charging" = "Nur am Netzteil";
-"Pauses on battery, resumes on power" = "Pausiert im Akkubetrieb, läuft am Netzteil weiter";
+"Pauses on battery, resumes on power" = "Pause im Akkubetrieb, weiter am Netzteil";
 "Turn off after" = "Ausschalten nach";
-"Counts from the moment you switch on" = "Gezählt ab dem Einschalten";
+"Counts from the moment you switch on" = "Ab dem Einschalten";
 "Lock screen when the lid closes" = "Beim Zuklappen sperren";
 "Screen lock is not available on this macOS version." = "Die Bildschirmsperre ist in dieser macOS-Version nicht verfügbar.";
 "Launch at login" = "Bei der Anmeldung öffnen";
@@ -63,6 +63,9 @@
 "The helper could not be installed." = "Das Hilfsprogramm konnte nicht installiert werden.";
 "The helper could not be updated." = "Das Hilfsprogramm konnte nicht aktualisiert werden.";
 "The helper did not respond." = "Das Hilfsprogramm antwortet nicht.";
+"Unexpected helper reply." = "Unerwartete Antwort des Hilfsprogramms.";
+"Unexpected helper interface." = "Unerwartete Schnittstelle des Hilfsprogramms.";
+"The helper reported error %lld." = "Das Hilfsprogramm meldet Fehler %lld.";
 "Open System Settings" = "Systemeinstellungen öffnen";
 "Try Again" = "Erneut versuchen";
 
@@ -73,7 +76,7 @@
 "LidAwake was restarted. Turn the mode on again if you need it." = "LidAwake wurde neu gestartet. Schalte den Modus bei Bedarf wieder ein.";
 "The timer ran out." = "Der Timer ist abgelaufen.";
 "The battery dropped below the limit." = "Der Akkustand ist unter die Grenze gefallen.";
-"The battery dropped to %lld%%." = "Der Akkustand ist auf %lld %% gefallen.";
+"The battery dropped to %lld%%." = "Der Akkustand ist auf %lld %% gefallen.";
 "The battery level could not be read." = "Der Akkustand konnte nicht gelesen werden.";
 "The Mac got too hot." = "Der Mac ist zu heiß geworden.";
 "The thermal state could not be read." = "Der Temperaturzustand konnte nicht gelesen werden.";
