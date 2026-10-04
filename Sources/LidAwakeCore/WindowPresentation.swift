@@ -56,6 +56,8 @@ public enum MessageKind: Equatable {
 /// A message about the helper after Run with Lid Closed was chosen, with the action it offers.
 public enum HelperPrompt: Equatable {
     case approval
+    /// The approval did not come in time and the mode will not start on its own any more.
+    case approvalExpired
     case moveToApplications
     case failed(String)
 
@@ -66,14 +68,14 @@ public enum HelperPrompt: Equatable {
 
     public var kind: MessageKind {
         switch self {
-        case .approval, .moveToApplications: return .actionNeeded
+        case .approval, .approvalExpired, .moveToApplications: return .actionNeeded
         case .failed: return .error
         }
     }
 
     public var title: String {
         switch self {
-        case .approval: return String(localized: "Permission needed")
+        case .approval, .approvalExpired: return String(localized: "Permission needed")
         case .moveToApplications: return String(localized: "Move LidAwake to Applications")
         case .failed: return String(localized: "The helper did not start")
         }
@@ -85,6 +87,10 @@ public enum HelperPrompt: Equatable {
             return String(
                 localized: "Allow LidAwake in System Settings > General > Login Items & Extensions. The mode turns on as soon as you do."
             )
+        case .approvalExpired:
+            return String(
+                localized: "Allow LidAwake in System Settings > General > Login Items & Extensions, then choose Run with Lid Closed again."
+            )
         case .moveToApplications:
             return String(localized: "Run with Lid Closed needs the app in the Applications folder.")
         case .failed(let message):
@@ -94,7 +100,7 @@ public enum HelperPrompt: Equatable {
 
     public var action: Action? {
         switch self {
-        case .approval: return .openSystemSettings
+        case .approval, .approvalExpired: return .openSystemSettings
         case .moveToApplications: return nil
         case .failed: return .tryAgain
         }
@@ -119,10 +125,12 @@ public enum ModeMessage: Equatable {
     case turnedOffWithError(String)
     /// The helper failed at something other than starting or keeping a mode.
     case failed(String)
+    /// A session left by an earlier run of the app was ended at launch.
+    case restarted
 
     public var kind: MessageKind {
         switch self {
-        case .turnedOff: return .info
+        case .turnedOff, .restarted: return .info
         case .couldNotTurnOn, .turnedOffWithError, .failed: return .error
         }
     }
@@ -130,7 +138,7 @@ public enum ModeMessage: Equatable {
     public var title: String {
         switch self {
         case .couldNotTurnOn: return String(localized: "Could not turn on")
-        case .turnedOff, .turnedOffWithError: return String(localized: "LidAwake turned off")
+        case .turnedOff, .turnedOffWithError, .restarted: return String(localized: "LidAwake turned off")
         case .failed: return String(localized: "Something went wrong")
         }
     }
@@ -139,6 +147,8 @@ public enum ModeMessage: Equatable {
         switch self {
         case .couldNotTurnOn(let text), .turnedOff(let text), .turnedOffWithError(let text), .failed(let text):
             return text
+        case .restarted:
+            return String(localized: "LidAwake was restarted. Turn the mode on again if you need it.")
         }
     }
 }

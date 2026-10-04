@@ -213,9 +213,11 @@ final class HelperSetupTests: XCTestCase {
 
     func testTimeoutDropsAutomaticStart() async {
         let (helper, setup) = await waitingForApproval()
+        XCTAssertEqual(setup.prompt, .approval)
         await settle { !setup.isWaiting }
         XCTAssertFalse(setup.isWaiting)
-        XCTAssertEqual(setup.prompt, .approval)
+        XCTAssertEqual(setup.prompt, .approvalExpired)
+        XCTAssertEqual(setup.prompt?.action, .openSystemSettings)
         XCTAssertEqual(clock.sleeps, 150)
 
         helper.state = .ready
@@ -224,6 +226,14 @@ final class HelperSetupTests: XCTestCase {
         }
         XCTAssertEqual(clock.sleeps, 150)
         XCTAssertEqual(selected, [])
+    }
+
+    func testSettingsButtonWorksAfterTimeout() async {
+        let (helper, setup) = await waitingForApproval()
+        await settle { !setup.isWaiting }
+        await setup.performPromptAction()
+        XCTAssertEqual(helper.calls.last, "settings")
+        XCTAssertEqual(setup.prompt, .approvalExpired)
     }
 
     func testChoosingModeAgainAfterTimeoutStartsReadyHelper() async {

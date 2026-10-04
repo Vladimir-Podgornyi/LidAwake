@@ -124,7 +124,7 @@ public final class HelperSetup: ObservableObject {
                     return
                 }
                 if self.now() >= deadline {
-                    // The approval prompt stays; only the automatic start is dropped.
+                    self.prompt = .approvalExpired
                     self.isWaiting = false
                     return
                 }

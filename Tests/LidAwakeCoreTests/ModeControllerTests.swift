@@ -42,6 +42,8 @@ private final class FakeSessions: LidSessionService {
     var renewError: Error?
     var stopRecord: StopRecord?
     var paused = false
+    var session: SessionOwnership = .noSession
+    var statusError: Error?
     private(set) var calls: [String] = []
     /// The number of other calls made before each status request.
     private(set) var statusRequests: [Int] = []
@@ -69,9 +71,10 @@ private final class FakeSessions: LidSessionService {
 
     func sessionStatus() async throws -> HelperSessionStatus {
         statusRequests.append(calls.count)
+        if let statusError { throw statusError }
         return HelperSessionStatus(
             flag: .unknown,
-            session: .ours,
+            session: session,
             timerRemaining: nil,
             power: PowerReading(battery: .unknown, source: .unknown),
             thermal: .unknown,
@@ -369,6 +372,70 @@ final class ModeControllerTests: XCTestCase {
         let controller = makeController()
         await controller.clearLeftover()
         XCTAssertEqual(sessions.calls, [])
+        XCTAssertEqual(sessions.statusRequests, [])
+        XCTAssertNil(controller.message)
+    }
+
+    func testLaunchEndsSessionOfEarlierRun() async {
+        await assertLaunchEndsSession(.ours)
+    }
+
+    func testLaunchEndsForeignSessionOfEarlierRun() async {
+        await assertLaunchEndsSession(.foreign)
+    }
+
+    private func assertLaunchEndsSession(_ session: SessionOwnership) async {
+        sessions.session = session
+        let controller = makeController()
+
+        await controller.clearLeftover()
+        XCTAssertEqual(sessions.calls, ["end", "reason"])
+        XCTAssertEqual(controller.message, .restarted)
+        XCTAssertEqual(controller.mode, .off)
+        XCTAssertFalse(controller.isBusy)
+        XCTAssertEqual(notifier.posts, [])
+    }
+
+    func testLaunchWithoutSessionClearsLeftoverQuietly() async {
+        sessions.session = .noSession
+        let controller = makeController()
+
+        await controller.clearLeftover()
+        XCTAssertEqual(sessions.statusRequests, [0])
+        XCTAssertEqual(sessions.calls, ["clear", "reason"])
+        XCTAssertNil(controller.message)
+        XCTAssertEqual(notifier.posts, [])
+    }
+
+    func testLaunchClearsLeftoverWhenStatusFails() async {
+        sessions.statusError = HelperError.timeout
+        let controller = makeController()
+
+        await controller.clearLeftover()
+        XCTAssertEqual(sessions.calls, ["clear", "reason"])
+        XCTAssertNil(controller.message)
+    }
+
+    func testStoredReasonWinsOverEndedSession() async {
+        sessions.session = .ours
+        sessions.stopRecord = StopRecord(reason: .leaseExpired, time: Date())
+        let controller = makeController()
+
+        await controller.clearLeftover()
+        XCTAssertEqual(sessions.calls, ["end", "reason", "clear reason"])
+        XCTAssertEqual(controller.message, .turnedOff("LidAwake closed unexpectedly, so normal sleep was restored."))
+        XCTAssertEqual(notifier.posts, ["LidAwake turned off: LidAwake closed unexpectedly, so normal sleep was restored."])
+    }
+
+    func testLaunchLeavesRunningModeAlone() async throws {
+        let controller = makeController()
+        try await controller.select(.lidClosed)
+        sessions.session = .ours
+
+        await controller.clearLeftover()
+        XCTAssertEqual(sessions.calls, ["start 120"])
+        XCTAssertEqual(controller.mode, .lidClosed)
+        XCTAssertNil(controller.message)
     }
 
     // MARK: Safety limits and notifications

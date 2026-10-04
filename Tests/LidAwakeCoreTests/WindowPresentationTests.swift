@@ -102,6 +102,18 @@ final class WindowMessageTests: XCTestCase {
         XCTAssertEqual(message?.actionTitle, "Open System Settings")
     }
 
+    func testApprovalExpired() {
+        let message = only(helper: .approvalExpired)
+        XCTAssertEqual(message?.kind, .actionNeeded)
+        XCTAssertEqual(message?.title, "Permission needed")
+        XCTAssertEqual(
+            message?.text,
+            "Allow LidAwake in System Settings > General > Login Items & Extensions, then choose Run with Lid Closed again."
+        )
+        XCTAssertEqual(message?.action, .openSystemSettings)
+        XCTAssertEqual(message?.actionTitle, "Open System Settings")
+    }
+
     func testMoveToApplications() {
         let message = only(helper: .moveToApplications)
         XCTAssertEqual(message?.kind, .actionNeeded)
@@ -151,6 +163,15 @@ final class WindowMessageTests: XCTestCase {
         XCTAssertEqual(message?.kind, .error)
         XCTAssertEqual(message?.title, "Something went wrong")
         XCTAssertEqual(message?.text, "Broken")
+        XCTAssertNil(message?.actionTitle)
+    }
+
+    func testRestarted() {
+        let message = only(mode: .restarted)
+        XCTAssertEqual(message?.kind, .info)
+        XCTAssertEqual(message?.title, "LidAwake turned off")
+        XCTAssertEqual(message?.text, "LidAwake was restarted. Turn the mode on again if you need it.")
+        XCTAssertNil(message?.action)
         XCTAssertNil(message?.actionTitle)
     }
 

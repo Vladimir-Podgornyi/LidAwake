@@ -122,16 +122,31 @@ public final class ModeController: ObservableObject {
         message = nil
     }
 
-    /// Clears a lid-closed flag left over from an earlier run and reports why the helper last stopped,
-    /// if the helper is ready.
+    /// Ends a session or clears a lid-closed flag left over from an earlier run and reports why the helper
+    /// last stopped, if the helper is ready.
     public func clearLeftover() async {
-        guard await helper.isReady() else { return }
+        guard await helper.isReady(), mode == .off, !isBusy else { return }
+        isBusy = true
+        defer { isBusy = false }
+        var endedSession = false
         do {
-            try await sessions.clearLeftover()
+            // A session the helper still holds belongs to an earlier run of the app; its lease would keep
+            // the Mac awake for up to two minutes. Without a status the flag is cleared as before.
+            if let status = try? await sessions.sessionStatus(), status.session != .noSession {
+                try await sessions.endSession()
+                endedSession = true
+            } else {
+                try await sessions.clearLeftover()
+            }
         } catch {
             message = .failed(error.localizedDescription)
         }
-        await reportStopReason()
+        if await reportStopReason() {
+            return
+        }
+        if endedSession {
+            message = .restarted
+        }
     }
 
     func renew() async {
