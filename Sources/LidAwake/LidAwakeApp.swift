@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let helperSetup: HelperSetup
     let launchAtLogin = LaunchAtLogin()
     let accent = AccentPreference()
+    let windowStyle = WindowAppearancePreference()
 
     override init() {
         helperClient = HelperClient()
@@ -55,7 +56,8 @@ struct LidAwakeApp: App {
                 preferences: appDelegate.modeController.preferences,
                 helperSetup: appDelegate.helperSetup,
                 launchAtLogin: appDelegate.launchAtLogin,
-                accent: appDelegate.accent
+                accent: appDelegate.accent,
+                windowStyle: appDelegate.windowStyle
             )
         } label: {
             MenuBarIcon(controller: appDelegate.modeController)

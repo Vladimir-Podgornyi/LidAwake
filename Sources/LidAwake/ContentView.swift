@@ -9,8 +9,12 @@ struct ContentView: View {
     @ObservedObject var helperSetup: HelperSetup
     @ObservedObject var launchAtLogin: LaunchAtLogin
     @ObservedObject var accent: AccentPreference
+    @ObservedObject var windowStyle: WindowAppearancePreference
+
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     private let power = IOKitPowerSource()
+    private let isSystem26OrLater = WindowLook.isSystem26OrLater
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -29,6 +33,7 @@ struct ContentView: View {
         .padding(.horizontal, 14)
         .padding(.bottom, 8)
         .frame(width: 320, alignment: .leading)
+        .background(look.drawsOwnBackground ? Palette.solidWindowBackground : .clear)
         .tint(accentColor)
         .onAppear { launchAtLogin.refresh() }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
@@ -64,7 +69,7 @@ struct ContentView: View {
     private var modeCards: some View {
         VStack(spacing: 8) {
             ForEach(Mode.allCases, id: \.self) { mode in
-                ModeCard(mode: mode, isSelected: controller.mode == mode, accent: accentColor) {
+                ModeCard(mode: mode, isSelected: controller.mode == mode, accent: accentColor, look: look) {
                     Task { await helperSetup.select(mode) }
                 }
             }
@@ -79,7 +84,7 @@ struct ContentView: View {
     private var messageBlock: some View {
         VStack(alignment: .leading, spacing: 8) {
             ForEach(messages) { message in
-                MessageBanner(message: message, isActionDisabled: helperSetup.isWorking) {
+                MessageBanner(message: message, look: look, isActionDisabled: helperSetup.isWorking) {
                     Task { await helperSetup.performPromptAction() }
                 }
             }
@@ -106,6 +111,9 @@ struct ContentView: View {
             Divider()
             lockRow(minHeight: 36)
             launchRow
+            if WindowLook.showsStyleSetting(isSystem26OrLater: isSystem26OrLater) {
+                appearanceRow
+            }
             accentRow
             Divider()
         }
@@ -136,6 +144,9 @@ struct ContentView: View {
             .disabled(true)
             Divider()
             launchRow
+            if WindowLook.showsStyleSetting(isSystem26OrLater: isSystem26OrLater) {
+                appearanceRow
+            }
             accentRow
             Divider()
         }
@@ -203,6 +214,23 @@ struct ContentView: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
+        }
+    }
+
+    private var look: WindowLook {
+        WindowLook(style: windowStyle.style, isSystem26OrLater: isSystem26OrLater, reduceTransparency: reduceTransparency)
+    }
+
+    private var appearanceRow: some View {
+        SettingRow(title: "Appearance", minHeight: 36) {
+            Picker("Appearance", selection: $windowStyle.style) {
+                ForEach(WindowAppearance.allCases, id: \.self) { style in
+                    Text(style.title).tag(style)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .fixedSize()
         }
     }
 
@@ -277,10 +305,20 @@ private extension AccentTheme {
     }
 }
 
+private extension WindowAppearance {
+    var title: LocalizedStringKey {
+        switch self {
+        case .glass: return "Glass"
+        case .solid: return "Solid"
+        }
+    }
+}
+
 private struct ModeCard: View {
     let mode: Mode
     let isSelected: Bool
     let accent: Color
+    let look: WindowLook
     let action: () -> Void
 
     @Environment(\.isEnabled) private var isEnabled
@@ -313,8 +351,8 @@ private struct ModeCard: View {
             // The border is drawn inside the card, so 13 matches the mockup's 12 padding plus a 1 border.
             .padding(13)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(shape.fill(Palette.cardBackground))
-            .overlay(shape.strokeBorder(isSelected ? accent : Palette.cardBorder, lineWidth: isSelected ? 2 : 1))
+            .background(shape.fill(Palette.cardBackground(look)))
+            .overlay(shape.strokeBorder(isSelected ? accent : Palette.cardBorder(look), lineWidth: isSelected ? 2 : 1))
             .contentShape(shape)
         }
         .buttonStyle(.plain)
@@ -342,25 +380,26 @@ private extension MessageKind {
         }
     }
 
-    var background: Color {
+    func background(_ look: WindowLook) -> Color {
         switch self {
         case .actionNeeded: return Color.orange.opacity(0.14)
         case .error: return Color.red.opacity(0.12)
-        case .info: return Palette.cardBackground
+        case .info: return Palette.cardBackground(look)
         }
     }
 
-    var border: Color {
+    func border(_ look: WindowLook) -> Color {
         switch self {
         case .actionNeeded: return Color.orange.opacity(0.45)
         case .error: return Color.red.opacity(0.45)
-        case .info: return Palette.cardBorder
+        case .info: return Palette.cardBorder(look)
         }
     }
 }
 
 private struct MessageBanner: View {
     let message: WindowMessage
+    let look: WindowLook
     let isActionDisabled: Bool
     let action: () -> Void
 
@@ -397,8 +436,8 @@ private struct MessageBanner: View {
         // The border is drawn inside the banner, so 13 matches the mockup's 12 padding plus a 1 border.
         .padding(13)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(shape.fill(message.kind.background))
-        .overlay(shape.strokeBorder(message.kind.border, lineWidth: 1))
+        .background(shape.fill(message.kind.background(look)))
+        .overlay(shape.strokeBorder(message.kind.border(look), lineWidth: 1))
         .accessibilityElement(children: .contain)
     }
 }
