@@ -26,6 +26,25 @@ cp "$BIN_DIR/$HELPER_NAME" "$HELPER"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 cp "Resources/$HELPER_ID.plist" "$APP/Contents/Library/LaunchDaemons/$HELPER_ID.plist"
 
+# actool can exit with 0 after an error, so the outputs are checked below.
+ICON_TMP="$(mktemp -d)"
+trap 'rm -rf "$ICON_TMP"' EXIT
+mkdir -p "$APP/Contents/Resources"
+xcrun actool Resources/AppIcon.icon \
+    --compile "$APP/Contents/Resources" \
+    --app-icon AppIcon \
+    --platform macosx \
+    --target-device mac \
+    --minimum-deployment-target 13.0 \
+    --output-partial-info-plist "$ICON_TMP/partial.plist" \
+    --output-format human-readable-text --errors --warnings --notices
+for ICON_FILE in Assets.car AppIcon.icns; do
+    if [[ ! -f "$APP/Contents/Resources/$ICON_FILE" ]]; then
+        echo "ERROR: actool did not produce $ICON_FILE from Resources/AppIcon.icon." >&2
+        exit 1
+    fi
+done
+
 TEAM_ID="ZW984867UC"
 
 if [[ -n "${SIGN_IDENTITY:-}" ]]; then
