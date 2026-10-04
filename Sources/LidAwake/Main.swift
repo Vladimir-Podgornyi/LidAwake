@@ -3,6 +3,15 @@ import Foundation
 @main
 enum Main {
     static func main() {
+        switch WindowSnapshot.folder(from: CommandLine.arguments) {
+        case .success(let folder):
+            exit(MainActor.assumeIsolated { WindowSnapshot.run(folder: folder) })
+        case .failure(let error):
+            FileHandle.standardError.write(Data((error.message + "\n").utf8))
+            exit(64)
+        case nil:
+            break
+        }
         guard let command = HelperCommand(arguments: CommandLine.arguments) else {
             LidAwakeApp.main()
             return
