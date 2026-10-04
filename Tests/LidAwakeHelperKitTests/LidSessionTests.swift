@@ -1130,6 +1130,83 @@ final class LidSessionTests: XCTestCase {
         XCTAssertEqual(flag.writes, [true])
     }
 
+    func testResumeWithForeignFlagBecomesForeign() {
+        for viaRenew in [false, true] {
+            flag = FakeFlag(false)
+            marker = FakeMarker()
+            power.reading = onBattery
+            let session = makeSession()
+            XCTAssertEqual(session.start(lease: 120, safety: chargingOnly()), .ok)
+            XCTAssertEqual(session.ownership, .ours)
+
+            // Another program sets the flag during the pause.
+            flag.value = true
+            var markerSet = false
+            marker.onSet = { markerSet = true }
+            power.reading = onAC
+            if viaRenew {
+                XCTAssertEqual(session.renew(lease: 120, safety: chargingOnly()), .ok)
+            } else {
+                XCTAssertEqual(session.enforceLimits(), .ok)
+            }
+            XCTAssertFalse(session.isPaused, "renew: \(viaRenew)")
+            XCTAssertEqual(session.ownership, .foreign)
+            XCTAssertEqual(session.status().session, .foreign)
+            XCTAssertFalse(markerSet)
+            XCTAssertFalse(marker.isSet)
+            XCTAssertEqual(flag.writes, [])
+
+            XCTAssertEqual(session.end(), .ok)
+            XCTAssertTrue(flag.value)
+            XCTAssertEqual(flag.writes, [])
+            XCTAssertFalse(marker.isSet)
+        }
+    }
+
+    func testResumeFlagReadFailureStaysPaused() {
+        power.reading = onBattery
+        let session = makeSession()
+        XCTAssertEqual(session.start(lease: 120, safety: chargingOnly()), .ok)
+
+        power.reading = onAC
+        flag.readFails = true
+        XCTAssertEqual(session.enforceLimits()?.code, .flagReadFailed)
+        XCTAssertEqual(session.renew(lease: 120, safety: chargingOnly()).code, .flagReadFailed)
+        XCTAssertTrue(session.isPaused)
+        XCTAssertEqual(session.ownership, .ours)
+        XCTAssertFalse(marker.isSet)
+        XCTAssertEqual(flag.writes, [])
+
+        flag.readFails = false
+        XCTAssertEqual(session.enforceLimits(), .ok)
+        XCTAssertFalse(session.isPaused)
+        XCTAssertEqual(session.ownership, .ours)
+        XCTAssertTrue(flag.value)
+        XCTAssertTrue(marker.isSet)
+    }
+
+    func testForeignAfterResumeTakesOverWhenFlagDisappears() {
+        power.reading = onBattery
+        let session = makeSession()
+        XCTAssertEqual(session.start(lease: 120, safety: chargingOnly()), .ok)
+
+        flag.value = true
+        power.reading = onAC
+        XCTAssertEqual(session.enforceLimits(), .ok)
+        XCTAssertEqual(session.ownership, .foreign)
+
+        flag.value = false
+        XCTAssertEqual(session.renew(lease: 120, safety: chargingOnly()), .ok)
+        XCTAssertEqual(session.ownership, .ours)
+        XCTAssertTrue(marker.isSet)
+        XCTAssertTrue(flag.value)
+        XCTAssertEqual(flag.writes, [true])
+
+        XCTAssertEqual(session.end(), .ok)
+        XCTAssertFalse(flag.value)
+        XCTAssertFalse(marker.isSet)
+    }
+
     func testPauseFailureKeepsSessionRunning() {
         let session = makeSession()
         XCTAssertEqual(session.start(lease: 120, safety: chargingOnly()), .ok)

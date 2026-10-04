@@ -374,6 +374,18 @@ public final class LidSession {
     private func resume() -> SessionResult {
         guard isPaused else { return .ok }
         if ownership == .ours {
+            // Another program may have set the flag during the pause; it stays foreign.
+            let isSet: Bool
+            do {
+                isSet = try flag.read()
+            } catch {
+                return .failure(.flagReadFailed, error)
+            }
+            if isSet {
+                ownership = .foreign
+                isPaused = false
+                return .ok
+            }
             let claimed = claimFlag()
             guard claimed == .ok else { return claimed }
         }
