@@ -7,7 +7,13 @@ cd "$ROOT"
 APP_NAME="LidAwake"
 APP="build/$APP_NAME.app"
 
-swift build -c release
+# The Swift driver links via clang with --sysroot, from which clang does not
+# read the SDK version, so LC_BUILD_VERSION would record the deployment target
+# as the SDK. Passing -isysroot to the linking clang records the real SDK.
+SDK_PATH="$(xcrun --sdk macosx --show-sdk-path)"
+swift build -c release \
+    -Xswiftc -Xclang-linker -Xswiftc -isysroot \
+    -Xswiftc -Xclang-linker -Xswiftc "$SDK_PATH"
 BIN_DIR="$(swift build -c release --show-bin-path)"
 
 rm -rf "$APP"
