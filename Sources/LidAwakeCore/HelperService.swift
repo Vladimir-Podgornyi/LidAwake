@@ -104,7 +104,8 @@ public struct XPCHelperConnection: HelperConnecting, LidSessionService {
                 leaseSeconds: leaseSeconds,
                 timerSeconds: safety.timerSeconds,
                 batteryLimitPercent: safety.batteryLimitPercent,
-                thermalProtection: safety.thermalProtection
+                thermalProtection: safety.thermalProtection,
+                chargingOnly: safety.chargingOnly
             ) { done(Self.result($0, $1)) }
         }
     }
@@ -115,7 +116,8 @@ public struct XPCHelperConnection: HelperConnecting, LidSessionService {
                 leaseSeconds: leaseSeconds,
                 timerSeconds: safety.timerSeconds,
                 batteryLimitPercent: safety.batteryLimitPercent,
-                thermalProtection: safety.thermalProtection
+                thermalProtection: safety.thermalProtection,
+                chargingOnly: safety.chargingOnly
             ) { done(Self.result($0, $1)) }
         }
     }
@@ -134,7 +136,7 @@ public struct XPCHelperConnection: HelperConnecting, LidSessionService {
 
     public func sessionStatus() async throws -> HelperSessionStatus {
         try await call(timeout: sessionTimeout) { helper, done in
-            helper.sessionStatus { code, message, flag, session, timer, battery, source, thermal in
+            helper.sessionStatus { code, message, flag, session, timer, battery, source, thermal, paused in
                 done(Self.result(code, message).flatMap {
                     guard let flag = SleepFlagState(rawValue: flag),
                           let session = SessionOwnership(rawValue: session),
@@ -148,7 +150,8 @@ public struct XPCHelperConnection: HelperConnecting, LidSessionService {
                         session: session,
                         timerRemaining: timer < 0 ? nil : timer,
                         power: PowerReading(battery: battery, source: source),
-                        thermal: thermal
+                        thermal: thermal,
+                        paused: paused
                     ))
                 })
             }

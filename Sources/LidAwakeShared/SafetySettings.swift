@@ -11,11 +11,14 @@ public struct SafetySettings: Equatable {
     public let batteryLimitPercent: Int
     /// Ends the session when the Mac gets too hot.
     public let thermalProtection: Bool
+    /// Pauses the session while the Mac runs on battery.
+    public let chargingOnly: Bool
 
-    public init(timerSeconds: Int, batteryLimitPercent: Int, thermalProtection: Bool) {
+    public init(timerSeconds: Int, batteryLimitPercent: Int, thermalProtection: Bool, chargingOnly: Bool = false) {
         self.timerSeconds = timerSeconds
         self.batteryLimitPercent = batteryLimitPercent
         self.thermalProtection = thermalProtection
+        self.chargingOnly = chargingOnly
     }
 
     public var isValid: Bool {
@@ -30,6 +33,7 @@ public enum StopReason: String, Codable, Equatable {
     case batteryUnreadable
     case thermal
     case thermalUnreadable
+    case powerUnreadable
     case leaseExpired
 }
 

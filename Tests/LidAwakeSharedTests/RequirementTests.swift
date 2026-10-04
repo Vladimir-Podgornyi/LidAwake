@@ -35,6 +35,6 @@ final class RequirementTests: XCTestCase {
     func testIdentifiers() {
         XCTAssertEqual(HelperConstants.machServiceName, "com.vladimirpodgornyi.LidAwake.helper")
         XCTAssertEqual(HelperConstants.plistName, "com.vladimirpodgornyi.LidAwake.helper.plist")
-        XCTAssertEqual(HelperConstants.protocolVersion, 5)
+        XCTAssertEqual(HelperConstants.protocolVersion, 6)
     }
 }

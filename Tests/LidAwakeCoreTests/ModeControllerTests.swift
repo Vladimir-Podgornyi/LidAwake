@@ -41,7 +41,10 @@ private final class FakeSessions: LidSessionService {
     var startError: Error?
     var renewError: Error?
     var stopRecord: StopRecord?
+    var paused = false
     private(set) var calls: [String] = []
+    /// The number of other calls made before each status request.
+    private(set) var statusRequests: [Int] = []
     private(set) var safety: [SafetySettings] = []
 
     func startSession(leaseSeconds: Int, safety: SafetySettings) async throws {
@@ -65,12 +68,14 @@ private final class FakeSessions: LidSessionService {
     }
 
     func sessionStatus() async throws -> HelperSessionStatus {
-        HelperSessionStatus(
+        statusRequests.append(calls.count)
+        return HelperSessionStatus(
             flag: .unknown,
-            session: .noSession,
+            session: .ours,
             timerRemaining: nil,
             power: PowerReading(battery: .unknown, source: .unknown),
-            thermal: .unknown
+            thermal: .unknown,
+            paused: paused
         )
     }
 
@@ -99,6 +104,18 @@ private final class FakeNotifier: StopNotifying {
     }
 }
 
+private final class FakePowerSourceMonitor: PowerSourceMonitoring {
+    private var handler: (() -> Void)?
+
+    func start(_ handler: @escaping () -> Void) {
+        self.handler = handler
+    }
+
+    func change() {
+        handler?()
+    }
+}
+
 private final class FakeTime {
     var now: TimeInterval = 1000
 }
@@ -117,6 +134,7 @@ final class ModeControllerTests: XCTestCase {
     private let sessions = FakeSessions()
     private let activity = FakeActivity()
     private let notifier = FakeNotifier()
+    private let powerMonitor = FakePowerSourceMonitor()
     private let time = FakeTime()
     private let suiteName = "ModeControllerTests-\(UUID().uuidString)"
     private lazy var preferences = SafetyPreferences(defaults: UserDefaults(suiteName: suiteName)!)
@@ -135,6 +153,7 @@ final class ModeControllerTests: XCTestCase {
             preferences: preferences,
             notifier: notifier,
             activity: activity,
+            powerSourceMonitor: powerMonitor,
             leaseSeconds: 120,
             renewalSleep: renewalSleep ?? { try await Task.sleep(nanoseconds: 3_600_000_000_000) },
             timerCheckSleep: { try await Task.sleep(nanoseconds: 3_600_000_000_000) },
@@ -335,6 +354,7 @@ final class ModeControllerTests: XCTestCase {
         XCTAssertTrue(preferences.batteryLimitEnabled)
         XCTAssertEqual(preferences.batteryLimitPercent, 20)
         XCTAssertTrue(preferences.thermalProtectionEnabled)
+        XCTAssertFalse(preferences.chargingOnlyEnabled)
         XCTAssertEqual(
             preferences.helperSettings,
             SafetySettings(timerSeconds: 0, batteryLimitPercent: 20, thermalProtection: true)
@@ -348,17 +368,20 @@ final class ModeControllerTests: XCTestCase {
         defaults.set(false, forKey: "batteryLimitEnabled")
         defaults.set(15, forKey: "batteryLimitPercent")
         defaults.set(false, forKey: "thermalProtectionEnabled")
+        defaults.set(true, forKey: "chargingOnlyEnabled")
 
         let loaded = SafetyPreferences(defaults: defaults)
         XCTAssertEqual(
             loaded.helperSettings,
-            SafetySettings(timerSeconds: 5400, batteryLimitPercent: 0, thermalProtection: false)
+            SafetySettings(timerSeconds: 5400, batteryLimitPercent: 0, thermalProtection: false, chargingOnly: true)
         )
 
         loaded.batteryLimitPercent = 40
         XCTAssertEqual(defaults.integer(forKey: "batteryLimitPercent"), 40)
         loaded.thermalProtectionEnabled = true
         XCTAssertTrue(defaults.bool(forKey: "thermalProtectionEnabled"))
+        loaded.chargingOnlyEnabled = false
+        XCTAssertFalse(defaults.bool(forKey: "chargingOnlyEnabled"))
     }
 
     func testLidClosedSendsSafetySettings() async throws {
@@ -603,5 +626,125 @@ final class ModeControllerTests: XCTestCase {
             StopNotice.body(for: StopRecord(reason: .thermalUnreadable, time: time)),
             "The thermal state could not be read."
         )
+        XCTAssertEqual(
+            StopNotice.body(for: StopRecord(reason: .powerUnreadable, time: time)),
+            "The power source could not be read."
+        )
+        XCTAssertEqual(PauseNotice.title, "LidAwake paused")
+        XCTAssertEqual(PauseNotice.body, "Running on battery. It resumes when you plug in.")
+    }
+
+    // MARK: Charging only
+
+    private let pausedNotice = "LidAwake paused: Running on battery. It resumes when you plug in."
+
+    func testPowerSourceChangeSendsRenewalThenAsksForStatus() async throws {
+        let controller = makeController()
+        try await controller.select(.lidClosed)
+        XCTAssertEqual(sessions.statusRequests, [1])
+
+        powerMonitor.change()
+        await settle { sessions.statusRequests.count >= 2 }
+        XCTAssertEqual(sessions.calls, ["start 120", "renew 120"])
+        XCTAssertEqual(sessions.statusRequests, [1, 2])
+        XCTAssertEqual(controller.mode, .lidClosed)
+    }
+
+    func testPowerSourceChangeOutsideLidClosedSendsNothing() async throws {
+        let controller = makeController()
+        powerMonitor.change()
+        try await controller.select(.keepScreenOn)
+        powerMonitor.change()
+        for _ in 0..<20 {
+            await Task.yield()
+        }
+        XCTAssertEqual(sessions.calls, [])
+        XCTAssertEqual(sessions.statusRequests, [])
+    }
+
+    func testPauseNotifiesOnce() async throws {
+        let controller = makeController()
+        try await controller.select(.lidClosed)
+        XCTAssertFalse(controller.isPaused)
+        XCTAssertEqual(notifier.posts, [])
+
+        sessions.paused = true
+        powerMonitor.change()
+        await settle { controller.isPaused }
+        XCTAssertTrue(controller.isPaused)
+        XCTAssertEqual(controller.mode, .lidClosed)
+        XCTAssertEqual(notifier.posts, [pausedNotice])
+
+        await controller.renew()
+        powerMonitor.change()
+        await settle { sessions.statusRequests.count >= 4 }
+        XCTAssertEqual(sessions.statusRequests.count, 4)
+        XCTAssertEqual(notifier.posts, [pausedNotice])
+    }
+
+    func testResumeIsSilent() async throws {
+        sessions.paused = true
+        let controller = makeController()
+        try await controller.select(.lidClosed)
+        XCTAssertTrue(controller.isPaused)
+        XCTAssertEqual(notifier.posts, [pausedNotice])
+
+        sessions.paused = false
+        powerMonitor.change()
+        await settle { !controller.isPaused }
+        XCTAssertFalse(controller.isPaused)
+        XCTAssertEqual(controller.mode, .lidClosed)
+        XCTAssertEqual(notifier.posts, [pausedNotice])
+        XCTAssertNil(controller.lastError)
+    }
+
+    func testLeavingModeClearsPause() async throws {
+        sessions.paused = true
+        let controller = makeController()
+        try await controller.select(.lidClosed)
+        XCTAssertTrue(controller.isPaused)
+
+        try await controller.select(.off)
+        XCTAssertFalse(controller.isPaused)
+    }
+
+    func testChargingOnlySettingChangeSendsRenewal() async throws {
+        let controller = makeController()
+        try await controller.select(.lidClosed)
+        XCTAssertEqual(sessions.safety.last?.chargingOnly, false)
+
+        preferences.chargingOnlyEnabled = true
+        await settle { sessions.calls.count >= 2 }
+        XCTAssertEqual(sessions.calls, ["start 120", "renew 120"])
+        XCTAssertEqual(
+            sessions.safety.last,
+            SafetySettings(timerSeconds: 0, batteryLimitPercent: 20, thermalProtection: true, chargingOnly: true)
+        )
+        await settle { sessions.statusRequests.count >= 2 }
+        XCTAssertEqual(sessions.statusRequests, [1, 2])
+    }
+
+    func testPowerSourceRefusalShowsError() async {
+        sessions.startError = HelperError.helper(.powerUnreadable, "The power source could not be read.")
+        let controller = makeController()
+
+        do {
+            try await controller.select(.lidClosed)
+            XCTFail("expected an error")
+        } catch {}
+        XCTAssertEqual(controller.mode, .off)
+        XCTAssertEqual(controller.lastError, "The power source could not be read.")
+        XCTAssertEqual(notifier.posts, [])
+    }
+
+    func testNoSessionAfterUnreadablePowerSourceNotifies() async throws {
+        let controller = makeController()
+        try await controller.select(.lidClosed)
+
+        sessions.stopRecord = StopRecord(reason: .powerUnreadable, time: Date())
+        sessions.renewError = HelperError.helper(.noSession, "The power source could not be read.")
+        await controller.renew()
+        XCTAssertEqual(controller.mode, .off)
+        XCTAssertEqual(notifier.posts, ["LidAwake turned off: The power source could not be read."])
     }
 }

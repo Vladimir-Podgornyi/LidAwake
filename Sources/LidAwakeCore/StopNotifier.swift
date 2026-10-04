@@ -26,10 +26,17 @@ public enum StopNotice {
             return "The Mac got too hot."
         case .thermalUnreadable:
             return "The thermal state could not be read."
+        case .powerUnreadable:
+            return "The power source could not be read."
         case .leaseExpired:
             return "LidAwake closed unexpectedly, so normal sleep was restored."
         }
     }
+}
+
+public enum PauseNotice {
+    public static let title = "LidAwake paused"
+    public static let body = "Running on battery. It resumes when you plug in."
 }
 
 @MainActor

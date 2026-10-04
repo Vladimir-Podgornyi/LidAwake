@@ -11,6 +11,7 @@ private let session = LidSession(
     flag: PmsetSleepFlag(),
     marker: FileOwnershipMarker(),
     clock: MonotonicClock(),
+    awakeClock: AwakeClock(),
     power: IOKitPowerSource(),
     thermal: ProcessInfoThermalState(),
     stopReasons: FileStopReasonStore()
@@ -26,12 +27,14 @@ final class Helper: NSObject, HelperProtocol {
         timerSeconds: Int,
         batteryLimitPercent: Int,
         thermalProtection: Bool,
+        chargingOnly: Bool,
         reply: @escaping (Int, String?) -> Void
     ) {
         let safety = SafetySettings(
             timerSeconds: timerSeconds,
             batteryLimitPercent: batteryLimitPercent,
-            thermalProtection: thermalProtection
+            thermalProtection: thermalProtection,
+            chargingOnly: chargingOnly
         )
         withLease(leaseSeconds, reply: reply) { session.start(lease: $0, safety: safety) }
     }
@@ -41,12 +44,14 @@ final class Helper: NSObject, HelperProtocol {
         timerSeconds: Int,
         batteryLimitPercent: Int,
         thermalProtection: Bool,
+        chargingOnly: Bool,
         reply: @escaping (Int, String?) -> Void
     ) {
         let safety = SafetySettings(
             timerSeconds: timerSeconds,
             batteryLimitPercent: batteryLimitPercent,
-            thermalProtection: thermalProtection
+            thermalProtection: thermalProtection,
+            chargingOnly: chargingOnly
         )
         withLease(leaseSeconds, reply: reply) { session.renew(lease: $0, safety: safety) }
     }
@@ -59,7 +64,7 @@ final class Helper: NSObject, HelperProtocol {
         perform(reply: reply) { session.clearLeftover() }
     }
 
-    func sessionStatus(reply: @escaping (Int, String?, Int, Int, Int, Int, Int, Int) -> Void) {
+    func sessionStatus(reply: @escaping (Int, String?, Int, Int, Int, Int, Int, Int, Bool) -> Void) {
         DispatchQueue.main.async {
             let status = session.status()
             reply(
@@ -70,7 +75,8 @@ final class Helper: NSObject, HelperProtocol {
                 status.timerRemaining ?? -1,
                 status.power.battery.wireValue,
                 status.power.source.rawValue,
-                status.thermal.rawValue
+                status.thermal.rawValue,
+                status.paused
             )
         }
     }

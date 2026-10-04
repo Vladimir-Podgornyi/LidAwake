@@ -28,12 +28,16 @@ private final class FakeFlag: SleepFlag {
 
 private final class FakeMarker: OwnershipMarker {
     var isSet: Bool
+    var onSet: (() -> Void)?
 
     init(_ isSet: Bool = false) {
         self.isSet = isSet
     }
 
-    func set() throws { isSet = true }
+    func set() throws {
+        onSet?()
+        isSet = true
+    }
     func clear() throws { isSet = false }
 }
 
@@ -73,17 +77,25 @@ final class LidSessionTests: XCTestCase {
     private var flag = FakeFlag(false)
     private var marker = FakeMarker()
     private let clock = FakeClock()
+    private let awakeClock = FakeClock()
     private let power = FakePower()
     private let thermal = FakeThermal()
     private let stopReasons = FakeStopReasons()
     private let wallTime = Date(timeIntervalSince1970: 1_800_000_000)
     private let noLimits = SafetySettings.off
 
+    // Both clocks move together while the Mac is awake.
+    private func advance(_ seconds: TimeInterval) {
+        clock.now += seconds
+        awakeClock.now += seconds
+    }
+
     private func makeSession() -> LidSession {
         LidSession(
             flag: flag,
             marker: marker,
             clock: clock,
+            awakeClock: awakeClock,
             power: power,
             thermal: thermal,
             stopReasons: stopReasons,
@@ -162,14 +174,14 @@ final class LidSessionTests: XCTestCase {
         let session = makeSession()
         XCTAssertEqual(session.start(lease: 120, safety: noLimits), .ok)
 
-        clock.now += 100
+        advance(100)
         XCTAssertEqual(session.renew(lease: 120, safety: noLimits), .ok)
-        clock.now += 100
+        advance(100)
         XCTAssertNil(session.enforceLimits())
         XCTAssertTrue(session.isActive)
         XCTAssertTrue(flag.value)
 
-        clock.now += 20
+        advance(20)
         XCTAssertEqual(session.enforceLimits(), .ok)
         XCTAssertFalse(session.isActive)
     }
@@ -261,11 +273,11 @@ final class LidSessionTests: XCTestCase {
         let session = makeSession()
         XCTAssertEqual(session.start(lease: 120, safety: noLimits), .ok)
 
-        clock.now += 119
+        advance(119)
         XCTAssertNil(session.enforceLimits())
         XCTAssertTrue(flag.value)
 
-        clock.now += 1
+        advance(1)
         XCTAssertEqual(session.enforceLimits(), .ok)
         XCTAssertFalse(session.isActive)
         XCTAssertFalse(flag.value)
@@ -277,7 +289,7 @@ final class LidSessionTests: XCTestCase {
         let session = makeSession()
         XCTAssertEqual(session.start(lease: 120, safety: noLimits), .ok)
 
-        clock.now += 120
+        advance(120)
         XCTAssertEqual(session.enforceLimits(), .ok)
         XCTAssertFalse(session.isActive)
         XCTAssertTrue(flag.value)
@@ -354,19 +366,19 @@ final class LidSessionTests: XCTestCase {
         XCTAssertEqual(flag.writes, [false])
         XCTAssertTrue(session.needsHelper)
 
-        clock.now += 29
+        advance(29)
         XCTAssertNil(session.retryLeftover())
         XCTAssertEqual(flag.writes, [false])
         XCTAssertTrue(session.needsHelper)
 
-        clock.now += 1
+        advance(1)
         XCTAssertEqual(session.retryLeftover()?.code, .flagWriteFailed)
         XCTAssertEqual(flag.writes, [false, false])
         XCTAssertTrue(marker.isSet)
         XCTAssertTrue(session.needsHelper)
 
         flag.writeFails = false
-        clock.now += 30
+        advance(30)
         XCTAssertEqual(session.retryLeftover(), .ok)
         XCTAssertFalse(flag.value)
         XCTAssertFalse(marker.isSet)
@@ -402,6 +414,7 @@ final class LidSessionTests: XCTestCase {
             flag: flag,
             marker: FileOwnershipMarker(directory: directory),
             clock: clock,
+            awakeClock: awakeClock,
             power: power,
             thermal: thermal,
             stopReasons: stopReasons
@@ -415,6 +428,7 @@ final class LidSessionTests: XCTestCase {
             flag: flag,
             marker: fileMarker,
             clock: clock,
+            awakeClock: awakeClock,
             power: power,
             thermal: thermal,
             stopReasons: stopReasons
@@ -436,13 +450,13 @@ final class LidSessionTests: XCTestCase {
         XCTAssertEqual(session.start(lease: 120, safety: limits(timer: 3600)), .ok)
 
         for _ in 0..<35 {
-            clock.now += 100
+            advance(100)
             XCTAssertEqual(session.renew(lease: 120, safety: limits(timer: 3600)), .ok)
             XCTAssertNil(session.enforceLimits())
         }
         XCTAssertEqual(session.status().timerRemaining, 100)
 
-        clock.now += 100
+        advance(100)
         XCTAssertEqual(session.enforceLimits(), .ok)
         XCTAssertFalse(session.isActive)
         XCTAssertFalse(flag.value)
@@ -454,17 +468,17 @@ final class LidSessionTests: XCTestCase {
         let session = makeSession()
         XCTAssertEqual(session.start(lease: 120, safety: limits(timer: 7200)), .ok)
 
-        clock.now += 100
+        advance(100)
         XCTAssertEqual(session.renew(lease: 120, safety: limits(timer: 3600)), .ok)
         XCTAssertEqual(session.status().timerRemaining, 3500)
 
-        clock.now += 100
+        advance(100)
         XCTAssertEqual(session.renew(lease: 120, safety: limits(timer: 300)), .ok)
         XCTAssertEqual(session.status().timerRemaining, 100)
 
-        clock.now += 99
+        advance(99)
         XCTAssertNil(session.enforceLimits())
-        clock.now += 1
+        advance(1)
         XCTAssertEqual(session.enforceLimits(), .ok)
         XCTAssertEqual(stopReasons.record?.reason, .timer)
     }
@@ -473,7 +487,7 @@ final class LidSessionTests: XCTestCase {
         let session = makeSession()
         XCTAssertEqual(session.start(lease: 120, safety: limits(timer: 7200)), .ok)
 
-        clock.now += 200
+        advance(200)
         XCTAssertEqual(session.renew(lease: 120, safety: limits(timer: 180)), .ok)
         XCTAssertEqual(session.enforceLimits(), .ok)
         XCTAssertEqual(stopReasons.record?.reason, .timer)
@@ -484,7 +498,7 @@ final class LidSessionTests: XCTestCase {
         XCTAssertEqual(session.start(lease: 120, safety: limits(timer: 3600)), .ok)
         XCTAssertEqual(session.renew(lease: 120, safety: noLimits), .ok)
 
-        clock.now += 100
+        advance(100)
         XCTAssertNil(session.status().timerRemaining)
         XCTAssertNil(session.enforceLimits())
     }
@@ -599,7 +613,7 @@ final class LidSessionTests: XCTestCase {
         XCTAssertEqual(stopReasons.record?.reason, .battery)
 
         XCTAssertEqual(session.start(lease: 120, safety: limits(timer: 60)), .ok)
-        clock.now += 60
+        advance(60)
         XCTAssertEqual(session.enforceLimits(), .ok)
         XCTAssertTrue(flag.value)
         XCTAssertEqual(flag.writes, [])
@@ -610,7 +624,7 @@ final class LidSessionTests: XCTestCase {
         let session = makeSession()
         XCTAssertEqual(session.start(lease: 120, safety: noLimits), .ok)
 
-        clock.now += 120
+        advance(120)
         XCTAssertEqual(session.enforceLimits(), .ok)
         XCTAssertEqual(stopReasons.record, StopRecord(reason: .leaseExpired, time: wallTime))
     }
@@ -632,6 +646,7 @@ final class LidSessionTests: XCTestCase {
                 flag: self.flag,
                 marker: self.marker,
                 clock: self.clock,
+            awakeClock: self.awakeClock,
                 power: self.power,
                 thermal: self.thermal,
                 stopReasons: FileStopReasonStore(directory: directory),
@@ -684,9 +699,9 @@ final class LidSessionTests: XCTestCase {
         XCTAssertEqual(session.status().power, PowerReading(battery: .percent(82), source: .battery))
 
         XCTAssertEqual(session.start(lease: 120, safety: limits(timer: 3600)), .ok)
-        clock.now += 0.5
+        advance(0.5)
         XCTAssertEqual(session.status().timerRemaining, 3600)
-        clock.now += 99.5
+        advance(99.5)
         XCTAssertEqual(session.status().timerRemaining, 3500)
     }
 
@@ -816,7 +831,7 @@ final class LidSessionTests: XCTestCase {
         reset()
         var session = makeSession()
         XCTAssertEqual(session.start(lease: 60, safety: all), .ok)
-        clock.now += 60
+        advance(60)
         tripped()
         XCTAssertEqual(session.enforceLimits(), .ok)
         XCTAssertEqual(stopReasons.record?.reason, .timer)
@@ -824,7 +839,7 @@ final class LidSessionTests: XCTestCase {
         reset()
         session = makeSession()
         XCTAssertEqual(session.start(lease: 60, safety: all), .ok)
-        clock.now += 59
+        advance(59)
         tripped()
         XCTAssertEqual(session.enforceLimits(), .ok)
         XCTAssertEqual(stopReasons.record?.reason, .thermal)
@@ -832,7 +847,7 @@ final class LidSessionTests: XCTestCase {
         reset()
         session = makeSession()
         XCTAssertEqual(session.start(lease: 30, safety: all), .ok)
-        clock.now += 30
+        advance(30)
         power.reading = PowerReading(battery: .percent(5), source: .battery)
         XCTAssertEqual(session.enforceLimits(), .ok)
         XCTAssertEqual(stopReasons.record?.reason, .battery)
@@ -840,7 +855,7 @@ final class LidSessionTests: XCTestCase {
         reset()
         session = makeSession()
         XCTAssertEqual(session.start(lease: 30, safety: all), .ok)
-        clock.now += 30
+        advance(30)
         XCTAssertEqual(session.enforceLimits(), .ok)
         XCTAssertEqual(stopReasons.record?.reason, .leaseExpired)
     }
@@ -861,5 +876,406 @@ final class LidSessionTests: XCTestCase {
 
         thermal.state = .unknown
         XCTAssertEqual(session.status().thermal, .unknown)
+    }
+
+    // MARK: Charging only
+
+    private let onAC = PowerReading(battery: .percent(80), source: .ac)
+    private let onBattery = PowerReading(battery: .percent(80), source: .battery)
+
+    private func chargingOnly(timer: Int = 0, battery: Int = 0, thermal: Bool = false) -> SafetySettings {
+        SafetySettings(timerSeconds: timer, batteryLimitPercent: battery, thermalProtection: thermal, chargingOnly: true)
+    }
+
+    func testBatteryPowerPausesOwnSession() {
+        let session = makeSession()
+        XCTAssertEqual(session.start(lease: 120, safety: chargingOnly()), .ok)
+        XCTAssertTrue(flag.value)
+        XCTAssertFalse(session.isPaused)
+
+        power.reading = onBattery
+        XCTAssertEqual(session.enforceLimits(), .ok)
+        XCTAssertTrue(session.isActive)
+        XCTAssertTrue(session.isPaused)
+        XCTAssertEqual(session.ownership, .ours)
+        XCTAssertFalse(flag.value)
+        XCTAssertFalse(marker.isSet)
+        XCTAssertEqual(flag.writes, [true, false])
+        XCTAssertEqual(session.status().paused, true)
+        XCTAssertEqual(session.status().session, .ours)
+        XCTAssertNil(stopReasons.record)
+
+        XCTAssertNil(session.enforceLimits())
+        XCTAssertEqual(flag.writes, [true, false])
+    }
+
+    func testACPowerResumesOwnSessionMarkerBeforeFlag() {
+        power.reading = onBattery
+        let session = makeSession()
+        XCTAssertEqual(session.start(lease: 120, safety: chargingOnly()), .ok)
+        var writesWhenMarkerSet: [Bool]?
+        marker.onSet = { [flag] in writesWhenMarkerSet = flag.writes }
+
+        power.reading = onAC
+        XCTAssertEqual(session.enforceLimits(), .ok)
+        XCTAssertEqual(writesWhenMarkerSet, [])
+        XCTAssertEqual(flag.writes, [true])
+        XCTAssertTrue(flag.value)
+        XCTAssertTrue(marker.isSet)
+        XCTAssertFalse(session.isPaused)
+        XCTAssertEqual(session.status().paused, false)
+
+        XCTAssertNil(session.enforceLimits())
+        XCTAssertEqual(flag.writes, [true])
+    }
+
+    func testRenewPausesAndResumes() {
+        let session = makeSession()
+        XCTAssertEqual(session.start(lease: 120, safety: chargingOnly()), .ok)
+
+        power.reading = onBattery
+        XCTAssertEqual(session.renew(lease: 120, safety: chargingOnly()), .ok)
+        XCTAssertTrue(session.isPaused)
+        XCTAssertFalse(flag.value)
+        XCTAssertFalse(marker.isSet)
+
+        power.reading = onAC
+        XCTAssertEqual(session.renew(lease: 120, safety: chargingOnly()), .ok)
+        XCTAssertFalse(session.isPaused)
+        XCTAssertTrue(flag.value)
+        XCTAssertTrue(marker.isSet)
+        XCTAssertEqual(flag.writes, [true, false, true])
+    }
+
+    func testStartOnBatteryBeginsPaused() {
+        power.reading = onBattery
+        let session = makeSession()
+
+        XCTAssertEqual(session.start(lease: 120, safety: chargingOnly()), .ok)
+        XCTAssertTrue(session.isActive)
+        XCTAssertTrue(session.isPaused)
+        XCTAssertEqual(session.ownership, .ours)
+        XCTAssertFalse(flag.value)
+        XCTAssertFalse(marker.isSet)
+        XCTAssertEqual(flag.writes, [])
+        XCTAssertEqual(session.status().paused, true)
+    }
+
+    func testStartOnBatteryReleasesOwnLeftover() {
+        flag = FakeFlag(true)
+        marker = FakeMarker(true)
+        power.reading = onBattery
+        let session = makeSession()
+
+        XCTAssertEqual(session.start(lease: 120, safety: chargingOnly()), .ok)
+        XCTAssertTrue(session.isPaused)
+        XCTAssertEqual(session.ownership, .ours)
+        XCTAssertFalse(flag.value)
+        XCTAssertFalse(marker.isSet)
+    }
+
+    func testChargingOnlyOffNeverPauses() {
+        power.reading = onBattery
+        let session = makeSession()
+
+        XCTAssertEqual(session.start(lease: 120, safety: noLimits), .ok)
+        XCTAssertTrue(flag.value)
+        XCTAssertNil(session.enforceLimits())
+        XCTAssertEqual(session.renew(lease: 120, safety: noLimits), .ok)
+        XCTAssertFalse(session.isPaused)
+        XCTAssertTrue(flag.value)
+
+        power.reading = PowerReading(battery: .percent(80), source: .unknown)
+        XCTAssertNil(session.enforceLimits())
+        XCTAssertTrue(session.isActive)
+        XCTAssertEqual(session.status().paused, false)
+    }
+
+    func testRenewWithChargingOnlyOffResumes() {
+        power.reading = onBattery
+        let session = makeSession()
+        XCTAssertEqual(session.start(lease: 120, safety: chargingOnly()), .ok)
+        XCTAssertTrue(session.isPaused)
+
+        XCTAssertEqual(session.renew(lease: 120, safety: noLimits), .ok)
+        XCTAssertFalse(session.isPaused)
+        XCTAssertTrue(flag.value)
+        XCTAssertTrue(marker.isSet)
+    }
+
+    func testMacWithoutBatteryNeverPauses() {
+        for source in [PowerSource.ac, .battery, .unknown] {
+            flag = FakeFlag(false)
+            marker = FakeMarker()
+            power.reading = PowerReading(battery: .none, source: source)
+            let session = makeSession()
+
+            XCTAssertEqual(session.start(lease: 120, safety: chargingOnly()), .ok, "\(source)")
+            XCTAssertFalse(session.isPaused)
+            XCTAssertNil(session.enforceLimits())
+            XCTAssertEqual(session.renew(lease: 120, safety: chargingOnly()), .ok)
+            XCTAssertTrue(session.isActive)
+            XCTAssertFalse(session.isPaused)
+            XCTAssertTrue(flag.value)
+        }
+    }
+
+    func testUnreadablePowerSourceRefusesStart() {
+        power.reading = PowerReading(battery: .percent(80), source: .unknown)
+        let session = makeSession()
+
+        let result = session.start(lease: 120, safety: chargingOnly())
+        XCTAssertEqual(result, SessionResult(code: .powerUnreadable, message: "The power source could not be read."))
+        XCTAssertFalse(session.isActive)
+        XCTAssertFalse(marker.isSet)
+        XCTAssertEqual(flag.writes, [])
+        XCTAssertNil(stopReasons.record)
+    }
+
+    func testUnreadablePowerSourceEndsSession() {
+        let session = makeSession()
+        XCTAssertEqual(session.start(lease: 120, safety: chargingOnly()), .ok)
+
+        power.reading = PowerReading(battery: .percent(80), source: .unknown)
+        XCTAssertEqual(session.enforceLimits(), .ok)
+        XCTAssertFalse(session.isActive)
+        XCTAssertFalse(flag.value)
+        XCTAssertFalse(marker.isSet)
+        XCTAssertEqual(stopReasons.record, StopRecord(reason: .powerUnreadable, time: wallTime))
+    }
+
+    func testUnreadablePowerSourceOnRenewEndsSession() {
+        power.reading = onBattery
+        let session = makeSession()
+        XCTAssertEqual(session.start(lease: 120, safety: chargingOnly()), .ok)
+
+        power.reading = PowerReading(battery: .percent(80), source: .unknown)
+        XCTAssertEqual(session.renew(lease: 120, safety: chargingOnly()).code, .noSession)
+        XCTAssertFalse(session.isActive)
+        XCTAssertFalse(session.isPaused)
+        XCTAssertEqual(flag.writes, [])
+        XCTAssertFalse(marker.isSet)
+        XCTAssertEqual(stopReasons.record?.reason, .powerUnreadable)
+    }
+
+    func testRenewWhilePausedLeavesFlagOff() {
+        power.reading = onBattery
+        let session = makeSession()
+        XCTAssertEqual(session.start(lease: 120, safety: chargingOnly()), .ok)
+
+        for _ in 0..<3 {
+            advance(30)
+            XCTAssertEqual(session.renew(lease: 120, safety: chargingOnly()), .ok)
+            XCTAssertNil(session.enforceLimits())
+        }
+        XCTAssertTrue(session.isPaused)
+        XCTAssertFalse(flag.value)
+        XCTAssertFalse(marker.isSet)
+        XCTAssertEqual(flag.writes, [])
+    }
+
+    func testPausedForeignSessionKeepsFlagAndOwnership() {
+        flag = FakeFlag(true)
+        let session = makeSession()
+        XCTAssertEqual(session.start(lease: 120, safety: chargingOnly()), .ok)
+        XCTAssertEqual(session.ownership, .foreign)
+
+        power.reading = onBattery
+        XCTAssertEqual(session.enforceLimits(), .ok)
+        XCTAssertTrue(session.isPaused)
+        XCTAssertTrue(flag.value)
+        XCTAssertEqual(session.status().session, .foreign)
+        XCTAssertEqual(session.status().paused, true)
+
+        // The other program releases its flag while LidAwake is paused.
+        flag.value = false
+        XCTAssertEqual(session.renew(lease: 120, safety: chargingOnly()), .ok)
+        XCTAssertNil(session.enforceLimits())
+        XCTAssertEqual(session.ownership, .foreign)
+        XCTAssertFalse(marker.isSet)
+        XCTAssertFalse(flag.value)
+        XCTAssertEqual(flag.writes, [])
+    }
+
+    func testStartOnBatteryWithForeignFlagIsPausedForeign() {
+        flag = FakeFlag(true)
+        power.reading = onBattery
+        let session = makeSession()
+
+        XCTAssertEqual(session.start(lease: 120, safety: chargingOnly()), .ok)
+        XCTAssertEqual(session.ownership, .foreign)
+        XCTAssertTrue(session.isPaused)
+        XCTAssertEqual(session.end(), .ok)
+        XCTAssertTrue(flag.value)
+        XCTAssertEqual(flag.writes, [])
+    }
+
+    func testResumedForeignSessionFollowsUsualRules() {
+        flag = FakeFlag(true)
+        power.reading = onBattery
+        let session = makeSession()
+        XCTAssertEqual(session.start(lease: 120, safety: chargingOnly()), .ok)
+
+        power.reading = onAC
+        XCTAssertEqual(session.enforceLimits(), .ok)
+        XCTAssertFalse(session.isPaused)
+        XCTAssertEqual(session.ownership, .foreign)
+        XCTAssertEqual(flag.writes, [])
+
+        flag.value = false
+        XCTAssertEqual(session.renew(lease: 120, safety: chargingOnly()), .ok)
+        XCTAssertEqual(session.ownership, .ours)
+        XCTAssertTrue(marker.isSet)
+        XCTAssertTrue(flag.value)
+        XCTAssertEqual(flag.writes, [true])
+    }
+
+    func testPauseFailureKeepsSessionRunning() {
+        let session = makeSession()
+        XCTAssertEqual(session.start(lease: 120, safety: chargingOnly()), .ok)
+
+        power.reading = onBattery
+        flag.writeFails = true
+        XCTAssertEqual(session.renew(lease: 120, safety: chargingOnly()).code, .flagWriteFailed)
+        XCTAssertEqual(session.enforceLimits()?.code, .flagWriteFailed)
+        XCTAssertFalse(session.isPaused)
+        XCTAssertTrue(marker.isSet)
+
+        flag.writeFails = false
+        XCTAssertEqual(session.enforceLimits(), .ok)
+        XCTAssertTrue(session.isPaused)
+        XCTAssertFalse(flag.value)
+        XCTAssertFalse(marker.isSet)
+    }
+
+    func testResumeFailureStaysPaused() {
+        power.reading = onBattery
+        let session = makeSession()
+        XCTAssertEqual(session.start(lease: 120, safety: chargingOnly()), .ok)
+
+        power.reading = onAC
+        flag.writeFails = true
+        XCTAssertEqual(session.renew(lease: 120, safety: chargingOnly()).code, .flagWriteFailed)
+        XCTAssertTrue(session.isPaused)
+
+        flag.writeFails = false
+        XCTAssertEqual(session.enforceLimits(), .ok)
+        XCTAssertFalse(session.isPaused)
+        XCTAssertTrue(flag.value)
+        XCTAssertTrue(marker.isSet)
+    }
+
+    func testLimitsTripWhilePaused() {
+        let cases: [(SafetySettings, () -> Void, StopReason)] = [
+            (chargingOnly(timer: 60), { self.advance(60) }, .timer),
+            (chargingOnly(thermal: true), { self.thermal.state = .serious }, .thermal),
+            (chargingOnly(battery: 20), {
+                self.power.reading = PowerReading(battery: .percent(20), source: .battery)
+            }, .battery),
+        ]
+        for (settings, trip, reason) in cases {
+            flag = FakeFlag(false)
+            marker = FakeMarker()
+            thermal.state = .nominal
+            power.reading = onBattery
+            stopReasons.record = nil
+            let session = makeSession()
+            XCTAssertEqual(session.start(lease: 120, safety: settings), .ok)
+            XCTAssertTrue(session.isPaused)
+
+            trip()
+            XCTAssertEqual(session.enforceLimits(), .ok, "\(reason)")
+            XCTAssertFalse(session.isActive)
+            XCTAssertFalse(session.isPaused)
+            XCTAssertEqual(stopReasons.record?.reason, reason)
+            XCTAssertEqual(flag.writes, [])
+            XCTAssertFalse(marker.isSet)
+        }
+    }
+
+    func testLimitsAreCheckedBatteryPowerSourceLease() {
+        let session = makeSession()
+        XCTAssertEqual(session.start(lease: 30, safety: chargingOnly(battery: 20)), .ok)
+        advance(30)
+        power.reading = PowerReading(battery: .unknown, source: .unknown)
+        XCTAssertEqual(session.enforceLimits(), .ok)
+        XCTAssertEqual(stopReasons.record?.reason, .batteryUnreadable)
+
+        power.reading = onAC
+        XCTAssertEqual(session.start(lease: 30, safety: chargingOnly()), .ok)
+        advance(30)
+        power.reading = PowerReading(battery: .percent(80), source: .unknown)
+        XCTAssertEqual(session.enforceLimits(), .ok)
+        XCTAssertEqual(stopReasons.record?.reason, .powerUnreadable)
+
+        power.reading = onAC
+        XCTAssertEqual(session.start(lease: 30, safety: chargingOnly()), .ok)
+        advance(30)
+        power.reading = onBattery
+        XCTAssertEqual(session.enforceLimits(), .ok)
+        XCTAssertEqual(stopReasons.record?.reason, .leaseExpired)
+    }
+
+    func testLeaseCountsOnlyAwakeTime() {
+        power.reading = onBattery
+        let session = makeSession()
+        XCTAssertEqual(session.start(lease: 120, safety: chargingOnly()), .ok)
+
+        // Three hours asleep: the awake clock stands still.
+        clock.now += 10_800
+        XCTAssertNil(session.enforceLimits())
+        XCTAssertTrue(session.isActive)
+        XCTAssertTrue(session.isPaused)
+
+        awakeClock.now += 119
+        XCTAssertNil(session.enforceLimits())
+        awakeClock.now += 1
+        XCTAssertEqual(session.enforceLimits(), .ok)
+        XCTAssertFalse(session.isActive)
+        XCTAssertEqual(stopReasons.record?.reason, .leaseExpired)
+    }
+
+    func testRenewMovesLeaseOnAwakeClock() {
+        let session = makeSession()
+        XCTAssertEqual(session.start(lease: 120, safety: noLimits), .ok)
+
+        awakeClock.now += 100
+        XCTAssertEqual(session.renew(lease: 120, safety: noLimits), .ok)
+        awakeClock.now += 119
+        XCTAssertNil(session.enforceLimits())
+        awakeClock.now += 1
+        XCTAssertEqual(session.enforceLimits(), .ok)
+        XCTAssertEqual(stopReasons.record?.reason, .leaseExpired)
+    }
+
+    func testTimerCountsTimeAsleep() {
+        power.reading = onBattery
+        let session = makeSession()
+        XCTAssertEqual(session.start(lease: 120, safety: chargingOnly(timer: 3600)), .ok)
+
+        clock.now += 3599
+        XCTAssertNil(session.enforceLimits())
+        XCTAssertEqual(session.status().timerRemaining, 1)
+        clock.now += 1
+        XCTAssertEqual(session.enforceLimits(), .ok)
+        XCTAssertEqual(stopReasons.record?.reason, .timer)
+    }
+
+    func testEndWhilePausedLeavesFlagAndNoLeftover() {
+        let session = makeSession()
+        XCTAssertEqual(session.start(lease: 120, safety: chargingOnly()), .ok)
+        power.reading = onBattery
+        XCTAssertEqual(session.enforceLimits(), .ok)
+        XCTAssertEqual(flag.writes, [true, false])
+
+        XCTAssertEqual(session.end(), .ok)
+        XCTAssertFalse(session.isActive)
+        XCTAssertFalse(session.isPaused)
+        XCTAssertEqual(flag.writes, [true, false])
+        XCTAssertFalse(flag.value)
+        XCTAssertFalse(marker.isSet)
+        XCTAssertFalse(session.needsHelper)
+        XCTAssertNil(session.retryLeftover())
+        XCTAssertEqual(session.status().paused, false)
     }
 }

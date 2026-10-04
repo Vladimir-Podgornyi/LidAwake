@@ -47,6 +47,7 @@ enum HelperCommand {
             if version == HelperConstants.protocolVersion {
                 let status = try await connection.sessionStatus()
                 line += " sleep-disabled=\(status.flag.token) session=\(status.session.token)"
+                line += " paused=\(status.paused ? "yes" : "no")"
                 line += " timer=\(status.timerRemaining.map(String.init) ?? "off")"
                 line += " battery=\(status.power.battery.token) power=\(status.power.source.token)"
                 line += " thermal=\(status.thermal.token)"

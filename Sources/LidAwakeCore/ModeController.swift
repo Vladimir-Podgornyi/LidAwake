@@ -9,6 +9,8 @@ public final class ModeController: ObservableObject {
     @Published public private(set) var isBusy = false
     /// Monotonic time the current mode started; the timer counts from here.
     @Published public private(set) var modeStartedAt: TimeInterval?
+    /// True while the helper holds Run with Lid Closed paused on battery power.
+    @Published public private(set) var isPaused = false
 
     public let preferences: SafetyPreferences
 
@@ -16,6 +18,7 @@ public final class ModeController: ObservableObject {
     private let helper: HelperPreparing
     private let sessions: LidSessionService
     private let activity: ActivityHolding
+    private let powerSourceMonitor: PowerSourceMonitoring
     private let notifier: StopNotifying
     private let leaseSeconds: Int
     private let renewalSleep: () async throws -> Void
@@ -33,6 +36,7 @@ public final class ModeController: ObservableObject {
         preferences: SafetyPreferences,
         notifier: StopNotifying,
         activity: ActivityHolding = AppNapActivity(),
+        powerSourceMonitor: PowerSourceMonitoring = IOKitPowerSourceMonitor(),
         leaseSeconds: Int = 120,
         renewalSleep: @escaping () async throws -> Void = { try await Task.sleep(nanoseconds: 30_000_000_000) },
         timerCheckSleep: @escaping () async throws -> Void = { try await Task.sleep(nanoseconds: 5_000_000_000) },
@@ -44,12 +48,16 @@ public final class ModeController: ObservableObject {
         self.preferences = preferences
         self.notifier = notifier
         self.activity = activity
+        self.powerSourceMonitor = powerSourceMonitor
         self.leaseSeconds = leaseSeconds
         self.renewalSleep = renewalSleep
         self.timerCheckSleep = timerCheckSleep
         self.now = now
         preferenceChanges = preferences.changes.sink { [weak self] in
             Task { @MainActor in await self?.safetyChanged() }
+        }
+        powerSourceMonitor.start { [weak self] in
+            Task { @MainActor in await self?.powerSourceChanged() }
         }
     }
 
@@ -87,6 +95,7 @@ public final class ModeController: ObservableObject {
                 mode = .lidClosed
                 startRenewals()
                 startTimer()
+                await updatePauseState()
             }
         } catch {
             lastError = error.localizedDescription
@@ -110,6 +119,7 @@ public final class ModeController: ObservableObject {
         guard mode == .lidClosed, !isBusy else { return }
         do {
             try await sessions.renewSession(leaseSeconds: leaseSeconds, safety: preferences.helperSettings)
+            await updatePauseState()
         } catch {
             // The user may have left the mode while the renewal was in flight.
             guard mode == .lidClosed, !isBusy else { return }
@@ -149,6 +159,21 @@ public final class ModeController: ObservableObject {
             await checkTimer()
         case .lidClosed:
             await renew()
+        }
+    }
+
+    private func powerSourceChanged() async {
+        guard mode == .lidClosed else { return }
+        await renew()
+    }
+
+    /// Asks the helper whether the session is paused and announces a new pause.
+    private func updatePauseState() async {
+        guard let status = try? await sessions.sessionStatus(), mode == .lidClosed else { return }
+        let wasPaused = isPaused
+        isPaused = status.paused
+        if isPaused && !wasPaused {
+            notifier.post(title: PauseNotice.title, body: PauseNotice.body)
         }
     }
 
@@ -196,6 +221,7 @@ public final class ModeController: ObservableObject {
         case .lidClosed:
             renewalTask?.cancel()
             renewalTask = nil
+            isPaused = false
             do {
                 try await sessions.endSession()
             } catch {

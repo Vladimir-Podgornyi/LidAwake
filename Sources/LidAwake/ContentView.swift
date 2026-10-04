@@ -59,6 +59,9 @@ struct ContentView: View {
     }
 
     private var statusLine: String? {
+        if controller.mode == .lidClosed && controller.isPaused {
+            return "Paused · on battery"
+        }
         var parts: [String] = []
         if let remaining = controller.timerRemaining() {
             parts.append("\(Self.duration(Int(remaining.rounded(.up)))) left")
@@ -92,6 +95,8 @@ struct ContentView: View {
                 .disabled(!preferences.batteryLimitEnabled)
             }
             .opacity(controller.mode == .keepScreenOn ? 0.4 : 1)
+            Toggle("Only while charging", isOn: $preferences.chargingOnlyEnabled)
+                .opacity(controller.mode == .keepScreenOn ? 0.4 : 1)
             HStack {
                 Toggle("Turn off after", isOn: $preferences.timerEnabled)
                 Spacer()

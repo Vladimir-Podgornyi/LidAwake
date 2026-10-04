@@ -19,10 +19,12 @@ public struct SessionStatus: Equatable {
     public let timerRemaining: Int?
     public let power: PowerReading
     public let thermal: ThermalState
+    public let paused: Bool
     public let message: String?
 }
 
 /// Keeps SleepDisabled set while a leased session is active and ends it when a safety limit trips.
+/// With charging-only protection the session pauses on battery power and resumes on AC power.
 ///
 /// Not thread-safe: the helper calls it from one queue.
 public final class LidSession {
@@ -37,9 +39,16 @@ public final class LidSession {
         let message: String
     }
 
+    private enum PowerCheck {
+        case run
+        case pause
+        case unreadable
+    }
+
     private let flag: SleepFlag
     private let marker: OwnershipMarker
     private let clock: SessionClock
+    private let awakeClock: SessionClock
     private let power: PowerSourceReading
     private let thermal: ThermalStateReading
     private let stopReasons: StopReasonStore
@@ -49,6 +58,8 @@ public final class LidSession {
     public private(set) var deadline: TimeInterval?
     public private(set) var startedAt: TimeInterval?
     public private(set) var safety: SafetySettings = .off
+    /// True while charging-only protection holds the session on battery power.
+    public private(set) var isPaused = false
     private var lastLeftoverAttempt: TimeInterval?
 
     public static let leftoverRetryInterval: TimeInterval = 30
@@ -59,6 +70,7 @@ public final class LidSession {
         flag: SleepFlag,
         marker: OwnershipMarker,
         clock: SessionClock,
+        awakeClock: SessionClock,
         power: PowerSourceReading,
         thermal: ThermalStateReading,
         stopReasons: StopReasonStore,
@@ -67,6 +79,7 @@ public final class LidSession {
         self.flag = flag
         self.marker = marker
         self.clock = clock
+        self.awakeClock = awakeClock
         self.power = power
         self.thermal = thermal
         self.stopReasons = stopReasons
@@ -84,6 +97,10 @@ public final class LidSession {
         if let stop = batteryStop(limit: safety.batteryLimitPercent) {
             return SessionResult(code: .batteryLimitReached, message: stop.message)
         }
+        let power = chargingCheck(enabled: safety.chargingOnly)
+        if power == .unreadable {
+            return SessionResult(code: .powerUnreadable, message: Self.powerUnreadableMessage)
+        }
 
         let isSet: Bool
         do {
@@ -93,7 +110,16 @@ public final class LidSession {
         }
 
         if isSet && !marker.isSet {
-            begin(.foreign, lease: lease, safety: safety)
+            begin(.foreign, lease: lease, safety: safety, paused: power == .pause)
+            return .ok
+        }
+        if power == .pause {
+            // A flag left over from an earlier session of ours is released, not kept through the pause.
+            if marker.isSet {
+                let released = releaseFlag()
+                guard released == .ok else { return released }
+            }
+            begin(.ours, lease: lease, safety: safety, paused: true)
             return .ok
         }
 
@@ -114,7 +140,7 @@ public final class LidSession {
                 return .failure(.flagWriteFailed, error)
             }
         }
-        begin(.ours, lease: lease, safety: safety)
+        begin(.ours, lease: lease, safety: safety, paused: false)
         return .ok
     }
 
@@ -123,8 +149,19 @@ public final class LidSession {
         guard isActive else {
             return SessionResult(code: .noSession, message: "No active session.")
         }
-        deadline = clock.now + lease
+        deadline = awakeClock.now + lease
         self.safety = safety
+
+        switch chargingCheck(enabled: safety.chargingOnly) {
+        case .unreadable:
+            stop(.powerUnreadable, batteryPercent: nil)
+            return SessionResult(code: .noSession, message: Self.powerUnreadableMessage)
+        case .pause:
+            return pause()
+        case .run:
+            let resumed = resume()
+            guard resumed == .ok else { return resumed }
+        }
 
         let isSet: Bool
         do {
@@ -148,16 +185,21 @@ public final class LidSession {
         guard let ended = ownership else {
             return clearLeftover()
         }
+        let wasPaused = isPaused
         ownership = nil
         deadline = nil
         startedAt = nil
         safety = .off
-        guard ended == .ours else { return .ok }
+        isPaused = false
+        // A paused session has already released its flag.
+        guard ended == .ours, !wasPaused else { return .ok }
         return releaseFlag()
     }
 
-    /// Ends the session when the timer runs out, the Mac gets too hot, the battery reaches its limit
-    /// or the lease runs out, checked in that order.
+    /// Ends the session when the timer runs out, the Mac gets too hot, the battery reaches its limit,
+    /// the power source cannot be read or the lease runs out, checked in that order;
+    /// otherwise pauses or resumes it as the power source requires.
+    /// Returns nil when nothing changed.
     @discardableResult
     public func enforceLimits() -> SessionResult? {
         guard isActive else { return nil }
@@ -170,10 +212,21 @@ public final class LidSession {
         if let battery = batteryStop(limit: safety.batteryLimitPercent) {
             return stop(battery.reason, batteryPercent: battery.percent)
         }
-        if let deadline, clock.now >= deadline {
+        let power = chargingCheck(enabled: safety.chargingOnly)
+        if power == .unreadable {
+            return stop(.powerUnreadable, batteryPercent: nil)
+        }
+        if let deadline, awakeClock.now >= deadline {
             return stop(.leaseExpired, batteryPercent: nil)
         }
-        return nil
+        switch power {
+        case .pause:
+            return isPaused ? nil : pause()
+        case .run:
+            return isPaused ? resume() : nil
+        case .unreadable:
+            return nil
+        }
     }
 
     public func clearLeftover() -> SessionResult {
@@ -215,6 +268,7 @@ public final class LidSession {
                 timerRemaining: remaining,
                 power: reading,
                 thermal: thermalState,
+                paused: isPaused,
                 message: nil
             )
         } catch {
@@ -224,6 +278,7 @@ public final class LidSession {
                 timerRemaining: remaining,
                 power: reading,
                 thermal: thermalState,
+                paused: isPaused,
                 message: error.localizedDescription
             )
         }
@@ -242,12 +297,14 @@ public final class LidSession {
         return .ok
     }
 
+    private static let powerUnreadableMessage = "The power source could not be read."
+
     private static let invalidSafety = SessionResult(
         code: .invalidArgument,
         message: "Timer must be 0 or \(SafetySettings.timerRange.lowerBound) to \(SafetySettings.timerRange.upperBound) seconds; battery limit must be 0 to 100 percent."
     )
 
-    // Counted from the start of the session, even after the timer setting changes.
+    // Counted from the start of the session, even after the timer setting changes, and through sleep.
     private var timerRemaining: TimeInterval? {
         guard let startedAt, safety.timerSeconds > 0 else { return nil }
         return TimeInterval(safety.timerSeconds) - (clock.now - startedAt)
@@ -291,14 +348,55 @@ public final class LidSession {
         }
     }
 
+    // A Mac without a battery always counts as running on AC power.
+    private func chargingCheck(enabled: Bool) -> PowerCheck {
+        guard enabled else { return .run }
+        let reading = power.read()
+        guard reading.battery != .none else { return .run }
+        switch reading.source {
+        case .ac: return .run
+        case .battery: return .pause
+        case .unknown: return .unreadable
+        }
+    }
+
+    // A foreign flag stays untouched; only our own flag and marker are released.
+    private func pause() -> SessionResult {
+        guard !isPaused else { return .ok }
+        if ownership == .ours {
+            let released = releaseFlag()
+            guard released == .ok else { return released }
+        }
+        isPaused = true
+        return .ok
+    }
+
+    private func resume() -> SessionResult {
+        guard isPaused else { return .ok }
+        if ownership == .ours {
+            let claimed = claimFlag()
+            guard claimed == .ok else { return claimed }
+        }
+        isPaused = false
+        return .ok
+    }
+
+    @discardableResult
     private func stop(_ reason: StopReason, batteryPercent: Int?) -> SessionResult {
         // The session ends even when the reason cannot be saved.
         try? stopReasons.write(StopRecord(reason: reason, time: wallClock(), batteryPercent: batteryPercent))
         return end()
     }
 
-    // Same order as start: the marker before the flag.
     private func takeOver() -> SessionResult {
+        let claimed = claimFlag()
+        guard claimed == .ok else { return claimed }
+        ownership = .ours
+        return .ok
+    }
+
+    // Same order as start: the marker before the flag.
+    private func claimFlag() -> SessionResult {
         do {
             try marker.set()
         } catch {
@@ -312,15 +410,15 @@ public final class LidSession {
             }
             return .failure(.flagWriteFailed, error)
         }
-        ownership = .ours
         return .ok
     }
 
-    private func begin(_ ownership: Ownership, lease: TimeInterval, safety: SafetySettings) {
+    private func begin(_ ownership: Ownership, lease: TimeInterval, safety: SafetySettings, paused: Bool) {
         self.ownership = ownership
         self.safety = safety
+        isPaused = paused
         startedAt = clock.now
-        deadline = clock.now + lease
+        deadline = awakeClock.now + lease
     }
 
     // The marker stays when the flag cannot be cleared, so a later cleanup retries.

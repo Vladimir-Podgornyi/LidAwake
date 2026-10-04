@@ -13,3 +13,12 @@ public struct MonotonicClock: SessionClock {
         TimeInterval(clock_gettime_nsec_np(CLOCK_MONOTONIC)) / 1_000_000_000
     }
 }
+
+/// Monotonic and stopped while the Mac sleeps.
+public struct AwakeClock: SessionClock {
+    public init() {}
+
+    public var now: TimeInterval {
+        TimeInterval(clock_gettime_nsec_np(CLOCK_UPTIME_RAW)) / 1_000_000_000
+    }
+}
