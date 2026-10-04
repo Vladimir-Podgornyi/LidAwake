@@ -57,9 +57,12 @@ public final class SafetyPreferences: ObservableObject {
             Key.lockOnLidCloseEnabled: true,
         ])
         timerEnabled = defaults.bool(forKey: Key.timerEnabled)
-        timerSeconds = defaults.integer(forKey: Key.timerSeconds)
+        timerSeconds = Self.clamp(defaults.integer(forKey: Key.timerSeconds), to: SafetySettings.timerRange)
         batteryLimitEnabled = defaults.bool(forKey: Key.batteryLimitEnabled)
-        batteryLimitPercent = defaults.integer(forKey: Key.batteryLimitPercent)
+        batteryLimitPercent = Self.clamp(
+            defaults.integer(forKey: Key.batteryLimitPercent),
+            to: SafetySettings.batteryLimitRange
+        )
         thermalProtectionEnabled = defaults.bool(forKey: Key.thermalProtectionEnabled)
         chargingOnlyEnabled = defaults.bool(forKey: Key.chargingOnlyEnabled)
         lockOnLidCloseEnabled = defaults.bool(forKey: Key.lockOnLidCloseEnabled)
@@ -77,6 +80,11 @@ public final class SafetyPreferences: ObservableObject {
             thermalProtection: thermalProtectionEnabled,
             chargingOnly: chargingOnlyEnabled
         )
+    }
+
+    /// A stored value the helper would reject is read as the nearest one it accepts.
+    static func clamp(_ value: Int, to range: ClosedRange<Int>) -> Int {
+        min(max(value, range.lowerBound), range.upperBound)
     }
 
     private func save(_ value: Any, _ key: String) {
