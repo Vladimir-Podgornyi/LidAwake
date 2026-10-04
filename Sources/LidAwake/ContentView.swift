@@ -6,7 +6,7 @@ import SwiftUI
 struct ContentView: View {
     @ObservedObject var controller: ModeController
     @ObservedObject var preferences: SafetyPreferences
-    @ObservedObject var helper: HelperClient
+    @ObservedObject var helperSetup: HelperSetup
 
     private let power = IOKitPowerSource()
 
@@ -14,7 +14,7 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 12) {
             header
             modeCards
-            if controller.lastError != nil || helperPrompt != nil {
+            if controller.lastError != nil || helperSetup.prompt != nil {
                 messages
             }
             switch SafetyLayout(mode: controller.mode) {
@@ -28,7 +28,6 @@ struct ContentView: View {
         .padding(.bottom, 8)
         .frame(width: 320, alignment: .leading)
         .tint(Palette.accent)
-        .task { await helper.refresh() }
     }
 
     private var header: some View {
@@ -60,15 +59,11 @@ struct ContentView: View {
         VStack(spacing: 8) {
             ForEach(Mode.allCases, id: \.self) { mode in
                 ModeCard(mode: mode, isSelected: controller.mode == mode) {
-                    Task { try? await controller.select(mode) }
+                    Task { await helperSetup.select(mode) }
                 }
             }
         }
         .disabled(controller.isBusy)
-    }
-
-    private var helperPrompt: HelperPrompt? {
-        HelperPrompt(state: helper.state)
     }
 
     private var messages: some View {
@@ -78,18 +73,17 @@ struct ContentView: View {
                     .font(.system(size: 12))
                     .fixedSize(horizontal: false, vertical: true)
             }
-            if let prompt = helperPrompt {
+            if let prompt = helperSetup.prompt {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(prompt.message)
                         .font(.system(size: 12))
                         .fixedSize(horizontal: false, vertical: true)
-                    Button(prompt.actionTitle) {
-                        switch prompt {
-                        case .install: Task { await helper.install() }
-                        case .openSystemSettings: helper.openSystemSettings()
+                    if let actionTitle = prompt.actionTitle {
+                        Button(actionTitle) {
+                            Task { await helperSetup.performPromptAction() }
                         }
+                        .disabled(helperSetup.isWorking)
                     }
-                    .disabled(helper.isBusy)
                 }
             }
         }

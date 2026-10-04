@@ -6,15 +6,18 @@ import SwiftUI
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let helperClient: HelperClient
     let modeController: ModeController
+    let helperSetup: HelperSetup
 
     override init() {
         helperClient = HelperClient()
-        modeController = ModeController(
+        let controller = ModeController(
             helper: helperClient,
             sessions: XPCHelperConnection(),
             preferences: SafetyPreferences(),
             notifier: UserNotificationNotifier()
         )
+        modeController = controller
+        helperSetup = HelperSetup(helper: helperClient) { try await controller.select($0) }
         super.init()
     }
 
@@ -43,7 +46,7 @@ struct LidAwakeApp: App {
             ContentView(
                 controller: appDelegate.modeController,
                 preferences: appDelegate.modeController.preferences,
-                helper: appDelegate.helperClient
+                helperSetup: appDelegate.helperSetup
             )
         } label: {
             MenuBarIcon(controller: appDelegate.modeController)

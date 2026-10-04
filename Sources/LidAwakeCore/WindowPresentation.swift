@@ -43,38 +43,41 @@ public enum StatusLine {
     }
 }
 
-/// A request for the user to act on the helper; there is none while the helper is ready.
+/// A message about the helper after Run with Lid Closed was chosen, with the action it offers.
 public enum HelperPrompt: Equatable {
-    case install(message: String)
-    case openSystemSettings(message: String)
+    case approval
+    case moveToApplications
+    case failed(String)
 
-    public init?(state: HelperState) {
-        switch state {
-        case .ready:
-            return nil
-        case .notInstalled:
-            self = .install(message: String(localized: "Run with Lid Closed needs a helper."))
-        case .requiresApproval:
-            self = .openSystemSettings(
-                message: String(localized: "Allow LidAwake in System Settings > General > Login Items & Extensions.")
-            )
-        case .outdated:
-            self = .install(message: String(localized: "The helper is out of date."))
-        case .error(let message):
-            self = .install(message: String(localized: "Helper error: \(message)"))
-        }
+    public enum Action: Equatable {
+        case openSystemSettings
+        case tryAgain
     }
 
     public var message: String {
         switch self {
-        case .install(let message), .openSystemSettings(let message): return message
+        case .approval:
+            return String(localized: "Allow LidAwake in System Settings > General > Login Items & Extensions.")
+        case .moveToApplications:
+            return String(localized: "Move LidAwake to the Applications folder to use Run with Lid Closed.")
+        case .failed(let message):
+            return message
         }
     }
 
-    public var actionTitle: String {
+    public var action: Action? {
         switch self {
-        case .install: return String(localized: "Install Helper")
+        case .approval: return .openSystemSettings
+        case .moveToApplications: return nil
+        case .failed: return .tryAgain
+        }
+    }
+
+    public var actionTitle: String? {
+        switch action {
         case .openSystemSettings: return String(localized: "Open System Settings")
+        case .tryAgain: return String(localized: "Try Again")
+        case nil: return nil
         }
     }
 }

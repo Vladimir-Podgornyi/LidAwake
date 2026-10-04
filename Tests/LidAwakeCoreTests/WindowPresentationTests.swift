@@ -80,22 +80,24 @@ final class SafetyLayoutTests: XCTestCase {
 }
 
 final class HelperPromptTests: XCTestCase {
-    func testHiddenWhenReady() {
-        XCTAssertNil(HelperPrompt(state: .ready))
-    }
-
-    func testShownWhenActionIsNeeded() {
-        let states: [HelperState] = [.notInstalled, .requiresApproval, .outdated(6), .error("Broken")]
-        for state in states {
-            XCTAssertNotNil(HelperPrompt(state: state), "\(state)")
-        }
+    func testMessages() {
+        XCTAssertEqual(
+            HelperPrompt.approval.message,
+            "Allow LidAwake in System Settings > General > Login Items & Extensions."
+        )
+        XCTAssertEqual(
+            HelperPrompt.moveToApplications.message,
+            "Move LidAwake to the Applications folder to use Run with Lid Closed."
+        )
+        XCTAssertEqual(HelperPrompt.failed("Broken").message, "Broken")
     }
 
     func testActions() {
-        XCTAssertEqual(HelperPrompt(state: .notInstalled)?.actionTitle, "Install Helper")
-        XCTAssertEqual(HelperPrompt(state: .outdated(6))?.actionTitle, "Install Helper")
-        XCTAssertEqual(HelperPrompt(state: .error("Broken"))?.actionTitle, "Install Helper")
-        XCTAssertEqual(HelperPrompt(state: .requiresApproval)?.actionTitle, "Open System Settings")
-        XCTAssertEqual(HelperPrompt(state: .error("Broken"))?.message, "Helper error: Broken")
+        XCTAssertEqual(HelperPrompt.approval.action, .openSystemSettings)
+        XCTAssertEqual(HelperPrompt.approval.actionTitle, "Open System Settings")
+        XCTAssertNil(HelperPrompt.moveToApplications.action)
+        XCTAssertNil(HelperPrompt.moveToApplications.actionTitle)
+        XCTAssertEqual(HelperPrompt.failed("Broken").action, .tryAgain)
+        XCTAssertEqual(HelperPrompt.failed("Broken").actionTitle, "Try Again")
     }
 }
