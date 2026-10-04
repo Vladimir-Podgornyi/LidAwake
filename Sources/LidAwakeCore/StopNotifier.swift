@@ -9,38 +9,38 @@ public protocol StopNotifying: AnyObject {
 }
 
 public enum StopNotice {
-    public static let title = "LidAwake turned off"
+    public static let title = String(localized: "LidAwake turned off")
 
     public static func body(for record: StopRecord) -> String {
         switch record.reason {
         case .timer:
-            return "The timer ran out."
+            return String(localized: "The timer ran out.")
         case .battery:
             guard let percent = record.batteryPercent else {
-                return "The battery dropped below the limit."
+                return String(localized: "The battery dropped below the limit.")
             }
-            return "The battery dropped to \(percent)%."
+            return String(localized: "The battery dropped to \(percent)%.")
         case .batteryUnreadable:
-            return "The battery level could not be read."
+            return String(localized: "The battery level could not be read.")
         case .thermal:
-            return "The Mac got too hot."
+            return String(localized: "The Mac got too hot.")
         case .thermalUnreadable:
-            return "The thermal state could not be read."
+            return String(localized: "The thermal state could not be read.")
         case .powerUnreadable:
-            return "The power source could not be read."
+            return String(localized: "The power source could not be read.")
         case .leaseExpired:
-            return "LidAwake closed unexpectedly, so normal sleep was restored."
+            return String(localized: "LidAwake closed unexpectedly, so normal sleep was restored.")
         }
     }
 }
 
 public enum PauseNotice {
-    public static let title = "LidAwake paused"
-    public static let body = "Running on battery. It resumes when you plug in."
+    public static let title = String(localized: "LidAwake paused")
+    public static let body = String(localized: "Running on battery. It resumes when you plug in.")
 }
 
 public enum ScreenLockNotice {
-    public static let unavailable = "Screen lock is not available on this macOS version."
+    public static let unavailable = String(localized: "Screen lock is not available on this macOS version.")
 }
 
 @MainActor

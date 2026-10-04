@@ -40,9 +40,9 @@ public enum HelperError: Error, Equatable, LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .notInApplications:
-            return "LidAwake must be in /Applications to install the helper."
+            return String(localized: "LidAwake must be in /Applications to install the helper.")
         case .timeout:
-            return "The helper did not respond."
+            return String(localized: "The helper did not respond.")
         case .connection(let message), .notReady(let message), .helper(_, let message):
             return message
         }

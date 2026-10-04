@@ -39,12 +39,14 @@ struct LidAwakeApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
-        MenuBarExtra("LidAwake", systemImage: "laptopcomputer") {
+        MenuBarExtra {
             ContentView(
                 controller: appDelegate.modeController,
                 preferences: appDelegate.modeController.preferences,
                 helper: appDelegate.helperClient
             )
+        } label: {
+            MenuBarIcon(controller: appDelegate.modeController)
         }
         .menuBarExtraStyle(.window)
     }

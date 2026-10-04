@@ -12,207 +12,358 @@ struct ContentView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("LidAwake")
-                .font(.headline)
-
-            Divider()
-
-            VStack(alignment: .leading, spacing: 6) {
-                modeRow(.off, title: "Off")
-                modeRow(.keepScreenOn, title: "Keep Screen On")
-                modeRow(.lidClosed, title: "Run with Lid Closed")
+            header
+            modeCards
+            if controller.lastError != nil || helperPrompt != nil {
+                messages
             }
-            .disabled(controller.isBusy)
-
-            TimelineView(.periodic(from: .now, by: 15)) { _ in
-                if let status = statusLine {
-                    Text(status)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+            switch SafetyLayout(mode: controller.mode) {
+            case .all: allProtections
+            case .timerOnly: timerOnlyProtections
             }
-
-            Divider()
-
-            safetyRows
-
-            Divider()
-
-            lockRow
-
-            Divider()
-
-            helperRow
-
-            if let error = controller.lastError {
-                Text(error)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Divider()
-
-            Button("Quit LidAwake") {
-                NSApplication.shared.terminate(nil)
-            }
+            quitRow
         }
-        .padding()
-        .frame(width: 300, alignment: .leading)
+        .padding(.top, 14)
+        .padding(.horizontal, 14)
+        .padding(.bottom, 8)
+        .frame(width: 320, alignment: .leading)
+        .tint(Palette.accent)
         .task { await helper.refresh() }
     }
 
+    private var header: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(verbatim: "LidAwake")
+                .font(.system(size: 13, weight: .semibold))
+            Spacer(minLength: 0)
+            TimelineView(.periodic(from: .now, by: 15)) { _ in
+                if let status = statusLine {
+                    Text(status)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+        }
+    }
+
     private var statusLine: String? {
-        if controller.mode == .lidClosed && controller.isPaused {
-            return "Paused · on battery"
-        }
-        var parts: [String] = []
-        if let remaining = controller.timerRemaining() {
-            parts.append("\(Self.duration(Int(remaining.rounded(.up)))) left")
-        }
-        switch power.read().battery {
-        case .percent(let percent): parts.append("Battery \(percent)%")
-        case .unknown: parts.append("Battery unknown")
-        case .none: break
-        }
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+        StatusLine.text(
+            mode: controller.mode,
+            isPaused: controller.isPaused,
+            timerRemaining: controller.timerRemaining(),
+            battery: controller.mode == .lidClosed ? power.read().battery : .none
+        )
     }
 
-    private var safetyRows: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            // Only the timer applies to Keep Screen On.
-            Toggle("Stop when the Mac gets hot", isOn: $preferences.thermalProtectionEnabled)
-                .opacity(controller.mode == .keepScreenOn ? 0.4 : 1)
-            HStack {
-                Toggle("Stop on low battery", isOn: $preferences.batteryLimitEnabled)
-                Spacer()
-                Picker("Stop on low battery", selection: $preferences.batteryLimitPercent) {
-                    ForEach(
-                        Self.choices(SafetyPreferences.batteryLimitChoices, current: preferences.batteryLimitPercent),
-                        id: \.self
-                    ) {
-                        Text("\($0)%").tag($0)
-                    }
+    private var modeCards: some View {
+        VStack(spacing: 8) {
+            ForEach(Mode.allCases, id: \.self) { mode in
+                ModeCard(mode: mode, isSelected: controller.mode == mode) {
+                    Task { try? await controller.select(mode) }
                 }
-                .labelsHidden()
-                .fixedSize()
-                .disabled(!preferences.batteryLimitEnabled)
-            }
-            .opacity(controller.mode == .keepScreenOn ? 0.4 : 1)
-            Toggle("Only while charging", isOn: $preferences.chargingOnlyEnabled)
-                .opacity(controller.mode == .keepScreenOn ? 0.4 : 1)
-            HStack {
-                Toggle("Turn off after", isOn: $preferences.timerEnabled)
-                Spacer()
-                Picker("Turn off after", selection: $preferences.timerSeconds) {
-                    ForEach(Self.choices(SafetyPreferences.timerChoices, current: preferences.timerSeconds), id: \.self) {
-                        Text(Self.timerLabel($0)).tag($0)
-                    }
-                }
-                .labelsHidden()
-                .fixedSize()
-                .disabled(!preferences.timerEnabled)
             }
         }
-        .toggleStyle(.switch)
-        .controlSize(.small)
+        .disabled(controller.isBusy)
     }
 
-    private var lockRow: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Toggle("Lock screen when the lid closes", isOn: $preferences.lockOnLidCloseEnabled)
-                .toggleStyle(.switch)
-                .controlSize(.small)
+    private var helperPrompt: HelperPrompt? {
+        HelperPrompt(state: helper.state)
+    }
+
+    private var messages: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let error = controller.lastError {
+                Text(error)
+                    .font(.system(size: 12))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if let prompt = helperPrompt {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(prompt.message)
+                        .font(.system(size: 12))
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button(prompt.actionTitle) {
+                        switch prompt {
+                        case .install: Task { await helper.install() }
+                        case .openSystemSettings: helper.openSystemSettings()
+                        }
+                    }
+                    .disabled(helper.isBusy)
+                }
+            }
+        }
+    }
+
+    // Off and Run with Lid Closed.
+    private var allProtections: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                SectionHeader(title: "Safety")
+                SettingRow(title: "Stop when the Mac gets hot", detail: "Ends the session under thermal pressure") {
+                    thermalToggle
+                }
+                SettingRow(title: "Stop on low battery", detail: "When the charge drops below the limit") {
+                    batteryValue
+                    batteryToggle
+                }
+                SettingRow(title: "Only while charging", detail: "Pauses on battery, resumes on power") {
+                    chargingToggle
+                }
+                timerRow
+            }
+            Divider()
+            lockRow(minHeight: 36)
+            Divider()
+        }
+    }
+
+    // Keep Screen On: only the timer applies.
+    private var timerOnlyProtections: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                SectionHeader(title: "Timer")
+                timerRow
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                SectionHeader(title: "Safety · lid closed only")
+                SettingRow(title: "Stop when the Mac gets hot", minHeight: 40) {
+                    thermalToggle
+                }
+                SettingRow(title: "Stop on low battery", minHeight: 40) {
+                    batteryValue
+                    batteryToggle
+                }
+                SettingRow(title: "Only while charging", minHeight: 40) {
+                    chargingToggle
+                }
+                lockRow(minHeight: 40)
+            }
+            .opacity(0.45)
+            .disabled(true)
+            Divider()
+        }
+    }
+
+    private var timerRow: some View {
+        SettingRow(title: "Turn off after", detail: "Counts from the moment you switch on") {
+            ValueMenu(
+                label: "Turn off after",
+                selection: $preferences.timerSeconds,
+                choices: Self.choices(SafetyPreferences.timerChoices, current: preferences.timerSeconds),
+                title: DurationFormat.choice
+            )
+            SwitchToggle(title: "Turn off after", isOn: $preferences.timerEnabled)
+        }
+    }
+
+    private var thermalToggle: some View {
+        SwitchToggle(title: "Stop when the Mac gets hot", isOn: $preferences.thermalProtectionEnabled)
+    }
+
+    private var batteryValue: some View {
+        ValueMenu(
+            label: "Battery limit",
+            selection: $preferences.batteryLimitPercent,
+            choices: Self.choices(SafetyPreferences.batteryLimitChoices, current: preferences.batteryLimitPercent),
+            title: DurationFormat.percent
+        )
+    }
+
+    private var batteryToggle: some View {
+        SwitchToggle(title: "Stop on low battery", isOn: $preferences.batteryLimitEnabled)
+    }
+
+    private var chargingToggle: some View {
+        SwitchToggle(title: "Only while charging", isOn: $preferences.chargingOnlyEnabled)
+    }
+
+    private func lockRow(minHeight: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            SettingRow(title: "Lock screen when the lid closes", minHeight: minHeight) {
+                SwitchToggle(title: "Lock screen when the lid closes", isOn: $preferences.lockOnLidCloseEnabled)
+            }
             if let notice = controller.screenLockNotice {
                 Text(notice)
-                    .font(.caption)
+                    .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        // Only Run with Lid Closed locks the screen; elsewhere the Mac sleeps as usual.
-        .opacity(controller.mode == .lidClosed ? 1 : 0.4)
     }
 
-    private static func choices(_ list: [Int], current: Int) -> [Int] {
-        list.contains(current) ? list : (list + [current]).sorted()
-    }
-
-    private static func timerLabel(_ seconds: Int) -> String {
-        switch seconds {
-        case 1800: return "30 min"
-        case 3600: return "1 hour"
-        case 7200: return "2 hours"
-        case 14_400: return "4 hours"
-        case 28_800: return "8 hours"
-        default: return duration(seconds)
-        }
-    }
-
-    private static func duration(_ seconds: Int) -> String {
-        let minutes = (seconds + 59) / 60
-        let hours = minutes / 60
-        let rest = minutes % 60
-        switch (hours, rest) {
-        case (0, _): return "\(rest) min"
-        case (_, 0): return "\(hours) h"
-        default: return "\(hours) h \(rest) min"
-        }
-    }
-
-    private var helperRow: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(helperStatus)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Button(helperActionTitle) {
-                helperAction()
-            }
-            .disabled(helper.isBusy)
-        }
-    }
-
-    private var helperStatus: String {
-        switch helper.state {
-        case .notInstalled: return "Helper: not installed"
-        case .requiresApproval: return "Helper: waiting for approval"
-        case .ready: return "Helper: ready"
-        case .error(let message): return "Helper: \(message)"
-        case .outdated: return "Helper: outdated"
-        }
-    }
-
-    private var helperActionTitle: String {
-        switch helper.state {
-        case .notInstalled, .error, .outdated: return "Install Helper"
-        case .requiresApproval: return "Open System Settings"
-        case .ready: return "Remove Helper"
-        }
-    }
-
-    private func helperAction() {
-        switch helper.state {
-        case .notInstalled, .error, .outdated:
-            Task { await helper.install() }
-        case .requiresApproval:
-            helper.openSystemSettings()
-        case .ready:
-            Task { await helper.uninstall() }
-        }
-    }
-
-    private func modeRow(_ mode: Mode, title: String) -> some View {
+    private var quitRow: some View {
         Button {
-            Task { try? await controller.select(mode) }
+            NSApplication.shared.terminate(nil)
         } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "checkmark")
-                    .opacity(controller.mode == mode ? 1 : 0)
-                Text(title)
+            HStack {
+                Text("Quit LidAwake")
+                    .font(.system(size: 13))
                 Spacer()
+                Text(verbatim: "⌘Q")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
             }
+            .frame(minHeight: 36)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .keyboardShortcut("q", modifiers: .command)
+        .accessibilityLabel(Text("Quit LidAwake"))
+    }
+
+    /// Keeps a stored value that is not one of the choices visible and selectable.
+    private static func choices(_ list: [Int], current: Int) -> [Int] {
+        list.contains(current) ? list : (list + [current]).sorted()
+    }
+}
+
+private extension Mode {
+    var title: LocalizedStringKey {
+        switch self {
+        case .off: return "Off"
+        case .keepScreenOn: return "Keep Screen On"
+        case .lidClosed: return "Run with Lid Closed"
+        }
+    }
+
+    var summary: LocalizedStringKey {
+        switch self {
+        case .off: return "The Mac sleeps as usual."
+        case .keepScreenOn: return "For stepping away from the desk. Closing the lid still puts the Mac to sleep."
+        case .lidClosed: return "For the road. Keeps working with the lid shut or the screen locked."
+        }
+    }
+}
+
+private struct ModeCard: View {
+    let mode: Mode
+    let isSelected: Bool
+    let action: () -> Void
+
+    @Environment(\.isEnabled) private var isEnabled
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
+        Button(action: action) {
+            HStack(spacing: 12) {
+                ModeIconView(mode: mode)
+                    .frame(width: 22, height: 22)
+                    .foregroundStyle(isSelected ? Palette.accent : Color.primary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(mode.title)
+                        .font(.system(size: 13, weight: .semibold))
+                    Text(mode.summary)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(Palette.onAccent)
+                        .frame(width: 18, height: 18)
+                        .background(Circle().fill(Palette.accent))
+                        .accessibilityHidden(true)
+                }
+            }
+            // The border is drawn inside the card, so 13 matches the mockup's 12 padding plus a 1 border.
+            .padding(13)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(shape.fill(Palette.cardBackground))
+            .overlay(shape.strokeBorder(isSelected ? Palette.accent : Palette.cardBorder, lineWidth: isSelected ? 2 : 1))
+            .contentShape(shape)
+        }
+        .buttonStyle(.plain)
+        .opacity(isEnabled ? 1 : 0.6)
+        .accessibilityLabel(Text(mode.title))
+        .accessibilityHint(Text(mode.summary))
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+}
+
+private struct SectionHeader: View {
+    let title: LocalizedStringKey
+
+    var body: some View {
+        Text(title)
+            .font(.system(size: 11, weight: .semibold))
+            .kerning(0.6)
+            .textCase(.uppercase)
+            .foregroundStyle(.secondary)
+            .accessibilityAddTraits(.isHeader)
+    }
+}
+
+private struct SettingRow<Controls: View>: View {
+    let title: LocalizedStringKey
+    var detail: LocalizedStringKey?
+    var minHeight: CGFloat = 44
+    @ViewBuilder let controls: Controls
+
+    var body: some View {
+        HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 13))
+                if let detail {
+                    Text(detail)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityElement(children: .combine)
+            Spacer(minLength: 8)
+            controls
+        }
+        .frame(minHeight: minHeight)
+    }
+}
+
+private struct SwitchToggle: View {
+    let title: LocalizedStringKey
+    @Binding var isOn: Bool
+
+    var body: some View {
+        Toggle(title, isOn: $isOn)
+            .labelsHidden()
+            .toggleStyle(.switch)
+            .controlSize(.small)
+    }
+}
+
+/// A value in a rounded "pill" that opens a menu of choices.
+private struct ValueMenu: View {
+    let label: LocalizedStringKey
+    @Binding var selection: Int
+    let choices: [Int]
+    let title: (Int) -> String
+
+    var body: some View {
+        Menu {
+            Picker(label, selection: $selection) {
+                ForEach(choices, id: \.self) { value in
+                    Text(title(value)).tag(value)
+                }
+            }
+            .pickerStyle(.inline)
+            .labelsHidden()
+        } label: {
+            Text(title(selection))
+                .font(.system(size: 12))
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        // A borderless menu draws its title in the tint color.
+        .tint(.primary)
+        .fixedSize()
+        .padding(.vertical, 4)
+        .padding(.horizontal, 8)
+        .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Palette.valueBackground))
+        .accessibilityLabel(Text(label))
+        .accessibilityValue(Text(title(selection)))
     }
 }

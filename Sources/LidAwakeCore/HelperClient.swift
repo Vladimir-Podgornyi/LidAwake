@@ -111,11 +111,11 @@ public final class HelperClient: ObservableObject, HelperPreparing {
         case .ready:
             return
         case .notInstalled:
-            throw HelperError.notReady("Install the helper to run with the lid closed.")
+            throw HelperError.notReady(String(localized: "Install the helper to run with the lid closed."))
         case .requiresApproval:
-            throw HelperError.notReady("Allow LidAwake in System Settings > General > Login Items & Extensions.")
+            throw HelperError.notReady(String(localized: "Allow LidAwake in System Settings > General > Login Items & Extensions."))
         case .outdated:
-            throw HelperError.notReady("The helper could not be updated.")
+            throw HelperError.notReady(String(localized: "The helper could not be updated."))
         case .error(let message):
             throw HelperError.notReady(message)
         }
