@@ -107,8 +107,9 @@ final class ListenerDelegate: NSObject, NSXPCListenerDelegate {
     func scheduleIdleExit() {
         idleExit?.cancel()
         let item = DispatchWorkItem { [weak self] in
-            // An active session needs the helper to enforce its lease and limits.
-            if session.isActive {
+            // An active session needs the helper to enforce its lease and limits;
+            // a leftover flag needs it to keep retrying the cleanup.
+            if session.needsHelper {
                 self?.scheduleIdleExit()
             } else {
                 exit(0)
@@ -143,9 +144,14 @@ final class ListenerDelegate: NSObject, NSXPCListenerDelegate {
     }
 }
 
+session.retryLeftover()
+
 let limitTimer = DispatchSource.makeTimerSource(queue: .main)
 limitTimer.schedule(deadline: .now() + limitCheckInterval, repeating: limitCheckInterval)
-limitTimer.setEventHandler { session.enforceLimits() }
+limitTimer.setEventHandler {
+    session.enforceLimits()
+    session.retryLeftover()
+}
 limitTimer.resume()
 
 let delegate = ListenerDelegate()

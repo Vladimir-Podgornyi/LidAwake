@@ -178,14 +178,61 @@ final class LidSessionTests: XCTestCase {
         XCTAssertEqual(flag.writes, [true, true])
     }
 
-    func testRenewDoesNotRestoreForeignFlag() {
+    func testRenewKeepsForeignSessionWhileFlagIsSet() {
+        flag = FakeFlag(true)
+        let session = makeSession()
+        XCTAssertEqual(session.start(lease: 120, safety: noLimits), .ok)
+
+        XCTAssertEqual(session.renew(lease: 120, safety: noLimits), .ok)
+        XCTAssertEqual(session.ownership, .foreign)
+        XCTAssertFalse(marker.isSet)
+        XCTAssertTrue(flag.value)
+        XCTAssertEqual(flag.writes, [])
+    }
+
+    func testRenewTakesOverForeignSessionWhenFlagIsGone() {
         flag = FakeFlag(true)
         let session = makeSession()
         XCTAssertEqual(session.start(lease: 120, safety: noLimits), .ok)
 
         flag.value = false
         XCTAssertEqual(session.renew(lease: 120, safety: noLimits), .ok)
+        XCTAssertEqual(session.ownership, .ours)
+        XCTAssertTrue(marker.isSet)
+        XCTAssertTrue(flag.value)
+        XCTAssertEqual(flag.writes, [true])
+        XCTAssertEqual(session.status().session, .ours)
+
+        XCTAssertEqual(session.end(), .ok)
         XCTAssertFalse(flag.value)
+        XCTAssertFalse(marker.isSet)
+        XCTAssertEqual(flag.writes, [true, false])
+    }
+
+    func testTakeOverSetsMarkerBeforeFlag() {
+        flag = FakeFlag(true)
+        let session = makeSession()
+        XCTAssertEqual(session.start(lease: 120, safety: noLimits), .ok)
+
+        flag.value = false
+        flag.writeFails = true
+        XCTAssertEqual(session.renew(lease: 120, safety: noLimits).code, .flagWriteFailed)
+        XCTAssertEqual(session.ownership, .foreign)
+        // The marker was written first and stays because the flag could not be cleared either.
+        XCTAssertTrue(marker.isSet)
+    }
+
+    func testRenewReportsReadFailureForForeignSession() {
+        flag = FakeFlag(true)
+        let session = makeSession()
+        XCTAssertEqual(session.start(lease: 120, safety: noLimits), .ok)
+
+        flag.readFails = true
+        let result = session.renew(lease: 120, safety: noLimits)
+        XCTAssertEqual(result.code, .flagReadFailed)
+        XCTAssertNotNil(result.message)
+        XCTAssertEqual(session.ownership, .foreign)
+        XCTAssertFalse(marker.isSet)
         XCTAssertEqual(flag.writes, [])
     }
 
@@ -261,6 +308,67 @@ final class LidSessionTests: XCTestCase {
 
         XCTAssertEqual(session.clearLeftover().code, .flagWriteFailed)
         XCTAssertTrue(marker.isSet)
+    }
+
+    func testLaunchClearsLeftover() {
+        flag = FakeFlag(true)
+        marker = FakeMarker(true)
+        let session = makeSession()
+
+        XCTAssertEqual(session.retryLeftover(), .ok)
+        XCTAssertFalse(flag.value)
+        XCTAssertFalse(marker.isSet)
+        XCTAssertFalse(session.needsHelper)
+    }
+
+    func testLaunchWithoutMarkerChangesNothing() {
+        flag = FakeFlag(true)
+        let session = makeSession()
+
+        XCTAssertNil(session.retryLeftover())
+        XCTAssertTrue(flag.value)
+        XCTAssertFalse(marker.isSet)
+        XCTAssertEqual(flag.writes, [])
+        XCTAssertFalse(session.needsHelper)
+    }
+
+    func testFailedLeftoverCleanupRetriesEveryThirtySeconds() {
+        flag = FakeFlag(true)
+        marker = FakeMarker(true)
+        flag.writeFails = true
+        let session = makeSession()
+
+        XCTAssertEqual(session.retryLeftover()?.code, .flagWriteFailed)
+        XCTAssertEqual(flag.writes, [false])
+        XCTAssertTrue(session.needsHelper)
+
+        clock.now += 29
+        XCTAssertNil(session.retryLeftover())
+        XCTAssertEqual(flag.writes, [false])
+        XCTAssertTrue(session.needsHelper)
+
+        clock.now += 1
+        XCTAssertEqual(session.retryLeftover()?.code, .flagWriteFailed)
+        XCTAssertEqual(flag.writes, [false, false])
+        XCTAssertTrue(marker.isSet)
+        XCTAssertTrue(session.needsHelper)
+
+        flag.writeFails = false
+        clock.now += 30
+        XCTAssertEqual(session.retryLeftover(), .ok)
+        XCTAssertFalse(flag.value)
+        XCTAssertFalse(marker.isSet)
+        XCTAssertFalse(session.needsHelper)
+    }
+
+    func testLeftoverRetryLeavesActiveSession() {
+        let session = makeSession()
+        XCTAssertEqual(session.start(lease: 120, safety: noLimits), .ok)
+
+        XCTAssertNil(session.retryLeftover())
+        XCTAssertTrue(flag.value)
+        XCTAssertTrue(session.isActive)
+        XCTAssertTrue(session.needsHelper)
     }
 
     func testEndWithoutSessionClearsLeftover() {

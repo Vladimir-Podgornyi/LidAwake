@@ -11,6 +11,13 @@
 		<key>com.vladimirpodgornyi.LidAwake.helper</key>
 		<true/>
 	</dict>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<dict>
+		<key>SuccessfulExit</key>
+		<false/>
+	</dict>
 	<key>AssociatedBundleIdentifiers</key>
 	<array>
 		<string>com.vladimirpodgornyi.LidAwake</string>
