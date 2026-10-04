@@ -8,6 +8,7 @@ struct ContentView: View {
     @ObservedObject var preferences: SafetyPreferences
     @ObservedObject var helperSetup: HelperSetup
     @ObservedObject var launchAtLogin: LaunchAtLogin
+    @ObservedObject var accent: AccentPreference
 
     private let power = IOKitPowerSource()
 
@@ -28,7 +29,7 @@ struct ContentView: View {
         .padding(.horizontal, 14)
         .padding(.bottom, 8)
         .frame(width: 320, alignment: .leading)
-        .tint(Palette.accent)
+        .tint(accentColor)
         .onAppear { launchAtLogin.refresh() }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
             launchAtLogin.refresh()
@@ -63,7 +64,7 @@ struct ContentView: View {
     private var modeCards: some View {
         VStack(spacing: 8) {
             ForEach(Mode.allCases, id: \.self) { mode in
-                ModeCard(mode: mode, isSelected: controller.mode == mode) {
+                ModeCard(mode: mode, isSelected: controller.mode == mode, accent: accentColor) {
                     Task { await helperSetup.select(mode) }
                 }
             }
@@ -105,6 +106,7 @@ struct ContentView: View {
             Divider()
             lockRow(minHeight: 36)
             launchRow
+            accentRow
             Divider()
         }
     }
@@ -134,6 +136,7 @@ struct ContentView: View {
             .disabled(true)
             Divider()
             launchRow
+            accentRow
             Divider()
         }
     }
@@ -203,6 +206,23 @@ struct ContentView: View {
         }
     }
 
+    private var accentColor: Color {
+        Palette.accent(accent.theme)
+    }
+
+    private var accentRow: some View {
+        SettingRow(title: "Accent", minHeight: 36) {
+            Picker("Accent", selection: $accent.theme) {
+                ForEach(AccentTheme.allCases, id: \.self) { theme in
+                    Text(theme.title).tag(theme)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .fixedSize()
+        }
+    }
+
     private var quitRow: some View {
         Button {
             NSApplication.shared.terminate(nil)
@@ -248,9 +268,19 @@ private extension Mode {
     }
 }
 
+private extension AccentTheme {
+    var title: LocalizedStringKey {
+        switch self {
+        case .blue: return "Blue"
+        case .amber: return "Amber"
+        }
+    }
+}
+
 private struct ModeCard: View {
     let mode: Mode
     let isSelected: Bool
+    let accent: Color
     let action: () -> Void
 
     @Environment(\.isEnabled) private var isEnabled
@@ -261,7 +291,7 @@ private struct ModeCard: View {
             HStack(spacing: 12) {
                 ModeIconView(mode: mode)
                     .frame(width: 22, height: 22)
-                    .foregroundStyle(isSelected ? Palette.accent : Color.primary)
+                    .foregroundStyle(isSelected ? accent : Color.primary)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(mode.title)
                         .font(.system(size: 13, weight: .semibold))
@@ -276,7 +306,7 @@ private struct ModeCard: View {
                         .font(.system(size: 9, weight: .bold))
                         .foregroundStyle(Palette.onAccent)
                         .frame(width: 18, height: 18)
-                        .background(Circle().fill(Palette.accent))
+                        .background(Circle().fill(accent))
                         .accessibilityHidden(true)
                 }
             }
@@ -284,7 +314,7 @@ private struct ModeCard: View {
             .padding(13)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(shape.fill(Palette.cardBackground))
-            .overlay(shape.strokeBorder(isSelected ? Palette.accent : Palette.cardBorder, lineWidth: isSelected ? 2 : 1))
+            .overlay(shape.strokeBorder(isSelected ? accent : Palette.cardBorder, lineWidth: isSelected ? 2 : 1))
             .contentShape(shape)
         }
         .buttonStyle(.plain)
