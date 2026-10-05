@@ -57,6 +57,20 @@ Lock screen when the lid closes (on by default) locks the screen as soon as the 
 
 A closed laptop in a bag cools poorly. The protections reduce the risk; they do not remove it. The thermal protection reacts only to what macOS itself reports as overheating: in tests on a MacBook Air (M1) under full CPU load, the system reported a nominal thermal state throughout, so this protection has never been seen to trip.
 
+## Automatic logout
+
+macOS can log you out after a period of inactivity. The setting is in System Settings > Privacy & Security, under the Advanced button at the bottom. Logging out quits all apps, LidAwake included, so the mode ends with the session. LidAwake only reads this setting; it does not change it or work around it.
+
+When the setting is on and Keep Screen On or Run with Lid Closed is selected, the window shows macOS will log you out with the delay and a button that opens Privacy & Security. The warning is not shown when Turn off after is on and set no longer than the logout delay, because the timer ends the mode first. The setting is read again each time the window opens and whenever the mode changes.
+
+To see what LidAwake reads:
+
+```sh
+/Applications/LidAwake.app/Contents/MacOS/LidAwake --auto-logout-status
+```
+
+It prints `auto-logout=` followed by the delay in seconds, or `auto-logout=off`.
+
 ## Install
 
 1. Download the DMG from the [latest release](https://github.com/Vladimir-Podgornyi/LidAwake/releases/latest).
