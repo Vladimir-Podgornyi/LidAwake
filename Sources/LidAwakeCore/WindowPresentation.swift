@@ -173,6 +173,9 @@ public struct WindowMessage: Equatable, Identifiable {
 
     public var id: Source { source }
 
+    /// Only the automatic logout warning can be closed.
+    public var isDismissible: Bool { source == .autoLogout }
+
     /// The notices to show, helper first, then the mode, the logout warning and the update;
     /// empty when there is nothing to say.
     public static func list(

@@ -55,10 +55,12 @@ public enum AutoLogoutLinks {
 public struct AutoLogoutNotice: Equatable {
     public let delaySeconds: Int
 
-    /// nil in Off, with the setting off, or when the timer ends the mode no later than the logout.
-    public init?(mode: Mode, delaySeconds: Int?, timerSeconds: Int?) {
+    /// nil in Off, with the setting off, when the timer ends the mode no later than the logout,
+    /// or when the warning was dismissed at a delay no longer than the current one.
+    public init?(mode: Mode, delaySeconds: Int?, timerSeconds: Int?, dismissedDelay: Int? = nil) {
         guard mode != .off, let delaySeconds else { return nil }
         if let timerSeconds, timerSeconds <= delaySeconds { return nil }
+        if let dismissedDelay, delaySeconds >= dismissedDelay { return nil }
         self.delaySeconds = delaySeconds
     }
 
@@ -85,16 +87,30 @@ public enum AutoLogoutReport {
     }
 }
 
-/// Keeps the last read value of the setting for the window.
+/// Keeps the last read value of the setting for the window, and the delay at which the user
+/// dismissed the warning.
 @MainActor
 public final class AutoLogoutMonitor: ObservableObject {
+    public static let dismissedDelayKey = "autoLogoutDismissedDelay"
+
     @Published public private(set) var delaySeconds: Int?
+    @Published public private(set) var dismissedDelay: Int?
 
     private let source: AutoLogoutSource
+    private let defaults: UserDefaults
 
-    public init(source: AutoLogoutSource = SystemAutoLogoutSource()) {
+    public init(source: AutoLogoutSource = SystemAutoLogoutSource(), defaults: UserDefaults = .standard) {
         self.source = source
+        self.defaults = defaults
         delaySeconds = source.delaySeconds()
+        dismissedDelay = (defaults.object(forKey: Self.dismissedDelayKey) as? Int).flatMap { $0 > 0 ? $0 : nil }
+    }
+
+    /// Hides the warning until the delay gets shorter than it is now.
+    public func dismiss() {
+        guard let delaySeconds else { return }
+        defaults.set(delaySeconds, forKey: Self.dismissedDelayKey)
+        dismissedDelay = delaySeconds
     }
 
     public func refresh() {
@@ -105,6 +121,6 @@ public final class AutoLogoutMonitor: ObservableObject {
     }
 
     public func notice(mode: Mode, timerSeconds: Int?) -> AutoLogoutNotice? {
-        AutoLogoutNotice(mode: mode, delaySeconds: delaySeconds, timerSeconds: timerSeconds)
+        AutoLogoutNotice(mode: mode, delaySeconds: delaySeconds, timerSeconds: timerSeconds, dismissedDelay: dismissedDelay)
     }
 }

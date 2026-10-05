@@ -118,6 +118,7 @@ final class LocalizationTests: XCTestCase {
             ("Permission needed", "Erlaubnis erforderlich", "Нужно разрешение"),
             ("Open System Settings", "Systemeinstellungen öffnen", "Открыть «Системные настройки»"),
             ("Try Again", "Erneut versuchen", "Повторить"),
+            ("Dismiss", "Ausblenden", "Скрыть"),
             ("LidAwake turned off", "LidAwake wurde ausgeschaltet", "LidAwake выключился"),
             ("LidAwake paused", "LidAwake pausiert", "LidAwake на паузе"),
             ("30 min", "30\u{00A0}Min.", "30\u{00A0}мин"),

@@ -135,6 +135,39 @@ final class AutoLogoutNoticeTests: XCTestCase {
     }
 }
 
+final class AutoLogoutDismissalTests: XCTestCase {
+    func testDismissedAtTheSameDelayStaysHidden() {
+        XCTAssertNil(AutoLogoutNotice(mode: .keepScreenOn, delaySeconds: 90_000, timerSeconds: nil, dismissedDelay: 90_000))
+    }
+
+    func testLongerDelayStaysHidden() {
+        XCTAssertNil(AutoLogoutNotice(mode: .lidClosed, delaySeconds: 100_000, timerSeconds: nil, dismissedDelay: 90_000))
+    }
+
+    func testShorterDelayShowsAgain() {
+        XCTAssertEqual(
+            AutoLogoutNotice(mode: .keepScreenOn, delaySeconds: 3600, timerSeconds: nil, dismissedDelay: 90_000)?.delaySeconds,
+            3600
+        )
+    }
+
+    func testOtherRulesStillApply() {
+        XCTAssertNil(AutoLogoutNotice(mode: .off, delaySeconds: 3600, timerSeconds: nil, dismissedDelay: 90_000))
+        XCTAssertNil(AutoLogoutNotice(mode: .keepScreenOn, delaySeconds: 3600, timerSeconds: 1800, dismissedDelay: 90_000))
+        XCTAssertNil(AutoLogoutNotice(mode: .keepScreenOn, delaySeconds: nil, timerSeconds: nil, dismissedDelay: 90_000))
+    }
+
+    func testOnlyTheWarningCanBeDismissed() {
+        let messages = WindowMessage.list(
+            helper: .approval,
+            mode: .turnedOff("The timer ran out."),
+            autoLogout: AutoLogoutNotice(mode: .lidClosed, delaySeconds: 3600, timerSeconds: nil),
+            update: UpdateNotice(latest: "1.1.0", current: "1.0.0")
+        )
+        XCTAssertEqual(messages.map(\.isDismissible), [false, false, true, false])
+    }
+}
+
 @MainActor
 final class AutoLogoutMonitorTests: XCTestCase {
     private final class Source: AutoLogoutSource {
@@ -151,9 +184,71 @@ final class AutoLogoutMonitorTests: XCTestCase {
         }
     }
 
+    private var defaults: UserDefaults!
+    private var suiteName: String!
+
+    override func setUp() {
+        super.setUp()
+        suiteName = "AutoLogoutMonitorTests-\(UUID().uuidString)"
+        defaults = UserDefaults(suiteName: suiteName)
+    }
+
+    override func tearDown() {
+        defaults.removePersistentDomain(forName: suiteName)
+        super.tearDown()
+    }
+
+    func testDismissStoresTheCurrentDelay() {
+        let monitor = AutoLogoutMonitor(source: Source(delay: 90_000), defaults: defaults)
+        XCTAssertNotNil(monitor.notice(mode: .keepScreenOn, timerSeconds: nil))
+        monitor.dismiss()
+        XCTAssertEqual(defaults.object(forKey: "autoLogoutDismissedDelay") as? Int, 90_000)
+        XCTAssertNil(monitor.notice(mode: .keepScreenOn, timerSeconds: nil))
+        // Remembered across launches.
+        XCTAssertNil(AutoLogoutMonitor(source: Source(delay: 90_000), defaults: defaults).notice(mode: .keepScreenOn, timerSeconds: nil))
+    }
+
+    func testShorterDelayShowsAgainAndCanBeDismissedAgain() {
+        let source = Source(delay: 90_000)
+        let monitor = AutoLogoutMonitor(source: source, defaults: defaults)
+        monitor.dismiss()
+        source.delay = 3600
+        monitor.refresh()
+        XCTAssertEqual(monitor.notice(mode: .keepScreenOn, timerSeconds: nil)?.delaySeconds, 3600)
+        monitor.dismiss()
+        XCTAssertEqual(monitor.dismissedDelay, 3600)
+        XCTAssertNil(monitor.notice(mode: .keepScreenOn, timerSeconds: nil))
+        source.delay = 90_000
+        monitor.refresh()
+        XCTAssertNil(monitor.notice(mode: .keepScreenOn, timerSeconds: nil))
+    }
+
+    func testTurningOffAndOnAgainKeepsTheDismissal() {
+        let source = Source(delay: 90_000)
+        let monitor = AutoLogoutMonitor(source: source, defaults: defaults)
+        monitor.dismiss()
+        source.delay = nil
+        monitor.refresh()
+        XCTAssertNil(monitor.notice(mode: .keepScreenOn, timerSeconds: nil))
+        source.delay = 90_000
+        monitor.refresh()
+        XCTAssertNil(monitor.notice(mode: .keepScreenOn, timerSeconds: nil))
+        XCTAssertEqual(monitor.dismissedDelay, 90_000)
+        source.delay = 1800
+        monitor.refresh()
+        XCTAssertNotNil(monitor.notice(mode: .lidClosed, timerSeconds: nil))
+    }
+
+    func testDismissWithTheSettingOffStoresNothing() {
+        let monitor = AutoLogoutMonitor(source: Source(delay: nil), defaults: defaults)
+        monitor.dismiss()
+        XCTAssertNil(defaults.object(forKey: "autoLogoutDismissedDelay"))
+        XCTAssertNil(monitor.dismissedDelay)
+    }
+
     func testRefreshReadsTheSettingAgain() {
         let source = Source(delay: 3600)
-        let monitor = AutoLogoutMonitor(source: source)
+        let monitor = AutoLogoutMonitor(source: source, defaults: defaults)
         XCTAssertEqual(monitor.delaySeconds, 3600)
         XCTAssertNotNil(monitor.notice(mode: .keepScreenOn, timerSeconds: nil))
 

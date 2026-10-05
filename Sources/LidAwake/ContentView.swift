@@ -160,7 +160,12 @@ struct ContentView: View {
     private var messageBlock: some View {
         VStack(alignment: .leading, spacing: 8) {
             ForEach(messages) { message in
-                MessageBanner(message: message, look: look, isActionDisabled: message.source == .helper && helperSetup.isWorking) {
+                MessageBanner(
+                    message: message,
+                    look: look,
+                    isActionDisabled: message.source == .helper && helperSetup.isWorking,
+                    dismiss: message.isDismissible ? { autoLogout.dismiss() } : nil
+                ) {
                     switch message.source {
                     case .update:
                         NSWorkspace.shared.open(UpdateLinks.downloadPage)
@@ -510,6 +515,7 @@ private struct MessageBanner: View {
     let message: WindowMessage
     let look: WindowLook
     let isActionDisabled: Bool
+    var dismiss: (() -> Void)?
     let action: () -> Void
 
     var body: some View {
@@ -553,6 +559,23 @@ private struct MessageBanner: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(shape.fill(message.kind.background(look)))
         .overlay(shape.strokeBorder(message.kind.border(look), lineWidth: 1))
+        // The stack's spacing before the spacer keeps 10 points right of the text free, so the
+        // button, 3 points in from the corner, never covers the title.
+        .overlay(alignment: .topTrailing) {
+            if let dismiss {
+                Button(action: dismiss) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 20, height: 20)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .padding(3)
+                .help(Text("Dismiss"))
+                .accessibilityLabel(Text("Dismiss"))
+            }
+        }
         .accessibilityElement(children: .contain)
     }
 }
