@@ -166,6 +166,8 @@ public struct WindowMessage: Equatable, Identifiable {
     public let kind: MessageKind
     public let title: String
     public let text: String
+    /// A smaller line under the text.
+    public let hint: String?
     public let action: HelperPrompt.Action?
     public let actionTitle: String?
 
@@ -186,6 +188,7 @@ public struct WindowMessage: Equatable, Identifiable {
                 kind: helper.kind,
                 title: helper.title,
                 text: helper.text,
+                hint: nil,
                 action: helper.action,
                 actionTitle: helper.actionTitle
             ))
@@ -196,6 +199,7 @@ public struct WindowMessage: Equatable, Identifiable {
                 kind: mode.kind,
                 title: mode.title,
                 text: mode.text,
+                hint: nil,
                 action: nil,
                 actionTitle: nil
             ))
@@ -206,6 +210,7 @@ public struct WindowMessage: Equatable, Identifiable {
                 kind: .info,
                 title: autoLogout.title,
                 text: autoLogout.text,
+                hint: autoLogout.hint,
                 action: nil,
                 actionTitle: String(localized: "Open System Settings")
             ))
@@ -216,6 +221,7 @@ public struct WindowMessage: Equatable, Identifiable {
                 kind: .info,
                 title: String(localized: "Update available"),
                 text: String(localized: "LidAwake \(update.latest) is available. You have \(update.current)."),
+                hint: nil,
                 action: nil,
                 actionTitle: String(localized: "Download")
             ))

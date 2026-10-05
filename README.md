@@ -59,9 +59,9 @@ A closed laptop in a bag cools poorly. The protections reduce the risk; they do 
 
 ## Automatic logout
 
-macOS can log you out after a period of inactivity. The setting is in System Settings > Privacy & Security, under the Advanced button at the bottom. Logging out quits all apps, LidAwake included, so the mode ends with the session. LidAwake only reads this setting; it does not change it or work around it.
+macOS can log you out after a period of inactivity. The setting is in System Settings > Privacy & Security > Advanced… > Log out automatically after inactivity; the Advanced… button is at the bottom of Privacy & Security. Logging out quits all apps, LidAwake included, so the mode ends with the session. LidAwake only reads this setting; it does not change it or work around it.
 
-When the setting is on and Keep Screen On or Run with Lid Closed is selected, the window shows macOS will log you out with the delay and a button that opens Privacy & Security. The warning is not shown when Turn off after is on and set no longer than the logout delay, because the timer ends the mode first. The setting is read again each time the window opens and whenever the mode changes.
+When the setting is on and Keep Screen On or Run with Lid Closed is selected, the window shows macOS will log you out with the delay, the path to the switch and a button that opens Privacy & Security. The warning is not shown when Turn off after is on and set no longer than the logout delay, because the timer ends the mode first. The setting is read again each time the window opens and whenever the mode changes.
 
 To see what LidAwake reads:
 

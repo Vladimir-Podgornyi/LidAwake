@@ -46,6 +46,9 @@ public struct SystemAutoLogoutSource: AutoLogoutSource {
 public enum AutoLogoutLinks {
     /// System Settings > Privacy & Security, where the Advanced button holds the setting.
     public static let privacySettings = URL(string: "x-apple.systempreferences:com.apple.preference.security")!
+    /// The same section at its Advanced anchor, as listed in the section's search terms
+    /// (PrivacySecurity.searchTerms in SecurityPrivacyExtension.appex).
+    public static let advancedSettings = URL(string: "x-apple.systempreferences:com.apple.preference.security?Advanced")!
 }
 
 /// The warning that the mode ends when macOS logs the user out.
@@ -61,6 +64,11 @@ public struct AutoLogoutNotice: Equatable {
 
     public var title: String {
         String(localized: "macOS will log you out")
+    }
+
+    /// The way to the switch, in the labels System Settings itself uses.
+    public var hint: String {
+        String(localized: "Privacy & Security > Advanced… > Log out automatically after inactivity")
     }
 
     public var text: String {

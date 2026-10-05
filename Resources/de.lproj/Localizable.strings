@@ -96,4 +96,5 @@
 
 /* Automatic logout */
 "macOS will log you out" = "macOS meldet dich automatisch ab";
+"Privacy & Security > Advanced… > Log out automatically after inactivity" = "Datenschutz & Sicherheit > Weitere Optionen … > Nach Inaktivität automatisch abmelden";
 "Automatic logout after %@ of inactivity is on. The mode ends when macOS logs you out." = "Die automatische Abmeldung nach %@ Inaktivität ist aktiviert. Der Modus endet, sobald macOS dich abmeldet.";

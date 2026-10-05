@@ -96,4 +96,5 @@
 
 /* Automatic logout */
 "macOS will log you out" = "macOS выйдет из учётной записи";
+"Privacy & Security > Advanced… > Log out automatically after inactivity" = "«Конфиденциальность и безопасность» > «Дополнительно…» > «Автоматически выходить из системы после бездействия»";
 "Automatic logout after %@ of inactivity is on. The mode ends when macOS logs you out." = "Включён автоматический выход через %@ бездействия. Когда macOS выйдет из учётной записи, режим закончится.";

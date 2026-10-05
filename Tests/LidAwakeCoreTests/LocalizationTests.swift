@@ -134,6 +134,22 @@ final class LocalizationTests: XCTestCase {
         }
     }
 
+    /// Copied from SecurityPrivacyExtension.appex on macOS 26.6.2: InfoPlist.loctable
+    /// CFBundleDisplayName, Localizable.loctable "Advanced…" and
+    /// "Log out automatically after inactivity", no-break spaces included.
+    func testAutoLogoutHintUsesTheSystemLabels() throws {
+        let key = "Privacy & Security > Advanced… > Log out automatically after inactivity"
+        XCTAssertEqual(try table("en")[key], key)
+        XCTAssertEqual(
+            try table("de")[key],
+            "Datenschutz & Sicherheit > Weitere Optionen\u{00A0}… > Nach Inaktivität automatisch abmelden"
+        )
+        XCTAssertEqual(
+            try table("ru")[key],
+            "«Конфиденциальность и безопасность» > «Дополнительно…» > «Автоматически выходить из\u{00A0}системы после бездействия»"
+        )
+    }
+
     func testSettingsPathUsesTheSystemNames() throws {
         let english = "System Settings > General > Login Items & Extensions"
         let paths = [

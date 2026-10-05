@@ -98,6 +98,33 @@ final class AutoLogoutNoticeTests: XCTestCase {
         XCTAssertNil(warning.action)
     }
 
+    func testOnlyTheWarningHasAHint() {
+        let messages = WindowMessage.list(
+            helper: .approval,
+            mode: .turnedOff("The timer ran out."),
+            autoLogout: AutoLogoutNotice(mode: .lidClosed, delaySeconds: 3600, timerSeconds: nil),
+            update: UpdateNotice(latest: "1.1.0", current: "1.0.0")
+        )
+        XCTAssertEqual(
+            messages.map(\.hint),
+            [nil, nil, "Privacy & Security > Advanced… > Log out automatically after inactivity", nil]
+        )
+        let prompts: [HelperPrompt] = [.approval, .approvalExpired, .moveToApplications, .failed("x")]
+        let modeMessages: [ModeMessage] = [.couldNotTurnOn("x"), .turnedOff("x"), .turnedOffWithError("x"), .failed("x"), .restarted]
+        let others: [WindowMessage] = prompts.flatMap { WindowMessage.list(helper: $0, mode: nil) }
+            + modeMessages.flatMap { WindowMessage.list(helper: nil, mode: $0) }
+        XCTAssertEqual(others.count, 9)
+        XCTAssertTrue(others.allSatisfy { $0.hint == nil })
+    }
+
+    func testLinksOpenPrivacyAndSecurity() {
+        XCTAssertEqual(AutoLogoutLinks.privacySettings.absoluteString, "x-apple.systempreferences:com.apple.preference.security")
+        XCTAssertEqual(
+            AutoLogoutLinks.advancedSettings.absoluteString,
+            "x-apple.systempreferences:com.apple.preference.security?Advanced"
+        )
+    }
+
     func testMessageAlone() {
         let messages = WindowMessage.list(
             helper: nil,

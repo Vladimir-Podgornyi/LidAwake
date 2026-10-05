@@ -165,11 +165,21 @@ struct ContentView: View {
                     case .update:
                         NSWorkspace.shared.open(UpdateLinks.downloadPage)
                     case .autoLogout:
-                        NSWorkspace.shared.open(AutoLogoutLinks.privacySettings)
+                        openAutoLogoutSettings()
                     case .helper, .mode:
                         Task { await helperSetup.performPromptAction() }
                     }
                 }
+            }
+        }
+    }
+
+    /// Tries the Advanced anchor first; if System Settings refuses it, opens the section.
+    private func openAutoLogoutSettings() {
+        NSWorkspace.shared.open(AutoLogoutLinks.advancedSettings, configuration: NSWorkspace.OpenConfiguration()) { _, error in
+            guard error != nil else { return }
+            DispatchQueue.main.async {
+                NSWorkspace.shared.open(AutoLogoutLinks.privacySettings)
             }
         }
     }
@@ -517,6 +527,12 @@ private struct MessageBanner: View {
                         .font(.system(size: 13, weight: .semibold))
                     Text(message.text)
                         .font(.system(size: 12))
+                    if let hint = message.hint {
+                        Text(hint)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                            .padding(.top, 2)
+                    }
                 }
                 .foregroundStyle(.primary)
                 .fixedSize(horizontal: false, vertical: true)
