@@ -17,7 +17,7 @@ struct ContentView: View {
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
-    @State private var visibleScreenHeight: CGFloat?
+    @State private var screenLimit: CGFloat?
     @State private var fixedHeight: CGFloat = 0
     @State private var scrollingContentHeight: CGFloat = 0
 
@@ -26,7 +26,7 @@ struct ContentView: View {
 
     /// How tall the window may get.
     enum HeightLimit {
-        /// The visible area of the screen the window is on.
+        /// The visible area of the screen the window is on, measured from the window's real frame.
         case screen
         /// A set height, or none.
         case fixed(CGFloat?)
@@ -53,7 +53,7 @@ struct ContentView: View {
             }
         }
         .frame(width: 320, alignment: .leading)
-        .background(ScreenHeightReader(height: $visibleScreenHeight))
+        .background(WindowGeometryReader(limit: $screenLimit, isScrolling: scrollHeight != nil))
         .background(look.drawsOwnBackground ? Palette.solidWindowBackground : .clear)
         .tint(accentColor)
         .onAppear {
@@ -92,9 +92,9 @@ struct ContentView: View {
         .background(HeightReader(height: $scrollingContentHeight))
     }
 
-    private var maxWindowHeight: CGFloat? {
+    private var maxHeight: CGFloat? {
         switch heightLimit {
-        case .screen: return visibleScreenHeight.map { WindowHeightLimit.maxWindowHeight(visibleScreenHeight: $0) }
+        case .screen: return screenLimit
         case .fixed(let height): return height
         }
     }
@@ -103,7 +103,7 @@ struct ContentView: View {
         WindowHeightLimit.scrollHeight(
             fixedHeight: fixedHeight,
             contentHeight: scrollingContentHeight,
-            maxWindowHeight: maxWindowHeight
+            maxHeight: maxHeight
         )
     }
 
@@ -707,54 +707,77 @@ private struct HeightReader: View {
     }
 }
 
-/// Reports the visible height of the screen the window is on: without the menu bar and the Dock.
-private struct ScreenHeightReader: NSViewRepresentable {
-    @Binding var height: CGFloat?
+/// Watches the window's real frame and screen and reports how tall the content may be.
+private struct WindowGeometryReader: NSViewRepresentable {
+    @Binding var limit: CGFloat?
+    let isScrolling: Bool
 
-    func makeNSView(context: Context) -> ScreenObservingView {
-        let view = ScreenObservingView()
+    func makeNSView(context: Context) -> WindowGeometryView {
+        let view = WindowGeometryView()
         view.onChange = { value in
-            if value != height {
-                height = value
+            if value != limit {
+                limit = value
             }
         }
         return view
     }
 
-    func updateNSView(_ nsView: ScreenObservingView, context: Context) {}
+    func updateNSView(_ nsView: WindowGeometryView, context: Context) {
+        nsView.isScrolling = isScrolling
+    }
 }
 
-private final class ScreenObservingView: NSView {
+private final class WindowGeometryView: NSView {
     var onChange: ((CGFloat?) -> Void)?
+    var isScrolling = false
+    private var fit = WindowFit()
     private var observers: [NSObjectProtocol] = []
+    private var loggedHeight: CGFloat?
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         observers.forEach(NotificationCenter.default.removeObserver)
         observers = []
+        fit.reset()
         guard let window else { return }
         let center = NotificationCenter.default
-        // The menu bar window can open on another screen each time, and the Dock can move.
-        for name in [NSWindow.didChangeScreenNotification, NSWindow.didBecomeKeyNotification] {
-            observers.append(center.addObserver(forName: name, object: window, queue: .main) { [weak self] _ in
-                self?.report()
+        func observe(_ name: Notification.Name, object: Any?, _ handler: @escaping (WindowGeometryView) -> Void) {
+            observers.append(center.addObserver(forName: name, object: object, queue: .main) { [weak self] _ in
+                guard let self else { return }
+                handler(self)
             })
         }
-        observers.append(center.addObserver(
-            forName: NSApplication.didChangeScreenParametersNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            self?.report()
-        })
-        report()
+        // The menu bar window can open on another screen each time, and the Dock can move.
+        observe(NSWindow.didBecomeKeyNotification, object: window) { $0.measure(isOpening: true) }
+        observe(NSWindow.didResizeNotification, object: window) { $0.measure(isOpening: false) }
+        observe(NSWindow.didMoveNotification, object: window) { $0.measure(isOpening: false) }
+        observe(NSWindow.didChangeScreenNotification, object: window) { view in
+            view.fit.reset()
+            view.measure(isOpening: false)
+        }
+        observe(NSApplication.didChangeScreenParametersNotification, object: nil) { view in
+            view.fit.reset()
+            view.measure(isOpening: false)
+        }
+        measure(isOpening: true)
     }
 
-    private func report() {
-        let height = window?.screen?.visibleFrame.height
+    private func measure(isOpening: Bool) {
+        guard let window, let screen = window.screen, let content = window.contentView else { return }
+        let geometry = WindowGeometry(
+            visibleFrame: screen.visibleFrame,
+            windowFrame: window.frame,
+            contentHeight: content.frame.height
+        )
+        let limit = fit.update(geometry)
+        if WindowGeometryLog.isEnabled, isOpening || loggedHeight != window.frame.height {
+            loggedHeight = window.frame.height
+            print(WindowGeometryReport.line(geometry, limit: limit, isScrolling: isScrolling))
+            fflush(stdout)
+        }
         // Not during a view update: the value goes into SwiftUI state.
         DispatchQueue.main.async { [weak self] in
-            self?.onChange?(height)
+            self?.onChange?(limit)
         }
     }
 
