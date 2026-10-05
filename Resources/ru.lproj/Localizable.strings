@@ -93,3 +93,7 @@
 "Update available" = "Доступно обновление";
 "LidAwake %@ is available. You have %@." = "Вышла версия LidAwake %@. У вас установлена %@.";
 "Download" = "Скачать";
+
+/* Automatic logout */
+"macOS will log you out" = "macOS выйдет из учётной записи";
+"Automatic logout after %@ of inactivity is on. The mode ends when macOS logs you out. Change it in System Settings > Privacy & Security." = "Включён автоматический выход через %@ бездействия. Когда macOS выйдет из учётной записи, режим закончится. Изменить: «Системные настройки» > «Конфиденциальность и безопасность».";

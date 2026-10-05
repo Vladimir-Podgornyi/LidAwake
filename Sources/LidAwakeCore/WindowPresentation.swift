@@ -158,6 +158,7 @@ public struct WindowMessage: Equatable, Identifiable {
     public enum Source: Equatable {
         case helper
         case mode
+        case autoLogout
         case update
     }
 
@@ -170,8 +171,14 @@ public struct WindowMessage: Equatable, Identifiable {
 
     public var id: Source { source }
 
-    /// The notices to show, helper first and the update last; empty when there is nothing to say.
-    public static func list(helper: HelperPrompt?, mode: ModeMessage?, update: UpdateNotice? = nil) -> [WindowMessage] {
+    /// The notices to show, helper first, then the mode, the logout warning and the update;
+    /// empty when there is nothing to say.
+    public static func list(
+        helper: HelperPrompt?,
+        mode: ModeMessage?,
+        autoLogout: AutoLogoutNotice? = nil,
+        update: UpdateNotice? = nil
+    ) -> [WindowMessage] {
         var messages: [WindowMessage] = []
         if let helper {
             messages.append(WindowMessage(
@@ -191,6 +198,16 @@ public struct WindowMessage: Equatable, Identifiable {
                 text: mode.text,
                 action: nil,
                 actionTitle: nil
+            ))
+        }
+        if let autoLogout {
+            messages.append(WindowMessage(
+                source: .autoLogout,
+                kind: .info,
+                title: autoLogout.title,
+                text: autoLogout.text,
+                action: nil,
+                actionTitle: String(localized: "Open System Settings")
             ))
         }
         if let update {

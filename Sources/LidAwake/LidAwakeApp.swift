@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let windowStyle = WindowAppearancePreference()
     let settingsDisclosure = SettingsDisclosurePreference()
     let updates = UpdateChecker()
+    let autoLogout = AutoLogoutMonitor()
 
     override init() {
         helperClient = HelperClient()
@@ -62,7 +63,8 @@ struct LidAwakeApp: App {
                 accent: appDelegate.accent,
                 windowStyle: appDelegate.windowStyle,
                 disclosure: appDelegate.settingsDisclosure,
-                updates: appDelegate.updates
+                updates: appDelegate.updates,
+                autoLogout: appDelegate.autoLogout
             )
         } label: {
             MenuBarIcon(controller: appDelegate.modeController)

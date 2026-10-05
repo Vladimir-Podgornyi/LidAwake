@@ -12,6 +12,7 @@ struct ContentView: View {
     @ObservedObject var windowStyle: WindowAppearancePreference
     @ObservedObject var disclosure: SettingsDisclosurePreference
     @ObservedObject var updates: UpdateChecker
+    @ObservedObject var autoLogout: AutoLogoutMonitor
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
@@ -36,10 +37,15 @@ struct ContentView: View {
         .frame(width: 320, alignment: .leading)
         .background(look.drawsOwnBackground ? Palette.solidWindowBackground : .clear)
         .tint(accentColor)
-        .onAppear { launchAtLogin.refresh() }
+        .onAppear {
+            launchAtLogin.refresh()
+            autoLogout.refresh()
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
             launchAtLogin.refresh()
+            autoLogout.refresh()
         }
+        .onChange(of: controller.mode) { _ in autoLogout.refresh() }
     }
 
     private var header: some View {
@@ -81,16 +87,27 @@ struct ContentView: View {
     }
 
     private var messages: [WindowMessage] {
-        WindowMessage.list(helper: helperSetup.prompt, mode: controller.message, update: updates.notice)
+        WindowMessage.list(
+            helper: helperSetup.prompt,
+            mode: controller.message,
+            autoLogout: autoLogout.notice(
+                mode: controller.mode,
+                timerSeconds: preferences.timerEnabled ? preferences.timerSeconds : nil
+            ),
+            update: updates.notice
+        )
     }
 
     private var messageBlock: some View {
         VStack(alignment: .leading, spacing: 8) {
             ForEach(messages) { message in
                 MessageBanner(message: message, look: look, isActionDisabled: message.source == .helper && helperSetup.isWorking) {
-                    if message.source == .update {
+                    switch message.source {
+                    case .update:
                         NSWorkspace.shared.open(UpdateLinks.downloadPage)
-                    } else {
+                    case .autoLogout:
+                        NSWorkspace.shared.open(AutoLogoutLinks.privacySettings)
+                    case .helper, .mode:
                         Task { await helperSetup.performPromptAction() }
                     }
                 }

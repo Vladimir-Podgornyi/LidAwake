@@ -1,0 +1,102 @@
+import Combine
+import CoreFoundation
+import Foundation
+
+/// The macOS setting that logs the user out after a period of inactivity. LidAwake only reads it.
+public protocol AutoLogoutSource {
+    /// Seconds of inactivity before macOS logs out; nil when the setting is off.
+    func delaySeconds() -> Int?
+}
+
+/// Reads `com.apple.autologout.AutoLogOutDelay` from the global preferences, the way System
+/// Settings writes it to /Library/Preferences/.GlobalPreferences.plist.
+public struct SystemAutoLogoutSource: AutoLogoutSource {
+    public static let key = "com.apple.autologout.AutoLogOutDelay"
+
+    private let read: (String) -> Any?
+
+    public init() {
+        read = { key in
+            // Drops values cached in this process, so a change in System Settings shows up
+            // the next time the window opens.
+            CFPreferencesAppSynchronize(kCFPreferencesAnyApplication)
+            return CFPreferencesCopyAppValue(key as CFString, kCFPreferencesAnyApplication)
+        }
+    }
+
+    init(read: @escaping (String) -> Any?) {
+        self.read = read
+    }
+
+    public func delaySeconds() -> Int? {
+        let seconds: Int?
+        switch read(Self.key) {
+        case let number as NSNumber:
+            seconds = number.intValue
+        case let text as String:
+            seconds = Int(text.trimmingCharacters(in: .whitespaces))
+        default:
+            seconds = nil
+        }
+        guard let seconds, seconds > 0 else { return nil }
+        return seconds
+    }
+}
+
+public enum AutoLogoutLinks {
+    /// System Settings > Privacy & Security, where the Advanced button holds the setting.
+    public static let privacySettings = URL(string: "x-apple.systempreferences:com.apple.preference.security")!
+}
+
+/// The warning that the mode ends when macOS logs the user out.
+public struct AutoLogoutNotice: Equatable {
+    public let delaySeconds: Int
+
+    /// nil in Off, with the setting off, or when the timer ends the mode no later than the logout.
+    public init?(mode: Mode, delaySeconds: Int?, timerSeconds: Int?) {
+        guard mode != .off, let delaySeconds else { return nil }
+        if let timerSeconds, timerSeconds <= delaySeconds { return nil }
+        self.delaySeconds = delaySeconds
+    }
+
+    public var title: String {
+        String(localized: "macOS will log you out")
+    }
+
+    public var text: String {
+        String(
+            localized: "Automatic logout after \(DurationFormat.remaining(delaySeconds)) of inactivity is on. The mode ends when macOS logs you out. Change it in System Settings > Privacy & Security."
+        )
+    }
+}
+
+/// The `--auto-logout-status` line.
+public enum AutoLogoutReport {
+    public static func line(delaySeconds: Int?) -> String {
+        "auto-logout=\(delaySeconds.map(String.init) ?? "off")"
+    }
+}
+
+/// Keeps the last read value of the setting for the window.
+@MainActor
+public final class AutoLogoutMonitor: ObservableObject {
+    @Published public private(set) var delaySeconds: Int?
+
+    private let source: AutoLogoutSource
+
+    public init(source: AutoLogoutSource = SystemAutoLogoutSource()) {
+        self.source = source
+        delaySeconds = source.delaySeconds()
+    }
+
+    public func refresh() {
+        let value = source.delaySeconds()
+        if value != delaySeconds {
+            delaySeconds = value
+        }
+    }
+
+    public func notice(mode: Mode, timerSeconds: Int?) -> AutoLogoutNotice? {
+        AutoLogoutNotice(mode: mode, delaySeconds: delaySeconds, timerSeconds: timerSeconds)
+    }
+}

@@ -93,3 +93,7 @@
 "Update available" = "Update verfügbar";
 "LidAwake %@ is available. You have %@." = "LidAwake %@ ist verfügbar. Installiert ist %@.";
 "Download" = "Laden";
+
+/* Automatic logout */
+"macOS will log you out" = "macOS meldet dich automatisch ab";
+"Automatic logout after %@ of inactivity is on. The mode ends when macOS logs you out. Change it in System Settings > Privacy & Security." = "Die automatische Abmeldung nach %@ Inaktivität ist aktiviert. Der Modus endet, sobald macOS dich abmeldet. Ändern unter Systemeinstellungen > Datenschutz & Sicherheit.";

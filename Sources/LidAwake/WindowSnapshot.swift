@@ -4,8 +4,8 @@ import LidAwakeShared
 import SwiftUI
 
 /// `--render-window <folder>`: draws the window with default settings in the Off and the
-/// Keep Screen On positions, with the settings collapsed and expanded, and Off with the update
-/// banner, without touching the helper, the login item, the display, the network or the saved settings.
+/// Keep Screen On positions, with the settings collapsed and expanded, Off with the update
+/// banner and Keep Screen On with the automatic logout warning, without touching the helper, the login item, the display, the network or the saved settings.
 enum WindowSnapshot {
     static let flag = "--render-window"
 
@@ -48,6 +48,7 @@ enum WindowSnapshot {
         let isExpanded: Bool
         let isDark: Bool
         var showsUpdate = false
+        var showsAutoLogout = false
 
         static let all = [
             Shot(mode: .off, isExpanded: false, isDark: false),
@@ -56,11 +57,15 @@ enum WindowSnapshot {
             Shot(mode: .keepScreenOn, isExpanded: false, isDark: false),
             Shot(mode: .keepScreenOn, isExpanded: true, isDark: false),
             Shot(mode: .off, isExpanded: false, isDark: false, showsUpdate: true),
+            Shot(mode: .keepScreenOn, isExpanded: false, isDark: false, showsAutoLogout: true),
         ]
 
         var fileName: String {
             if showsUpdate {
                 return "off-update-\(isDark ? "dark" : "light").png"
+            }
+            if showsAutoLogout {
+                return "screen-autologout-\(isDark ? "dark" : "light").png"
             }
             let position = mode == .off ? "off" : "screen"
             return "\(position)-\(isExpanded ? "expanded" : "collapsed")-\(isDark ? "dark" : "light").png"
@@ -111,7 +116,9 @@ enum WindowSnapshot {
             accent: AccentPreference(defaults: defaults),
             windowStyle: WindowAppearancePreference(defaults: defaults),
             disclosure: SettingsDisclosurePreference(defaults: defaults),
-            updates: UpdateChecker(defaults: defaults, source: inert)
+            updates: UpdateChecker(defaults: defaults, source: inert),
+            // The other shots do not depend on the setting of this Mac.
+            autoLogout: AutoLogoutMonitor(source: FixedAutoLogout(delay: shot.showsAutoLogout ? 3600 : nil))
         )
         .background(Color(nsColor: .windowBackgroundColor))
 
@@ -163,6 +170,12 @@ enum WindowSnapshot {
         }
         return png
     }
+}
+
+private struct FixedAutoLogout: AutoLogoutSource {
+    let delay: Int?
+
+    func delaySeconds() -> Int? { delay }
 }
 
 private final class ActiveLookingApplication: NSApplication {
