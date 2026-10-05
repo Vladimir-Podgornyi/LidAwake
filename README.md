@@ -9,11 +9,18 @@
 <p align="center">macOS 13+ · Apple silicon · MIT</p>
 
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/images/window-dark.png">
-    <img src="docs/images/window-light.png" width="335" alt="The LidAwake window with Run with Lid Closed selected and the settings collapsed">
-  </picture>
+  <img src="docs/images/demo.gif" width="335" alt="Animation: the LidAwake window opens, Keep Screen On and then Run with Lid Closed are selected, the settings are expanded, the accent is switched to Amber and the settings are collapsed">
 </p>
+
+## Why LidAwake
+
+- Keeps the Mac running with the lid closed; no external display is needed.
+- Stops by itself when the Mac gets hot, when the battery runs low or when the timer ends, and can run only while charging.
+- If the app quits unexpectedly or stops responding, normal sleep returns by itself within two minutes.
+- Open source (MIT), no account and no analytics. The only network request is a daily update check, and it can be turned off.
+- The interface is in English, German and Russian.
+
+LidAwake is an open-source alternative to apps like Amphetamine and to the `caffeinate` command for keeping a Mac awake, including with the lid closed and no external display.
 
 ## What it does
 
@@ -28,6 +35,10 @@ LidAwake keeps a Mac from sleeping in two situations: when you step away from th
 | Protections | none | timer only | all four |
 
 <p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/window-dark.png">
+    <img src="docs/images/window-light.png" width="335" alt="The LidAwake window with Run with Lid Closed selected and the settings collapsed">
+  </picture>
   <img src="docs/images/keep-screen-on.png" width="335" alt="The LidAwake window with Keep Screen On selected and a two-hour timer">
 </p>
 
