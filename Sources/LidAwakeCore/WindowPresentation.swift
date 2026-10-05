@@ -158,6 +158,7 @@ public struct WindowMessage: Equatable, Identifiable {
     public enum Source: Equatable {
         case helper
         case mode
+        case update
     }
 
     public let source: Source
@@ -169,8 +170,8 @@ public struct WindowMessage: Equatable, Identifiable {
 
     public var id: Source { source }
 
-    /// The notices to show, helper first; empty when there is nothing to say.
-    public static func list(helper: HelperPrompt?, mode: ModeMessage?) -> [WindowMessage] {
+    /// The notices to show, helper first and the update last; empty when there is nothing to say.
+    public static func list(helper: HelperPrompt?, mode: ModeMessage?, update: UpdateNotice? = nil) -> [WindowMessage] {
         var messages: [WindowMessage] = []
         if let helper {
             messages.append(WindowMessage(
@@ -190,6 +191,16 @@ public struct WindowMessage: Equatable, Identifiable {
                 text: mode.text,
                 action: nil,
                 actionTitle: nil
+            ))
+        }
+        if let update {
+            messages.append(WindowMessage(
+                source: .update,
+                kind: .info,
+                title: String(localized: "Update available"),
+                text: String(localized: "LidAwake \(update.latest) is available. You have \(update.current)."),
+                action: nil,
+                actionTitle: String(localized: "Download")
             ))
         }
         return messages

@@ -4,8 +4,8 @@ import LidAwakeShared
 import SwiftUI
 
 /// `--render-window <folder>`: draws the window with default settings in the Off and the
-/// Keep Screen On positions, with the settings collapsed and expanded, without touching the
-/// helper, the login item, the display or the saved settings.
+/// Keep Screen On positions, with the settings collapsed and expanded, and Off with the update
+/// banner, without touching the helper, the login item, the display, the network or the saved settings.
 enum WindowSnapshot {
     static let flag = "--render-window"
 
@@ -47,6 +47,7 @@ enum WindowSnapshot {
         let mode: Mode
         let isExpanded: Bool
         let isDark: Bool
+        var showsUpdate = false
 
         static let all = [
             Shot(mode: .off, isExpanded: false, isDark: false),
@@ -54,9 +55,13 @@ enum WindowSnapshot {
             Shot(mode: .off, isExpanded: true, isDark: true),
             Shot(mode: .keepScreenOn, isExpanded: false, isDark: false),
             Shot(mode: .keepScreenOn, isExpanded: true, isDark: false),
+            Shot(mode: .off, isExpanded: false, isDark: false, showsUpdate: true),
         ]
 
         var fileName: String {
+            if showsUpdate {
+                return "off-update-\(isDark ? "dark" : "light").png"
+            }
             let position = mode == .off ? "off" : "screen"
             return "\(position)-\(isExpanded ? "expanded" : "collapsed")-\(isDark ? "dark" : "light").png"
         }
@@ -71,7 +76,11 @@ enum WindowSnapshot {
         let appearance = shot.appearance
         // Only read: register(defaults:) stays in memory, so nothing is saved.
         let defaults = UserDefaults(suiteName: "com.vladimirpodgornyi.LidAwake.window-snapshot")!
-        defaults.register(defaults: [SettingsDisclosurePreference.key: shot.isExpanded])
+        // An empty string is not a version, so the other shots have no update banner.
+        defaults.register(defaults: [
+            SettingsDisclosurePreference.key: shot.isExpanded,
+            UpdateChecker.latestVersionKey: shot.showsUpdate ? "9.9.9" : "",
+        ])
         let inert = Inert()
         let controller = ModeController(
             displayAssertion: inert,
@@ -101,7 +110,8 @@ enum WindowSnapshot {
             ),
             accent: AccentPreference(defaults: defaults),
             windowStyle: WindowAppearancePreference(defaults: defaults),
-            disclosure: SettingsDisclosurePreference(defaults: defaults)
+            disclosure: SettingsDisclosurePreference(defaults: defaults),
+            updates: UpdateChecker(defaults: defaults, source: inert)
         )
         .background(Color(nsColor: .windowBackgroundColor))
 
@@ -167,7 +177,7 @@ private final class SnapshotWindow: NSWindow {
 /// Stands in for everything outside the window, so drawing it has no effect.
 @MainActor
 private final class Inert: PowerAssertion, HelperPreparing, HelperInstalling, LidSessionService, StopNotifying,
-    ActivityHolding, PowerSourceMonitoring, LidMonitoring, LoginItemService, LaunchAtLoginStore {
+    ActivityHolding, PowerSourceMonitoring, LidMonitoring, LoginItemService, LaunchAtLoginStore, ReleaseSource {
     nonisolated var isHeld: Bool { false }
     nonisolated func acquire() throws {}
     nonisolated func release() {}
@@ -201,6 +211,8 @@ private final class Inert: PowerAssertion, HelperPreparing, HelperInstalling, Li
     nonisolated var status: LoginItemStatus { .enabled }
     nonisolated func register() throws {}
     nonisolated func unregister() throws {}
+
+    nonisolated func latestRelease() async throws -> ReleaseLookup { throw CancellationError() }
 
     nonisolated var isInitialized: Bool {
         get { true }

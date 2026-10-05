@@ -11,6 +11,7 @@ struct ContentView: View {
     @ObservedObject var accent: AccentPreference
     @ObservedObject var windowStyle: WindowAppearancePreference
     @ObservedObject var disclosure: SettingsDisclosurePreference
+    @ObservedObject var updates: UpdateChecker
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
@@ -80,14 +81,18 @@ struct ContentView: View {
     }
 
     private var messages: [WindowMessage] {
-        WindowMessage.list(helper: helperSetup.prompt, mode: controller.message)
+        WindowMessage.list(helper: helperSetup.prompt, mode: controller.message, update: updates.notice)
     }
 
     private var messageBlock: some View {
         VStack(alignment: .leading, spacing: 8) {
             ForEach(messages) { message in
-                MessageBanner(message: message, look: look, isActionDisabled: helperSetup.isWorking) {
-                    Task { await helperSetup.performPromptAction() }
+                MessageBanner(message: message, look: look, isActionDisabled: message.source == .helper && helperSetup.isWorking) {
+                    if message.source == .update {
+                        NSWorkspace.shared.open(UpdateLinks.downloadPage)
+                    } else {
+                        Task { await helperSetup.performPromptAction() }
+                    }
                 }
             }
         }
@@ -111,6 +116,7 @@ struct ContentView: View {
         case .settingsDivider, .closingDivider: Divider()
         case .lockScreen: lockRow(minHeight: 36)
         case .launchAtLogin: launchRow
+        case .checkForUpdates: updatesRow
         case .appearance: appearanceRow
         case .accent: accentRow
         }
@@ -223,6 +229,12 @@ struct ContentView: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
+        }
+    }
+
+    private var updatesRow: some View {
+        SettingRow(title: "Check for updates", minHeight: 36) {
+            SwitchToggle(title: "Check for updates", isOn: $updates.isEnabled)
         }
     }
 
@@ -436,7 +448,7 @@ private struct MessageBanner: View {
                         Text(actionTitle)
                     }
                     .buttonStyle(.borderedProminent)
-                    .keyboardShortcut(.defaultAction)
+                    .keyboardShortcut(message.source == .helper ? .defaultAction : nil)
                     .disabled(isActionDisabled)
                 }
             }

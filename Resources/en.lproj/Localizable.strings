@@ -87,3 +87,9 @@
 "LidAwake closed unexpectedly, so normal sleep was restored." = "LidAwake closed unexpectedly, so normal sleep was restored.";
 "LidAwake paused" = "LidAwake paused";
 "Running on battery. It resumes when you plug in." = "Running on battery. It resumes when you plug in.";
+
+/* Updates */
+"Check for updates" = "Check for updates";
+"Update available" = "Update available";
+"LidAwake %@ is available. You have %@." = "LidAwake %@ is available. You have %@.";
+"Download" = "Download";

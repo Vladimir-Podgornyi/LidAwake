@@ -12,6 +12,12 @@ enum Main {
         case nil:
             break
         }
+        if CommandLine.arguments.contains(UpdateCommand.flag) {
+            Task {
+                exit(await UpdateCommand.run())
+            }
+            dispatchMain()
+        }
         guard let command = HelperCommand(arguments: CommandLine.arguments) else {
             LidAwakeApp.main()
             return

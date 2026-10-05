@@ -87,3 +87,9 @@
 "LidAwake closed unexpectedly, so normal sleep was restored." = "LidAwake неожиданно завершился, обычный сон восстановлен.";
 "LidAwake paused" = "LidAwake на паузе";
 "Running on battery. It resumes when you plug in." = "Mac работает от батареи. Режим продолжится после подключения зарядки.";
+
+/* Updates */
+"Check for updates" = "Проверять обновления";
+"Update available" = "Доступно обновление";
+"LidAwake %@ is available. You have %@." = "Вышла версия LidAwake %@. У вас установлена %@.";
+"Download" = "Скачать";

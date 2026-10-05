@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let accent = AccentPreference()
     let windowStyle = WindowAppearancePreference()
     let settingsDisclosure = SettingsDisclosurePreference()
+    let updates = UpdateChecker()
 
     override init() {
         helperClient = HelperClient()
@@ -31,6 +32,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         launchAtLogin.enableOnFirstLaunch()
+        updates.start()
         Task {
             await helperClient.updateIfOutdated()
             await modeController.clearLeftover()
@@ -59,7 +61,8 @@ struct LidAwakeApp: App {
                 launchAtLogin: appDelegate.launchAtLogin,
                 accent: appDelegate.accent,
                 windowStyle: appDelegate.windowStyle,
-                disclosure: appDelegate.settingsDisclosure
+                disclosure: appDelegate.settingsDisclosure,
+                updates: appDelegate.updates
             )
         } label: {
             MenuBarIcon(controller: appDelegate.modeController)

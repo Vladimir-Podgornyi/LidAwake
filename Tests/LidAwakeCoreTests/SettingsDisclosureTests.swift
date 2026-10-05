@@ -70,12 +70,12 @@ final class WindowBlockTests: XCTestCase {
         for mode in [Mode.off, .lidClosed] {
             XCTAssertEqual(
                 WindowBlock.list(mode: mode, isExpanded: true, showsAppearance: true),
-                [.settingsToggle, .safety, .settingsDivider, .lockScreen, .launchAtLogin, .appearance, .accent, .closingDivider],
+                [.settingsToggle, .safety, .settingsDivider, .lockScreen, .launchAtLogin, .checkForUpdates, .appearance, .accent, .closingDivider],
                 "\(mode)"
             )
             XCTAssertEqual(
                 WindowBlock.list(mode: mode, isExpanded: true, showsAppearance: false),
-                [.settingsToggle, .safety, .settingsDivider, .lockScreen, .launchAtLogin, .accent, .closingDivider],
+                [.settingsToggle, .safety, .settingsDivider, .lockScreen, .launchAtLogin, .checkForUpdates, .accent, .closingDivider],
                 "\(mode)"
             )
         }
@@ -93,11 +93,11 @@ final class WindowBlockTests: XCTestCase {
     func testKeepScreenOnExpanded() {
         XCTAssertEqual(
             WindowBlock.list(mode: .keepScreenOn, isExpanded: true, showsAppearance: true),
-            [.timer, .settingsToggle, .dimmedSafety, .settingsDivider, .launchAtLogin, .appearance, .accent, .closingDivider]
+            [.timer, .settingsToggle, .dimmedSafety, .settingsDivider, .launchAtLogin, .checkForUpdates, .appearance, .accent, .closingDivider]
         )
         XCTAssertEqual(
             WindowBlock.list(mode: .keepScreenOn, isExpanded: true, showsAppearance: false),
-            [.timer, .settingsToggle, .dimmedSafety, .settingsDivider, .launchAtLogin, .accent, .closingDivider]
+            [.timer, .settingsToggle, .dimmedSafety, .settingsDivider, .launchAtLogin, .checkForUpdates, .accent, .closingDivider]
         )
     }
 

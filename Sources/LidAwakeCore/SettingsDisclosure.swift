@@ -14,6 +14,7 @@ public enum WindowBlock: Hashable {
     case settingsDivider
     case lockScreen
     case launchAtLogin
+    case checkForUpdates
     case appearance
     case accent
     /// The divider above the Quit row.
@@ -27,7 +28,7 @@ public enum WindowBlock: Hashable {
             case .all: blocks += [.safety, .settingsDivider, .lockScreen]
             case .timerOnly: blocks += [.dimmedSafety, .settingsDivider]
             }
-            blocks.append(.launchAtLogin)
+            blocks += [.launchAtLogin, .checkForUpdates]
             if showsAppearance {
                 blocks.append(.appearance)
             }

@@ -87,3 +87,9 @@
 "LidAwake closed unexpectedly, so normal sleep was restored." = "LidAwake wurde unerwartet beendet. Der normale Ruhezustand ist wiederhergestellt.";
 "LidAwake paused" = "LidAwake pausiert";
 "Running on battery. It resumes when you plug in." = "Akkubetrieb. Es geht weiter, sobald das Netzteil angeschlossen ist.";
+
+/* Updates */
+"Check for updates" = "Nach Updates suchen";
+"Update available" = "Update verfügbar";
+"LidAwake %@ is available. You have %@." = "LidAwake %@ ist verfügbar. Installiert ist %@.";
+"Download" = "Laden";
