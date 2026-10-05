@@ -5,7 +5,8 @@ import SwiftUI
 
 /// `--render-window <folder>`: draws the window with default settings in the Off and the
 /// Keep Screen On positions, with the settings collapsed and expanded, Off with the update
-/// banner and Keep Screen On with the automatic logout warning, without touching the helper, the login item, the display, the network or the saved settings.
+/// banner, Keep Screen On with the automatic logout warning, Off expanded in a window limited
+/// to 600 points, and Keep Screen On expanded with both banners, without touching the helper, the login item, the display, the network or the saved settings.
 enum WindowSnapshot {
     static let flag = "--render-window"
 
@@ -49,6 +50,8 @@ enum WindowSnapshot {
         let isDark: Bool
         var showsUpdate = false
         var showsAutoLogout = false
+        var maxHeight: CGFloat?
+        var name: String?
 
         static let all = [
             Shot(mode: .off, isExpanded: false, isDark: false),
@@ -58,9 +61,21 @@ enum WindowSnapshot {
             Shot(mode: .keepScreenOn, isExpanded: true, isDark: false),
             Shot(mode: .off, isExpanded: false, isDark: false, showsUpdate: true),
             Shot(mode: .keepScreenOn, isExpanded: false, isDark: false, showsAutoLogout: true),
+            Shot(mode: .off, isExpanded: true, isDark: false, maxHeight: 600, name: "off-expanded-short-light.png"),
+            Shot(
+                mode: .keepScreenOn,
+                isExpanded: true,
+                isDark: false,
+                showsUpdate: true,
+                showsAutoLogout: true,
+                name: "screen-expanded-full-light.png"
+            ),
         ]
 
         var fileName: String {
+            if let name {
+                return name
+            }
             if showsUpdate {
                 return "off-update-\(isDark ? "dark" : "light").png"
             }
@@ -118,7 +133,9 @@ enum WindowSnapshot {
             disclosure: SettingsDisclosurePreference(defaults: defaults),
             updates: UpdateChecker(defaults: defaults, source: inert),
             // The other shots do not depend on the setting of this Mac.
-            autoLogout: AutoLogoutMonitor(source: FixedAutoLogout(delay: shot.showsAutoLogout ? 3600 : nil))
+            autoLogout: AutoLogoutMonitor(source: FixedAutoLogout(delay: shot.showsAutoLogout ? 3600 : nil)),
+            // The offscreen window has no screen, so the limit is set here or not at all.
+            heightLimit: .fixed(shot.maxHeight)
         )
         .background(Color(nsColor: .windowBackgroundColor))
 
@@ -136,6 +153,9 @@ enum WindowSnapshot {
         window.setFrameOrigin(NSPoint(x: -10_000, y: -10_000))
         window.makeKeyAndOrderFront(nil)
         RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.5))
+        // The measured heights decide whether the lower part scrolls, so fit the window again.
+        window.setContentSize(host.fittingSize)
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.3))
         host.layoutSubtreeIfNeeded()
         defer { window.close() }
 

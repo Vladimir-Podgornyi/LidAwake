@@ -13,28 +13,47 @@ struct ContentView: View {
     @ObservedObject var disclosure: SettingsDisclosurePreference
     @ObservedObject var updates: UpdateChecker
     @ObservedObject var autoLogout: AutoLogoutMonitor
+    var heightLimit: HeightLimit = .screen
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    @State private var visibleScreenHeight: CGFloat?
+    @State private var fixedHeight: CGFloat = 0
+    @State private var scrollingContentHeight: CGFloat = 0
 
     private let power = IOKitPowerSource()
     private let isSystem26OrLater = WindowLook.isSystem26OrLater
 
+    /// How tall the window may get.
+    enum HeightLimit {
+        /// The visible area of the screen the window is on.
+        case screen
+        /// A set height, or none.
+        case fixed(CGFloat?)
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            header
-            modeCards
-            if !messages.isEmpty {
-                messageBlock
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 12) {
+                header
+                modeCards
             }
-            ForEach(blocks, id: \.self) { block in
-                view(for: block)
+            .padding(.top, 14)
+            .padding(.bottom, 12)
+            .padding(.horizontal, 14)
+            .background(HeightReader(height: $fixedHeight))
+            if let scrollHeight {
+                // No background of its own, so Glass and Solid look the same as without scrolling.
+                ScrollView(.vertical) {
+                    scrollingContent
+                }
+                .frame(height: scrollHeight)
+            } else {
+                scrollingContent
             }
-            quitRow
         }
-        .padding(.top, 14)
-        .padding(.horizontal, 14)
-        .padding(.bottom, 8)
         .frame(width: 320, alignment: .leading)
+        .background(ScreenHeightReader(height: $visibleScreenHeight))
         .background(look.drawsOwnBackground ? Palette.solidWindowBackground : .clear)
         .tint(accentColor)
         .onAppear {
@@ -46,6 +65,46 @@ struct ContentView: View {
             autoLogout.refresh()
         }
         .onChange(of: controller.mode) { _ in autoLogout.refresh() }
+    }
+
+    /// Everything below the mode cards; it scrolls when the window would not fit on the screen.
+    private var scrollingContent: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if !messages.isEmpty {
+                messageBlock
+            }
+            ForEach(WindowBlockGroup.groups(blocks), id: \.self) { group in
+                switch group {
+                case .block(let block):
+                    view(for: block)
+                case .compactRows(let rows):
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(rows, id: \.self) { block in
+                            view(for: block, isCompact: true)
+                        }
+                    }
+                }
+            }
+            quitRow
+        }
+        .padding(.horizontal, 14)
+        .padding(.bottom, 8)
+        .background(HeightReader(height: $scrollingContentHeight))
+    }
+
+    private var maxWindowHeight: CGFloat? {
+        switch heightLimit {
+        case .screen: return visibleScreenHeight.map { WindowHeightLimit.maxWindowHeight(visibleScreenHeight: $0) }
+        case .fixed(let height): return height
+        }
+    }
+
+    private var scrollHeight: CGFloat? {
+        WindowHeightLimit.scrollHeight(
+            fixedHeight: fixedHeight,
+            contentHeight: scrollingContentHeight,
+            maxWindowHeight: maxWindowHeight
+        )
     }
 
     private var header: some View {
@@ -124,13 +183,15 @@ struct ContentView: View {
     }
 
     @ViewBuilder
-    private func view(for block: WindowBlock) -> some View {
+    private func view(for block: WindowBlock, isCompact: Bool = false) -> some View {
         switch block {
         case .timer: timerSection
         case .settingsToggle: SettingsToggleRow(isExpanded: $disclosure.isExpanded)
         case .safety: safetySection
         case .dimmedSafety: dimmedSafetySection
-        case .settingsDivider, .closingDivider: Divider()
+        // Among compact rows the stack has no spacing, so the dividers keep their own gap.
+        case .settingsDivider: Divider().padding(.bottom, isCompact ? 8 : 0)
+        case .closingDivider: Divider().padding(.top, isCompact ? 8 : 0)
         case .lockScreen: lockRow(minHeight: 36)
         case .launchAtLogin: launchRow
         case .checkForUpdates: updatesRow
@@ -624,5 +685,80 @@ private struct ValueMenu: View {
         .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Palette.valueBackground))
         .accessibilityLabel(Text(label))
         .accessibilityValue(Text(title(selection)))
+    }
+}
+
+/// Reports the height of the view it is the background of.
+private struct HeightReader: View {
+    @Binding var height: CGFloat
+
+    var body: some View {
+        GeometryReader { proxy in
+            Color.clear
+                .onAppear { update(proxy.size.height) }
+                .onChange(of: proxy.size.height) { update($0) }
+        }
+    }
+
+    private func update(_ value: CGFloat) {
+        if value != height {
+            height = value
+        }
+    }
+}
+
+/// Reports the visible height of the screen the window is on: without the menu bar and the Dock.
+private struct ScreenHeightReader: NSViewRepresentable {
+    @Binding var height: CGFloat?
+
+    func makeNSView(context: Context) -> ScreenObservingView {
+        let view = ScreenObservingView()
+        view.onChange = { value in
+            if value != height {
+                height = value
+            }
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: ScreenObservingView, context: Context) {}
+}
+
+private final class ScreenObservingView: NSView {
+    var onChange: ((CGFloat?) -> Void)?
+    private var observers: [NSObjectProtocol] = []
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        observers.forEach(NotificationCenter.default.removeObserver)
+        observers = []
+        guard let window else { return }
+        let center = NotificationCenter.default
+        // The menu bar window can open on another screen each time, and the Dock can move.
+        for name in [NSWindow.didChangeScreenNotification, NSWindow.didBecomeKeyNotification] {
+            observers.append(center.addObserver(forName: name, object: window, queue: .main) { [weak self] _ in
+                self?.report()
+            })
+        }
+        observers.append(center.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.report()
+        })
+        report()
+    }
+
+    private func report() {
+        let height = window?.screen?.visibleFrame.height
+        // Not during a view update: the value goes into SwiftUI state.
+        DispatchQueue.main.async { [weak self] in
+            self?.onChange?(height)
+        }
+    }
+
+    deinit {
+        observers.forEach(NotificationCenter.default.removeObserver)
     }
 }

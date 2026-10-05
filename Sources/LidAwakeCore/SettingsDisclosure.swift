@@ -55,3 +55,43 @@ public final class SettingsDisclosurePreference: ObservableObject {
         isExpanded = defaults.bool(forKey: Self.key)
     }
 }
+
+/// Blocks drawn together. The general setting rows sit closer to each other and to the
+/// dividers around them than the other blocks do.
+public enum WindowBlockGroup: Hashable {
+    case block(WindowBlock)
+    /// Dividers and general setting rows, at least one row among them.
+    case compactRows([WindowBlock])
+
+    public static func groups(_ blocks: [WindowBlock]) -> [WindowBlockGroup] {
+        var groups: [WindowBlockGroup] = []
+        var run: [WindowBlock] = []
+        func flush() {
+            if run.contains(where: \.isGeneralSettingRow) {
+                groups.append(.compactRows(run))
+            } else {
+                groups += run.map(WindowBlockGroup.block)
+            }
+            run = []
+        }
+        for block in blocks {
+            if block.isGeneralSettingRow || block == .settingsDivider || block == .closingDivider {
+                run.append(block)
+            } else {
+                flush()
+                groups.append(.block(block))
+            }
+        }
+        flush()
+        return groups
+    }
+}
+
+extension WindowBlock {
+    var isGeneralSettingRow: Bool {
+        switch self {
+        case .lockScreen, .launchAtLogin, .checkForUpdates, .appearance, .accent: return true
+        case .timer, .settingsToggle, .safety, .dimmedSafety, .settingsDivider, .closingDivider: return false
+        }
+    }
+}
