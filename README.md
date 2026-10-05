@@ -61,7 +61,7 @@ A closed laptop in a bag cools poorly. The protections reduce the risk; they do 
 
 macOS can log you out after a period of inactivity. The setting is in System Settings > Privacy & Security > Advanced… > Log out automatically after inactivity; the Advanced… button is at the bottom of Privacy & Security. Logging out quits all apps, LidAwake included, so the mode ends with the session. LidAwake only reads this setting; it does not change it or work around it.
 
-When the setting is on and Keep Screen On or Run with Lid Closed is selected, the window shows macOS will log you out with the delay, the path to the switch and a button that opens Privacy & Security. The warning is not shown when Turn off after is on and set no longer than the logout delay, because the timer ends the mode first. The warning can be dismissed with its close button; it comes back only if the logout delay is set shorter than it was when dismissed. The setting is read again each time the window opens and whenever the mode changes.
+When the setting is on and Keep Screen On or Run with Lid Closed is selected, the window shows macOS will log you out with the delay, the path to the switch and a button that opens the Advanced… window of Privacy & Security directly (on macOS 26; on other versions it may open Privacy & Security itself). The warning is not shown when Turn off after is on and set no longer than the logout delay, because the timer ends the mode first. The warning can be dismissed with its close button; it comes back only if the logout delay is set shorter than it was when dismissed. The setting is read again each time the window opens and whenever the mode changes.
 
 To see what LidAwake reads:
 
@@ -76,6 +76,14 @@ It prints `auto-logout=` followed by the delay in seconds, or `auto-logout=off`.
 1. Download the DMG from the [latest release](https://github.com/Vladimir-Podgornyi/LidAwake/releases/latest).
 2. Drag LidAwake to Applications.
 3. Open LidAwake from Applications. Its icon appears in the menu bar.
+
+Or install it with [Homebrew](https://brew.sh):
+
+```sh
+brew install --cask vladimir-podgornyi/tap/lidawake
+```
+
+Then open LidAwake from Applications.
 
 Launch at login is on by default and is set up on the first launch from Applications. After login the app starts in Off and does not turn a mode on by itself.
 
@@ -92,7 +100,15 @@ LidAwake is developed and tested on a MacBook Air (M1) with macOS 26. Older vers
 
 Once a day LidAwake sends one request to `api.github.com` for the number of the latest release. The request carries no data about you or your Mac; its User-Agent contains only the app version. Only the version number is read from the reply. If a newer version exists, the window shows Update available with a Download button that opens the releases page. A failed check is silent.
 
-The check is turned off with the Check for updates toggle in Settings; when it is off, no requests are made. Updates are installed by hand: download the new DMG and drag LidAwake over the old copy in Applications.
+The check is turned off with the Check for updates toggle in Settings; when it is off, no requests are made. Updates are installed by hand: download the new DMG, choose Quit LidAwake, and drag LidAwake over the old copy in Applications. Finder does not replace the app while it is running.
+
+If LidAwake was installed with Homebrew, update it with:
+
+```sh
+brew upgrade --cask lidawake
+```
+
+Homebrew quits LidAwake and unregisters its helper before replacing the app. LidAwake registers the helper again the next time you choose Run with Lid Closed.
 
 LidAwake makes no other network requests and contains no analytics. The helper does not use the network.
 
@@ -126,6 +142,16 @@ sudo pmset -a disablesleep 0
 This also clears a flag that another program has set.
 
 ## Uninstall
+
+If LidAwake was installed with Homebrew, first turn off Launch at login in Settings, then run:
+
+```sh
+brew uninstall --cask lidawake
+```
+
+This quits LidAwake, which turns the mode off, runs `LidAwake --uninstall-helper` to unregister the helper, and removes LidAwake from Applications. With `--zap` it also moves the settings file `~/Library/Preferences/com.vladimirpodgornyi.LidAwake.plist` to the Trash. The helper's folder in `/Library/Application Support` is left in place; remove it with the `sudo rm` command in step 5 below.
+
+Without Homebrew:
 
 The helper's launchd job is registered from inside the app bundle, so remove it before deleting the app.
 
