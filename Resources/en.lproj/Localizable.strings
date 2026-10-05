@@ -96,4 +96,4 @@
 
 /* Automatic logout */
 "macOS will log you out" = "macOS will log you out";
-"Automatic logout after %@ of inactivity is on. The mode ends when macOS logs you out. Change it in System Settings > Privacy & Security." = "Automatic logout after %@ of inactivity is on. The mode ends when macOS logs you out. Change it in System Settings > Privacy & Security.";
+"Automatic logout after %@ of inactivity is on. The mode ends when macOS logs you out." = "Automatic logout after %@ of inactivity is on. The mode ends when macOS logs you out.";

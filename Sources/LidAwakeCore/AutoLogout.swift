@@ -65,7 +65,7 @@ public struct AutoLogoutNotice: Equatable {
 
     public var text: String {
         String(
-            localized: "Automatic logout after \(DurationFormat.remaining(delaySeconds)) of inactivity is on. The mode ends when macOS logs you out. Change it in System Settings > Privacy & Security."
+            localized: "Automatic logout after \(DurationFormat.remaining(delaySeconds)) of inactivity is on. The mode ends when macOS logs you out."
         )
     }
 }

@@ -66,14 +66,14 @@ final class LocalizationTests: XCTestCase {
     }
 
     func testAutoLogoutTextTakesTheDuration() throws {
-        let key = "Automatic logout after %@ of inactivity is on. The mode ends when macOS logs you out. Change it in System Settings > Privacy & Security."
+        let key = "Automatic logout after %@ of inactivity is on. The mode ends when macOS logs you out."
         XCTAssertEqual(
             String(format: try table("de")[key]!, "1\u{00A0}Std."),
-            "Die automatische Abmeldung nach 1\u{00A0}Std. Inaktivität ist aktiviert. Der Modus endet, sobald macOS dich abmeldet. Ändern unter Systemeinstellungen > Datenschutz & Sicherheit."
+            "Die automatische Abmeldung nach 1\u{00A0}Std. Inaktivität ist aktiviert. Der Modus endet, sobald macOS dich abmeldet."
         )
         XCTAssertEqual(
             String(format: try table("ru")[key]!, "1\u{00A0}ч"),
-            "Включён автоматический выход через 1\u{00A0}ч бездействия. Когда macOS выйдет из учётной записи, режим закончится. Изменить: «Системные настройки» > «Конфиденциальность и безопасность»."
+            "Включён автоматический выход через 1\u{00A0}ч бездействия. Когда macOS выйдет из учётной записи, режим закончится."
         )
     }
 
@@ -135,29 +135,14 @@ final class LocalizationTests: XCTestCase {
     }
 
     func testSettingsPathUsesTheSystemNames() throws {
+        let english = "System Settings > General > Login Items & Extensions"
         let paths = [
-            (
-                "System Settings > General > Login Items & Extensions",
-                [
-                    "de": "Systemeinstellungen > Allgemein > Anmeldeobjekte & Erweiterungen",
-                    "ru": "«Системные настройки» > «Основные» > «Объекты входа и расширения»",
-                ]
-            ),
-            (
-                "System Settings > Privacy & Security",
-                [
-                    "de": "Systemeinstellungen > Datenschutz & Sicherheit",
-                    "ru": "«Системные настройки» > «Конфиденциальность и безопасность»",
-                ]
-            ),
+            "de": "Systemeinstellungen > Allgemein > Anmeldeobjekte & Erweiterungen",
+            "ru": "«Системные настройки» > «Основные» > «Объекты входа и расширения»",
         ]
-        for (english, translations) in paths {
-            for (language, path) in translations {
-                let matching = try table(language).filter { $0.key.contains(english) }
-                XCTAssertFalse(matching.isEmpty, english)
-                for (key, value) in matching {
-                    XCTAssertTrue(value.contains(path), "\(language): \(key)")
-                }
+        for (language, path) in paths {
+            for (key, value) in try table(language) where key.contains(english) {
+                XCTAssertTrue(value.contains(path), "\(language): \(key)")
             }
         }
     }

@@ -75,11 +75,11 @@ final class AutoLogoutNoticeTests: XCTestCase {
         XCTAssertEqual(notice?.title, "macOS will log you out")
         XCTAssertEqual(
             notice?.text,
-            "Automatic logout after 1 h of inactivity is on. The mode ends when macOS logs you out. Change it in System Settings > Privacy & Security."
+            "Automatic logout after 1 h of inactivity is on. The mode ends when macOS logs you out."
         )
         XCTAssertEqual(
             AutoLogoutNotice(mode: .lidClosed, delaySeconds: 1800, timerSeconds: nil)?.text,
-            "Automatic logout after 30 min of inactivity is on. The mode ends when macOS logs you out. Change it in System Settings > Privacy & Security."
+            "Automatic logout after 30 min of inactivity is on. The mode ends when macOS logs you out."
         )
     }
 
