@@ -1,0 +1,101 @@
+/* Modes */
+"Off" = "关闭";
+"Keep Screen On" = "保持屏幕常亮";
+"Run with Lid Closed" = "合盖运行";
+"The Mac sleeps as usual." = "Mac 按正常设置进入睡眠。";
+"For stepping away from the desk. Closing the lid still puts the Mac to sleep." = "适合暂时离开时使用。合上屏幕后，Mac 仍会进入睡眠。";
+"For the road. Keeps working with the lid shut or the screen locked." = "适合外出时使用。合上屏幕或锁屏后，Mac 仍会继续运行。";
+
+/* Status line */
+"%@ left" = "剩余 %@";
+"Screen stays on" = "屏幕保持常亮";
+"Paused · on battery" = "已暂停 · 电池供电";
+"Battery %lld%%" = "电量 %lld%%";
+"Battery unknown" = "电量未知";
+
+/* Durations and values */
+"%lld min" = "%lld 分钟";
+"%lld h" = "%lld 小时";
+"%lld h %lld min" = "%lld 小时 %lld 分钟";
+"30 min" = "30 分钟";
+"1 hour" = "1 小时";
+"2 hours" = "2 小时";
+"4 hours" = "4 小时";
+"8 hours" = "8 小时";
+"%lld%%" = "%lld%%";
+
+/* Settings */
+"Safety" = "安全保护";
+"Timer" = "定时器";
+"Safety · lid closed only" = "安全保护 · 仅用于合盖运行";
+"Stop when the Mac gets hot" = "过热时停止";
+"Ends the session under thermal pressure" = "Mac 温度过高时结束运行";
+"Stop on low battery" = "低电量时停止";
+"When the charge drops below the limit" = "电量降至设定下限时结束运行";
+"Battery limit" = "电量下限";
+"Only while charging" = "仅在接通电源时运行";
+"Pauses on battery, resumes on power" = "电池供电时暂停，接通电源后恢复";
+"Turn off after" = "定时关闭";
+"Counts from the moment you switch on" = "从开启模式时开始计时";
+"Lock screen when the lid closes" = "合盖时锁定屏幕";
+"Screen lock is not available on this macOS version." = "当前 macOS 版本不支持此锁屏功能。";
+"Launch at login" = "登录时启动";
+"Turn it on in System Settings > General > Login Items & Extensions." = "请在“系统设置 > 通用 > 登录项与扩展”中开启。";
+"Move LidAwake to the Applications folder to launch it at login." = "请将 LidAwake 移至“应用程序”文件夹，以便登录时启动。";
+"Appearance" = "外观";
+"Glass" = "玻璃";
+"Solid" = "纯色";
+"Accent" = "强调色";
+"Blue" = "蓝色";
+"Amber" = "琥珀色";
+"Settings" = "设置";
+"Collapsed" = "已收起";
+"Expanded" = "已展开";
+"Quit LidAwake" = "退出 LidAwake";
+
+/* Helper messages */
+"Permission needed" = "需要授权";
+"Allow LidAwake in System Settings > General > Login Items & Extensions. The mode turns on as soon as you do." = "请在“系统设置 > 通用 > 登录项与扩展”中允许 LidAwake。授权后将自动开启合盖运行。";
+"Allow LidAwake in System Settings > General > Login Items & Extensions, then choose Run with Lid Closed again." = "请在“系统设置 > 通用 > 登录项与扩展”中允许 LidAwake，然后重新选择“合盖运行”。";
+"Allow LidAwake in System Settings > General > Login Items & Extensions." = "请在“系统设置 > 通用 > 登录项与扩展”中允许 LidAwake。";
+"Move LidAwake to Applications" = "将 LidAwake 移至“应用程序”";
+"Run with Lid Closed needs the app in the Applications folder." = "使用合盖运行前，请将应用移至“应用程序”文件夹。";
+"LidAwake must be in /Applications to install the helper." = "安装辅助程序前，请将 LidAwake 移至 /Applications。";
+"The helper did not start" = "辅助程序未启动";
+"Install the helper to run with the lid closed." = "请先安装辅助程序，再使用合盖运行。";
+"The helper could not be installed." = "无法安装辅助程序。";
+"The helper could not be updated." = "无法更新辅助程序。";
+"The helper did not respond." = "辅助程序未响应。";
+"Unexpected helper reply." = "辅助程序返回了异常响应。";
+"Unexpected helper interface." = "辅助程序接口异常。";
+"The helper reported error %lld." = "辅助程序报告错误 %lld。";
+"Open System Settings" = "打开系统设置";
+"Try Again" = "重试";
+
+/* Mode messages and notifications */
+"Could not turn on" = "无法开启";
+"Something went wrong" = "运行出错";
+"LidAwake turned off" = "LidAwake 已关闭";
+"LidAwake was restarted. Turn the mode on again if you need it." = "LidAwake 已重新启动。如需继续，请重新开启模式。";
+"The timer ran out." = "定时时间已到。";
+"The battery dropped below the limit." = "电量已降至设定下限。";
+"The battery dropped to %lld%%." = "电量已降至 %lld%%。";
+"The battery level could not be read." = "无法读取电量。";
+"The Mac got too hot." = "Mac 温度过高。";
+"The thermal state could not be read." = "无法读取温度状态。";
+"The power source could not be read." = "无法读取供电状态。";
+"LidAwake closed unexpectedly, so normal sleep was restored." = "LidAwake 意外退出，已恢复正常睡眠。";
+"LidAwake paused" = "LidAwake 已暂停";
+"Running on battery. It resumes when you plug in." = "当前使用电池供电，接通电源后将恢复运行。";
+
+/* Updates */
+"Check for updates" = "检查更新";
+"Update available" = "有可用更新";
+"LidAwake %@ is available. You have %@." = "LidAwake %@ 已发布，当前版本为 %@。";
+"Download" = "下载";
+
+/* Automatic logout */
+"macOS will log you out" = "macOS 将自动退出登录";
+"Dismiss" = "忽略";
+"Privacy & Security > Advanced… > Log out automatically after inactivity" = "隐私与安全性 > 高级… > 不活跃一段时间后自动退出登录";
+"Automatic logout after %@ of inactivity is on. The mode ends when macOS logs you out." = "已开启闲置 %@ 后自动退出登录。macOS 退出登录时，当前模式也会结束。";

@@ -6,7 +6,7 @@ final class LocalizationTests: XCTestCase {
         .deletingLastPathComponent()
         .deletingLastPathComponent()
         .deletingLastPathComponent()
-    private static let languages = ["en", "de", "ru"]
+    private static let languages = ["en", "de", "ru", "zh-Hans"]
 
     private func table(_ language: String) throws -> [String: String] {
         let url = Self.root.appendingPathComponent("Resources/\(language).lproj/Localizable.strings")
