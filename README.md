@@ -103,9 +103,9 @@ The first time you choose Run with Lid Closed, LidAwake registers its helper and
 Requirements:
 
 - macOS 13 or later.
-- A Mac with Apple silicon. The app does not run on Intel Macs.
+- The published app requires a Mac with Apple silicon. An Intel source build has also been tested; see [Intel verification](docs/intel-verification.md) for the environment and limitations.
 
-LidAwake is developed and tested on a MacBook Air (M1) with macOS 26. Older versions of macOS have not been tested. The Glass appearance is available only on macOS 26 and later.
+LidAwake is developed and tested on a MacBook Air (M1) with macOS 26. A contributor also tested a source build on an Intel MacBook Pro with macOS 14.8.7, as described in [Intel verification](docs/intel-verification.md). The Glass appearance is available only on macOS 26 and later.
 
 ## Updates
 
