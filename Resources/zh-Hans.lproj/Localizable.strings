@@ -97,5 +97,5 @@
 /* Automatic logout */
 "macOS will log you out" = "macOS 将自动退出登录";
 "Dismiss" = "忽略";
-"Privacy & Security > Advanced… > Log out automatically after inactivity" = "隐私与安全性 > 高级… > 不活跃一段时间后自动退出登录";
+"Privacy & Security > Advanced… > Log out automatically after inactivity" = "隐私与安全性 > 高级… > 闲置后自动退出登录";
 "Automatic logout after %@ of inactivity is on. The mode ends when macOS logs you out." = "已开启闲置 %@ 后自动退出登录。macOS 退出登录时，当前模式也会结束。";
