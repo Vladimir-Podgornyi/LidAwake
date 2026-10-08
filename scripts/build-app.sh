@@ -7,7 +7,26 @@ cd "$ROOT"
 APP_NAME="LidAwake"
 HELPER_NAME="LidAwakeHelper"
 HELPER_ID="com.vladimirpodgornyi.LidAwake.helper"
-APP="build/$APP_NAME.app"
+
+# Apple silicon and Intel are built and shipped as separate apps, never as one
+# universal binary. Each architecture gets its own SwiftPM scratch directory,
+# because the build system puts the products of every architecture in the
+# same folder.
+ARCH="${ARCH:-arm64}"
+case "$ARCH" in
+    arm64)
+        APP="build/$APP_NAME.app"
+        SCRATCH=".build"
+        ;;
+    x86_64)
+        APP="build/x86_64/$APP_NAME.app"
+        SCRATCH=".build/x86_64"
+        ;;
+    *)
+        echo "ERROR: unknown ARCH '$ARCH'. Use arm64 or x86_64." >&2
+        exit 1
+        ;;
+esac
 HELPER="$APP/Contents/MacOS/$HELPER_NAME"
 
 # The Swift driver links via clang with --sysroot, from which clang does not
@@ -16,11 +35,11 @@ HELPER="$APP/Contents/MacOS/$HELPER_NAME"
 # The linker's -S drops the debug map, which records the absolute paths of the
 # source directories and object files.
 SDK_PATH="$(xcrun --sdk macosx --show-sdk-path)"
-swift build -c release \
+swift build -c release --arch "$ARCH" --scratch-path "$SCRATCH" \
     -Xswiftc -Xclang-linker -Xswiftc -isysroot \
     -Xswiftc -Xclang-linker -Xswiftc "$SDK_PATH" \
     -Xlinker -S
-BIN_DIR="$(swift build -c release --show-bin-path)"
+BIN_DIR="$(swift build -c release --arch "$ARCH" --scratch-path "$SCRATCH" --show-bin-path)"
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Library/LaunchDaemons"
@@ -91,5 +110,14 @@ fi
 
 codesign --verify --strict "$HELPER"
 codesign --verify --strict "$APP"
+
+for BINARY in "$APP/Contents/MacOS/$APP_NAME" "$HELPER"; do
+    BINARY_ARCHS="$(lipo -archs "$BINARY")"
+    if [[ "$BINARY_ARCHS" != "$ARCH" ]]; then
+        echo "ERROR: $BINARY is built for '$BINARY_ARCHS', expected exactly '$ARCH'." >&2
+        exit 1
+    fi
+done
+echo "Architecture: $ARCH"
 
 echo "Built $APP"

@@ -4,6 +4,7 @@ set -euo pipefail
 usage() {
     echo "Usage: $0 [--skip-notarize]" >&2
     echo "  NOTARY_PROFILE  notarytool keychain profile (default: lidawake-notary)" >&2
+    echo "  ARCH            arm64 (default) or x86_64; x86_64 makes LidAwake-<version>-intel.dmg" >&2
 }
 
 SKIP_NOTARIZE=0
@@ -19,7 +20,21 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 APP_NAME="LidAwake"
-APP="build/$APP_NAME.app"
+ARCH="${ARCH:-arm64}"
+case "$ARCH" in
+    arm64)
+        APP="build/$APP_NAME.app"
+        DMG_SUFFIX=""
+        ;;
+    x86_64)
+        APP="build/x86_64/$APP_NAME.app"
+        DMG_SUFFIX="-intel"
+        ;;
+    *)
+        echo "ERROR: unknown ARCH '$ARCH'. Use arm64 or x86_64." >&2
+        exit 1
+        ;;
+esac
 TEAM_ID="ZW984867UC"
 NOTARY_PROFILE="${NOTARY_PROFILE:-lidawake-notary}"
 
@@ -59,7 +74,7 @@ notarize() {
 }
 
 step "Building $APP"
-./scripts/build-app.sh
+ARCH="$ARCH" ./scripts/build-app.sh
 
 step "Checking the signature"
 SIGN_INFO="$(codesign -dvv "$APP" 2>&1)"
@@ -78,7 +93,7 @@ IDENTITY="$(openssl x509 -inform DER -in "$WORK/cert0" -noout -fingerprint -sha1
     | sed 's/^.*=//; s/://g')"
 
 VERSION="$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP/Contents/Info.plist")"
-DMG="build/$APP_NAME-$VERSION.dmg"
+DMG="build/$APP_NAME-$VERSION$DMG_SUFFIX.dmg"
 
 if [[ "$SKIP_NOTARIZE" -eq 0 ]]; then
     step "Notarizing $APP (profile $NOTARY_PROFILE)"
