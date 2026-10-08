@@ -168,7 +168,7 @@ struct ContentView: View {
                 ) {
                     switch message.source {
                     case .update:
-                        NSWorkspace.shared.open(UpdateLinks.downloadPage)
+                        NSWorkspace.shared.open(UpdateBuild.downloadPage(for: updates.notice))
                     case .autoLogout:
                         openAutoLogoutSettings()
                     case .helper, .mode:

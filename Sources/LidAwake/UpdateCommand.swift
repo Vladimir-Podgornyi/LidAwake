@@ -10,11 +10,11 @@ enum UpdateCommand {
         let current = AppVersion.installedText
         let result: Result<ReleaseLookup, Error>
         do {
-            result = .success(try await GitHubReleaseSource(appVersion: current).latestRelease())
+            result = .success(try await UpdateBuild.source(appVersion: current).latestRelease())
         } catch {
             result = .failure(error)
         }
-        let report = UpdateCheckReport.line(result: result, current: current)
+        let report = UpdateCheckReport.line(result: result, current: current, intel: UpdateBuild.isIntel)
         print(report.text)
         return report.exitCode
     }

@@ -82,6 +82,123 @@ final class GitHubReleaseSourceTests: XCTestCase {
     }
 }
 
+final class IntelReleaseTests: XCTestCase {
+    private func release(_ tag: String, draft: Bool = false, prerelease: Bool = false, _ assets: [String]) -> ReleaseEntry {
+        ReleaseEntry(tag: tag, isDraft: draft, isPrerelease: prerelease, assetNames: assets)
+    }
+
+    func testDiskImageName() {
+        XCTAssertEqual(IntelRelease.diskImageName(version: AppVersion("v1.0.2")!), "LidAwake-1.0.2-intel.dmg")
+    }
+
+    func testSkipsReleaseWithoutIntelFile() {
+        let releases = [
+            release("v1.0.3", ["LidAwake-1.0.3.dmg"]),
+            release("v1.0.2", ["LidAwake-1.0.2.dmg", "LidAwake-1.0.2-intel.dmg"]),
+        ]
+        XCTAssertEqual(IntelRelease.newestTag(in: releases), "v1.0.2")
+    }
+
+    func testSkipsDraftsAndPrereleases() {
+        let releases = [
+            release("v1.0.5", draft: true, ["LidAwake-1.0.5-intel.dmg"]),
+            release("v1.0.4", prerelease: true, ["LidAwake-1.0.4-intel.dmg"]),
+            release("v1.0.3", draft: true, prerelease: true, ["LidAwake-1.0.3-intel.dmg"]),
+            release("v1.0.2", ["LidAwake-1.0.2-intel.dmg"]),
+        ]
+        XCTAssertEqual(IntelRelease.newestTag(in: releases), "v1.0.2")
+    }
+
+    func testSimilarFileNamesDoNotCount() {
+        let names = [
+            "LidAwake-1.0.3-Intel.dmg", "LidAwake-1.0.3-intel.dmg.sha256", "LidAwake-1.0.3-intel.zip",
+            "LidAwake-v1.0.3-intel.dmg", "LidAwake-1.0.2-intel.dmg", "LidAwake-1.0.3-x86_64.dmg",
+            "lidawake-1.0.3-intel.dmg", " LidAwake-1.0.3-intel.dmg", "LidAwake-1.0.3-intel.dmg ",
+            "LidAwake-1.0.3.0-intel.dmg", "Old-LidAwake-1.0.3-intel.dmg",
+        ]
+        for name in names {
+            XCTAssertNil(IntelRelease.newestTag(in: [release("v1.0.3", [name])]), name)
+        }
+    }
+
+    func testPicksTheNewestMatchingRelease() {
+        let releases = [
+            release("v1.0.2", ["LidAwake-1.0.2-intel.dmg"]),
+            release("v1.10.0", ["LidAwake-1.10.0-intel.dmg"]),
+            release("v1.9.0", ["LidAwake-1.9.0-intel.dmg"]),
+        ]
+        XCTAssertEqual(IntelRelease.newestTag(in: releases), "v1.10.0")
+    }
+
+    func testNoMatchingReleaseMeansNoUpdate() {
+        XCTAssertNil(IntelRelease.newestTag(in: []))
+        XCTAssertNil(IntelRelease.newestTag(in: [release("v1.0.1", ["LidAwake-1.0.1.dmg"])]))
+    }
+
+    func testTagMustBeAVersionWithV() {
+        let releases = [
+            release("1.0.4", ["LidAwake-1.0.4-intel.dmg"]),
+            release("nightly", ["LidAwake-nightly-intel.dmg"]),
+            release("v1.0.3-rc.1", ["LidAwake-1.0.3-rc.1-intel.dmg"]),
+        ]
+        XCTAssertNil(IntelRelease.newestTag(in: releases))
+    }
+
+    func testReleasePageIsBuiltFromTheVersion() {
+        XCTAssertEqual(
+            IntelRelease.releasePage(version: "1.0.3").absoluteString,
+            "https://github.com/Vladimir-Podgornyi/LidAwake/releases/tag/v1.0.3"
+        )
+        XCTAssertEqual(
+            IntelRelease.releasePage(version: "1.0/../../evil").absoluteString,
+            "https://github.com/Vladimir-Podgornyi/LidAwake/releases"
+        )
+        XCTAssertNil(UpdateLinks.releasePage(tag: "v1.0.3?x=1"))
+    }
+
+    func testListAddressIsFixed() {
+        XCTAssertEqual(
+            UpdateLinks.releaseList.absoluteString,
+            "https://api.github.com/repos/Vladimir-Podgornyi/LidAwake/releases"
+        )
+    }
+}
+
+final class GitHubIntelReleaseSourceTests: XCTestCase {
+    func testReadsTagFlagsAndFileNamesOnly() throws {
+        let body = Data(#"""
+        [
+          {"tag_name":"v1.0.4","draft":false,"prerelease":false,"html_url":"https://example.com/a",
+           "assets":[{"name":"LidAwake-1.0.4.dmg","browser_download_url":"https://example.com/x"}]},
+          {"tag_name":"v1.0.3","draft":false,"prerelease":false,"html_url":"https://example.com/b",
+           "assets":[{"name":"LidAwake-1.0.3.dmg"},{"name":"LidAwake-1.0.3-intel.dmg","size":1}]}
+        ]
+        """#.utf8)
+        XCTAssertEqual(try GitHubIntelReleaseSource.lookup(status: 200, body: body), .tag("v1.0.3"))
+    }
+
+    func testNoIntelFileAnywhere() throws {
+        let body = Data(#"[{"tag_name":"v1.0.1","draft":false,"prerelease":false,"assets":[{"name":"LidAwake-1.0.1.dmg"}]}]"#.utf8)
+        XCTAssertEqual(try GitHubIntelReleaseSource.lookup(status: 200, body: body), .noIntelRelease)
+        XCTAssertEqual(try GitHubIntelReleaseSource.lookup(status: 200, body: Data("[]".utf8)), .noIntelRelease)
+    }
+
+    func testNotFoundAndOtherStatus() throws {
+        XCTAssertEqual(try GitHubIntelReleaseSource.lookup(status: 404, body: Data()), .noReleases)
+        XCTAssertThrowsError(try GitHubIntelReleaseSource.lookup(status: 403, body: Data())) {
+            XCTAssertEqual($0 as? ReleaseLookupError, .status(403))
+        }
+    }
+
+    func testUnreadableReplyIsAnError() {
+        for body in ["", "{}", #"{"tag_name":"v1"}"#, #"[{"tag_name":"v1"}]"#, #"[{"tag_name":"v1","draft":false,"prerelease":false}]"#] {
+            XCTAssertThrowsError(try GitHubIntelReleaseSource.lookup(status: 200, body: Data(body.utf8))) {
+                XCTAssertEqual($0 as? ReleaseLookupError, .badResponse, body)
+            }
+        }
+    }
+}
+
 final class UpdateCheckReportTests: XCTestCase {
     func testLines() {
         XCTAssertEqual(
@@ -108,6 +225,22 @@ final class UpdateCheckReportTests: XCTestCase {
             UpdateCheckReport.line(result: .failure(ReleaseLookupError.status(500)), current: "1.0.0").text,
             "update=error reason=http-500 current=1.0.0"
         )
+    }
+
+    func testIntelLines() {
+        XCTAssertEqual(
+            UpdateCheckReport.line(result: .success(.tag("v1.0.3")), current: "1.0.2", intel: true).text,
+            "update=available latest=1.0.3 current=1.0.2 files=intel"
+        )
+        XCTAssertEqual(
+            UpdateCheckReport.line(result: .success(.noIntelRelease), current: "1.0.2", intel: true).text,
+            "update=none reason=no-intel-release current=1.0.2 files=intel"
+        )
+        XCTAssertEqual(
+            UpdateCheckReport.line(result: .failure(ReleaseLookupError.offline), current: "1.0.2", intel: true).text,
+            "update=error reason=offline current=1.0.2 files=intel"
+        )
+        XCTAssertEqual(UpdateCheckReport.line(result: .success(.noIntelRelease), current: "1.0.2").exitCode, 0)
     }
 
     func testExitCodeIsOneOnlyForErrors() {

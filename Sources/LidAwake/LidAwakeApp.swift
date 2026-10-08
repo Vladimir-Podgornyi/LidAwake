@@ -11,7 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let accent = AccentPreference()
     let windowStyle = WindowAppearancePreference()
     let settingsDisclosure = SettingsDisclosurePreference()
-    let updates = UpdateChecker()
+    let updates = UpdateChecker(source: UpdateBuild.source())
     let autoLogout = AutoLogoutMonitor()
 
     override init() {
