@@ -189,13 +189,16 @@ You need macOS and Xcode; the scripts call `swift build`, `xcrun actool` and `co
 
 ```sh
 scripts/build-app.sh                # builds build/LidAwake.app
+ARCH=x86_64 scripts/build-app.sh    # builds an Intel app in build/x86_64/LidAwake.app
 scripts/install-app.sh              # quits a running LidAwake and copies the app to /Applications
 scripts/check-localizations.sh      # checks that every interface string exists in all four languages
 ```
 
 `build-app.sh` signs with a Developer ID Application certificate of team `ZW984867UC` from the keychain, or with the identity in `SIGN_IDENTITY`. Without such a certificate it signs ad hoc and prints a warning that the privileged helper will not work in this build. The app and the helper accept each other only with a Developer ID signature of that team. Run with Lid Closed has not been tested in a build signed any other way.
 
-`scripts/release.sh` builds, notarizes and packs the DMG for a release. It needs the Developer ID certificate of that team and a `notarytool` keychain profile.
+`build-app.sh` builds for Apple silicon (`ARCH=arm64`, the default) or for Intel (`ARCH=x86_64`), never both in one app, and stops if a binary has another architecture.
+
+`scripts/release.sh` builds, notarizes and packs the DMG for a release; with `ARCH=x86_64` it makes `LidAwake-<version>-intel.dmg`. It needs the Developer ID certificate of that team and a `notarytool` keychain profile.
 
 ## Languages
 
