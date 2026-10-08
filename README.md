@@ -18,7 +18,7 @@
 - Stops by itself when the Mac gets hot, when the battery runs low or when the timer ends, and can run only while charging.
 - If the app quits unexpectedly or stops responding, normal sleep returns by itself within two minutes.
 - Open source (MIT), no account and no analytics. The only network request is a daily update check, and it can be turned off.
-- The interface is in English, German and Russian.
+- The interface is in English, German, Russian and Simplified Chinese.
 
 LidAwake is an open-source alternative to apps like Amphetamine and to the `caffeinate` command for keeping a Mac awake, including with the lid closed and no external display.
 
@@ -190,7 +190,7 @@ You need macOS and Xcode; the scripts call `swift build`, `xcrun actool` and `co
 ```sh
 scripts/build-app.sh                # builds build/LidAwake.app
 scripts/install-app.sh              # quits a running LidAwake and copies the app to /Applications
-scripts/check-localizations.sh      # checks that every interface string exists in all three languages
+scripts/check-localizations.sh      # checks that every interface string exists in all four languages
 ```
 
 `build-app.sh` signs with a Developer ID Application certificate of team `ZW984867UC` from the keychain, or with the identity in `SIGN_IDENTITY`. Without such a certificate it signs ad hoc and prints a warning that the privileged helper will not work in this build. The app and the helper accept each other only with a Developer ID signature of that team. Run with Lid Closed has not been tested in a build signed any other way.
@@ -199,7 +199,7 @@ scripts/check-localizations.sh      # checks that every interface string exists 
 
 ## Languages
 
-The interface is in English, German and Russian. The language follows the system settings.
+The interface is in English, German, Russian and Simplified Chinese. The language follows the system settings. To use Simplified Chinese for this app only, choose LidAwake in System Settings > General > Language & Region > Applications and select Simplified Chinese.
 
 ## License
 
