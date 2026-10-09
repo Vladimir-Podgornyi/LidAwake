@@ -135,6 +135,19 @@ final class LocalizationTests: XCTestCase {
         }
     }
 
+    func testBatteryLimitNoticeWithOnlyWhileCharging() throws {
+        let key = "Not used with Only while charging"
+        let expected = [
+            "en": key,
+            "de": "Ohne Wirkung bei „Nur am Netzteil“",
+            "ru": "Не действует при «Только от зарядки»",
+            "zh-Hans": "开启“仅在接通电源时运行”后不生效",
+        ]
+        for language in Self.languages {
+            XCTAssertEqual(try table(language)[key], expected[language], language)
+        }
+    }
+
     /// Copied from SecurityPrivacyExtension.appex on macOS 26.6.2: InfoPlist.loctable
     /// CFBundleDisplayName, Localizable.loctable "Advanced…" and
     /// "Log out automatically after inactivity", no-break spaces included.

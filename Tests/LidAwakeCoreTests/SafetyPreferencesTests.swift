@@ -50,6 +50,49 @@ final class SafetyPreferencesTests: XCTestCase {
         XCTAssertTrue(SafetyPreferences(defaults: defaults).helperSettings.isValid)
     }
 
+    func testOnlyWhileChargingSendsNoBatteryLimit() {
+        let preferences = SafetyPreferences(defaults: defaults)
+        preferences.batteryLimitEnabled = true
+        preferences.batteryLimitPercent = 30
+        preferences.chargingOnlyEnabled = true
+        XCTAssertFalse(preferences.batteryLimitApplies)
+        XCTAssertEqual(preferences.helperSettings.batteryLimitPercent, 0)
+        XCTAssertTrue(preferences.helperSettings.chargingOnly)
+    }
+
+    func testBatteryLimitIsSentWithoutOnlyWhileCharging() {
+        let preferences = SafetyPreferences(defaults: defaults)
+        preferences.batteryLimitEnabled = true
+        preferences.batteryLimitPercent = 30
+        preferences.chargingOnlyEnabled = false
+        XCTAssertTrue(preferences.batteryLimitApplies)
+        XCTAssertEqual(preferences.helperSettings.batteryLimitPercent, 30)
+
+        preferences.batteryLimitEnabled = false
+        XCTAssertEqual(preferences.helperSettings.batteryLimitPercent, 0)
+    }
+
+    func testOnlyWhileChargingKeepsTheSavedBatteryLimit() {
+        let preferences = SafetyPreferences(defaults: defaults)
+        preferences.batteryLimitEnabled = true
+        preferences.batteryLimitPercent = 40
+
+        preferences.chargingOnlyEnabled = true
+        XCTAssertTrue(preferences.batteryLimitEnabled)
+        XCTAssertEqual(preferences.batteryLimitPercent, 40)
+        XCTAssertTrue(defaults.bool(forKey: SafetyPreferences.Key.batteryLimitEnabled))
+        XCTAssertEqual(defaults.integer(forKey: SafetyPreferences.Key.batteryLimitPercent), 40)
+
+        preferences.chargingOnlyEnabled = false
+        XCTAssertTrue(preferences.batteryLimitEnabled)
+        XCTAssertEqual(preferences.batteryLimitPercent, 40)
+        XCTAssertEqual(preferences.helperSettings.batteryLimitPercent, 40)
+
+        let reloaded = SafetyPreferences(defaults: defaults)
+        XCTAssertTrue(reloaded.batteryLimitEnabled)
+        XCTAssertEqual(reloaded.batteryLimitPercent, 40)
+    }
+
     func testDefaults() {
         let preferences = SafetyPreferences(defaults: defaults)
         XCTAssertEqual(preferences.timerSeconds, 7200)

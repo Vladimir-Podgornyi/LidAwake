@@ -852,13 +852,14 @@ final class ModeControllerTests: XCTestCase {
         let controller = makeController()
         try await controller.select(.lidClosed)
         XCTAssertEqual(sessions.safety.last?.chargingOnly, false)
+        XCTAssertEqual(sessions.safety.last?.batteryLimitPercent, 20)
 
         preferences.chargingOnlyEnabled = true
         await settle { sessions.calls.count >= 2 }
         XCTAssertEqual(sessions.calls, ["start 120", "renew 120"])
         XCTAssertEqual(
             sessions.safety.last,
-            SafetySettings(timerSeconds: 0, batteryLimitPercent: 20, thermalProtection: true, chargingOnly: true)
+            SafetySettings(timerSeconds: 0, batteryLimitPercent: 0, thermalProtection: true, chargingOnly: true)
         )
         await settle { sessions.statusRequests.count >= 2 }
         XCTAssertEqual(sessions.statusRequests, [1, 2])

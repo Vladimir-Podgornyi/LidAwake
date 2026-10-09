@@ -73,10 +73,15 @@ public final class SafetyPreferences: ObservableObject {
         timerEnabled ? timerSeconds : nil
     }
 
+    /// Only while charging already pauses the session on battery, so the battery limit is not used then.
+    public var batteryLimitApplies: Bool {
+        !chargingOnlyEnabled
+    }
+
     public var helperSettings: SafetySettings {
         SafetySettings(
             timerSeconds: timerEnabled ? timerSeconds : 0,
-            batteryLimitPercent: batteryLimitEnabled ? batteryLimitPercent : 0,
+            batteryLimitPercent: batteryLimitApplies && batteryLimitEnabled ? batteryLimitPercent : 0,
             thermalProtection: thermalProtectionEnabled,
             chargingOnly: chargingOnlyEnabled
         )

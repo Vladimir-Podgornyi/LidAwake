@@ -32,6 +32,7 @@
 "Ends the session under thermal pressure" = "Ends the session under thermal pressure";
 "Stop on low battery" = "Stop on low battery";
 "When the charge drops below the limit" = "When the charge drops below the limit";
+"Not used with Only while charging" = "Not used with Only while charging";
 "Battery limit" = "Battery limit";
 "Only while charging" = "Only while charging";
 "Pauses on battery, resumes on power" = "Pauses on battery, resumes on power";

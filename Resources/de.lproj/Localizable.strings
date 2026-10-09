@@ -32,6 +32,7 @@
 "Ends the session under thermal pressure" = "Wenn der Mac zu heiß wird";
 "Stop on low battery" = "Bei schwachem Akku beenden";
 "When the charge drops below the limit" = "Unter der eingestellten Grenze";
+"Not used with Only while charging" = "Ohne Wirkung bei „Nur am Netzteil“";
 "Battery limit" = "Akkugrenze";
 "Only while charging" = "Nur am Netzteil";
 "Pauses on battery, resumes on power" = "Pause im Akkubetrieb, weiter am Netzteil";

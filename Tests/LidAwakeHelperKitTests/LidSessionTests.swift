@@ -947,6 +947,47 @@ final class LidSessionTests: XCTestCase {
         XCTAssertEqual(flag.writes, [true, false, true])
     }
 
+    // The app sends no battery limit with Only while charging, so a low battery pauses instead of ending.
+    func testLowBatteryPausesWithoutBatteryLimit() {
+        let low = PowerReading(battery: .percent(10), source: .battery)
+        let lowOnAC = PowerReading(battery: .percent(10), source: .ac)
+        let session = makeSession()
+        XCTAssertEqual(session.start(lease: 120, safety: chargingOnly(battery: 0)), .ok)
+
+        power.reading = low
+        XCTAssertEqual(session.enforceLimits(), .ok)
+        XCTAssertEqual(session.renew(lease: 120, safety: chargingOnly(battery: 0)), .ok)
+        XCTAssertNil(session.enforceLimits())
+        XCTAssertTrue(session.isActive)
+        XCTAssertTrue(session.isPaused)
+        XCTAssertFalse(flag.value)
+        XCTAssertNil(stopReasons.record)
+
+        power.reading = lowOnAC
+        XCTAssertEqual(session.enforceLimits(), .ok)
+        XCTAssertTrue(session.isActive)
+        XCTAssertFalse(session.isPaused)
+        XCTAssertTrue(flag.value)
+        XCTAssertTrue(marker.isSet)
+        XCTAssertNil(stopReasons.record)
+    }
+
+    func testStartOnLowBatteryWithoutBatteryLimitBeginsPaused() {
+        power.reading = PowerReading(battery: .percent(10), source: .battery)
+        let session = makeSession()
+
+        XCTAssertEqual(session.start(lease: 120, safety: chargingOnly(battery: 0)), .ok)
+        XCTAssertTrue(session.isActive)
+        XCTAssertTrue(session.isPaused)
+        XCTAssertFalse(flag.value)
+
+        power.reading = PowerReading(battery: .percent(10), source: .ac)
+        XCTAssertEqual(session.enforceLimits(), .ok)
+        XCTAssertFalse(session.isPaused)
+        XCTAssertTrue(flag.value)
+        XCTAssertNil(stopReasons.record)
+    }
+
     func testStartOnBatteryBeginsPaused() {
         power.reading = onBattery
         let session = makeSession()

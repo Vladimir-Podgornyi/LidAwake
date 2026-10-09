@@ -222,10 +222,17 @@ struct ContentView: View {
             SettingRow(title: "Stop when the Mac gets hot", detail: "Ends the session under thermal pressure") {
                 thermalToggle
             }
-            SettingRow(title: "Stop on low battery", detail: "When the charge drops below the limit") {
+            SettingRow(
+                title: "Stop on low battery",
+                detail: preferences.batteryLimitApplies
+                    ? "When the charge drops below the limit"
+                    : "Not used with Only while charging"
+            ) {
                 batteryValue
                 batteryToggle
             }
+            .opacity(preferences.batteryLimitApplies ? 1 : 0.45)
+            .disabled(!preferences.batteryLimitApplies)
             SettingRow(title: "Only while charging", detail: "Pauses on battery, resumes on power") {
                 chargingToggle
             }

@@ -32,6 +32,7 @@
 "Ends the session under thermal pressure" = "Если Mac перегрелся";
 "Stop on low battery" = "Стоп при низком заряде";
 "When the charge drops below the limit" = "Когда заряд ниже порога";
+"Not used with Only while charging" = "Не действует при «Только от зарядки»";
 "Battery limit" = "Порог заряда";
 "Only while charging" = "Только от зарядки";
 "Pauses on battery, resumes on power" = "Пауза на батарее, работа от сети";

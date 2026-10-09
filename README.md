@@ -49,7 +49,7 @@ Each protection is turned on separately in Settings.
 | Protection | What it does | Default |
 |---|---|---|
 | Stop when the Mac gets hot | Ends the mode when macOS reports the thermal state as serious or critical | on |
-| Stop on low battery | Ends the mode when the Mac runs on battery and the charge is at or below the limit (10 to 50 %) | on, 20 % |
+| Stop on low battery | Ends the mode when the Mac runs on battery and the charge is at or below the limit (10 to 50 %). Not used while Only while charging is on, because the mode is already paused on battery | on, 20 % |
 | Only while charging | Pauses the mode on battery power and resumes it when power is connected | off |
 | Turn off after | Ends the mode after the chosen time (30 min to 8 hours), counted from the moment it was switched on | off, 2 hours |
 

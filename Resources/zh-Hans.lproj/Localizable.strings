@@ -32,6 +32,7 @@
 "Ends the session under thermal pressure" = "Mac 温度过高时结束运行";
 "Stop on low battery" = "低电量时停止";
 "When the charge drops below the limit" = "电量降至设定下限时结束运行";
+"Not used with Only while charging" = "开启“仅在接通电源时运行”后不生效";
 "Battery limit" = "电量下限";
 "Only while charging" = "仅在接通电源时运行";
 "Pauses on battery, resumes on power" = "电池供电时暂停，接通电源后恢复";
