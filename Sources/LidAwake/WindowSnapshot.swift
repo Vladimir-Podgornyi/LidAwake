@@ -6,7 +6,8 @@ import SwiftUI
 /// `--render-window <folder>`: draws the window with default settings in the Off and the
 /// Keep Screen On positions, with the settings collapsed and expanded, Off with the update
 /// banner, Keep Screen On with the automatic logout warning, Off expanded in a window limited
-/// to 600 points, and Keep Screen On expanded with both banners, without touching the helper, the login item, the display, the network or the saved settings.
+/// to 600 points, Keep Screen On expanded with both banners, and Run with Lid Closed expanded with
+/// Only while charging on, without touching the helper, the login item, the display, the network or the saved settings.
 enum WindowSnapshot {
     static let flag = "--render-window"
 
@@ -50,6 +51,7 @@ enum WindowSnapshot {
         let isDark: Bool
         var showsUpdate = false
         var showsAutoLogout = false
+        var chargingOnly = false
         var maxHeight: CGFloat?
         var name: String?
 
@@ -69,6 +71,13 @@ enum WindowSnapshot {
                 showsUpdate: true,
                 showsAutoLogout: true,
                 name: "screen-expanded-full-light.png"
+            ),
+            Shot(
+                mode: .lidClosed,
+                isExpanded: true,
+                isDark: false,
+                chargingOnly: true,
+                name: "lid-expanded-charging-light.png"
             ),
         ]
 
@@ -101,6 +110,13 @@ enum WindowSnapshot {
             SettingsDisclosurePreference.key: shot.isExpanded,
             UpdateChecker.latestVersionKey: shot.showsUpdate ? "9.9.9" : "",
         ])
+        // SafetyPreferences registers its own defaults over these, so the setting goes in the
+        // argument domain, which is searched first and kept only in memory.
+        let arguments = UserDefaults.standard.volatileDomain(forName: UserDefaults.argumentDomain)
+        var shotArguments = arguments
+        shotArguments[SafetyPreferences.Key.chargingOnlyEnabled] = shot.chargingOnly
+        UserDefaults.standard.setVolatileDomain(shotArguments, forName: UserDefaults.argumentDomain)
+        defer { UserDefaults.standard.setVolatileDomain(arguments, forName: UserDefaults.argumentDomain) }
         let inert = Inert()
         let controller = ModeController(
             displayAssertion: inert,
@@ -112,7 +128,7 @@ enum WindowSnapshot {
             powerSourceMonitor: inert,
             lidMonitor: inert
         )
-        // The display assertion is inert, so selecting Keep Screen On keeps nothing awake.
+        // The display assertion and the helper are inert, so selecting a mode keeps nothing awake.
         Task { try? await controller.select(shot.mode) }
         let deadline = Date(timeIntervalSinceNow: 2)
         while controller.mode != shot.mode, Date() < deadline {
@@ -218,7 +234,7 @@ private final class Inert: PowerAssertion, HelperPreparing, HelperInstalling, Li
     nonisolated func acquire() throws {}
     nonisolated func release() {}
 
-    func prepareForSession() async throws { throw CancellationError() }
+    func prepareForSession() async throws {}
     func isReady() async -> Bool { false }
 
     var state: HelperState { .ready }
@@ -227,7 +243,7 @@ private final class Inert: PowerAssertion, HelperPreparing, HelperInstalling, Li
     func install() async {}
     func openSystemSettings() {}
 
-    nonisolated func startSession(leaseSeconds: Int, safety: SafetySettings) async throws { throw CancellationError() }
+    nonisolated func startSession(leaseSeconds: Int, safety: SafetySettings) async throws {}
     nonisolated func renewSession(leaseSeconds: Int, safety: SafetySettings) async throws { throw CancellationError() }
     nonisolated func endSession() async throws {}
     nonisolated func clearLeftover() async throws {}
