@@ -7,6 +7,8 @@ private let limitCheckInterval: TimeInterval = 5
 private let maximumLease = 600
 
 // Accessed only on the main queue.
+private let idleWatcher = IdleWatcher(source: SystemBusySignals(), clock: AwakeClock())
+
 private let session = LidSession(
     flag: PmsetSleepFlag(),
     marker: FileOwnershipMarker(),
@@ -14,6 +16,7 @@ private let session = LidSession(
     awakeClock: AwakeClock(),
     power: IOKitPowerSource(),
     thermal: ProcessInfoThermalState(),
+    idle: idleWatcher,
     stopReasons: FileStopReasonStore()
 )
 
@@ -85,7 +88,7 @@ final class Helper: NSObject, HelperProtocol {
         }
     }
 
-    func lastStopReason(reply: @escaping (Int, String?, String?, Double, Int) -> Void) {
+    func lastStopReason(reply: @escaping (Int, String?, String?, Double, Int, Int) -> Void) {
         DispatchQueue.main.async {
             let record = session.lastStopReason()
             reply(
@@ -93,7 +96,8 @@ final class Helper: NSObject, HelperProtocol {
                 nil,
                 record?.reason.rawValue,
                 record?.time.timeIntervalSince1970 ?? 0,
-                record?.batteryPercent ?? -1
+                record?.batteryPercent ?? -1,
+                record?.idleMinutes ?? -1
             )
         }
     }
@@ -166,6 +170,8 @@ final class ListenerDelegate: NSObject, NSXPCListenerDelegate {
     }
 }
 
+// The first reading right away, so the load can be averaged as soon as it is asked for.
+idleWatcher.sample()
 session.retryLeftover()
 
 let limitTimer = DispatchSource.makeTimerSource(queue: .main)

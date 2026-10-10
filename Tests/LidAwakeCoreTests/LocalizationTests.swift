@@ -148,6 +148,26 @@ final class LocalizationTests: XCTestCase {
         }
     }
 
+    func testIdleStopNoticeInEveryLanguage() throws {
+        let withMinutes = [
+            "en": "Nothing was working for %lld minutes.",
+            "de": "Seit %lld\u{00A0}Minuten lief nichts mehr.",
+            "ru": "%lld\u{00A0}мин ничего не работало.",
+            "zh-Hans": "已有 %lld 分钟没有任务在运行。",
+        ]
+        let withoutMinutes = [
+            "en": "Nothing was working for a while.",
+            "de": "Es lief längere Zeit nichts mehr.",
+            "ru": "Какое-то время ничего не работало.",
+            "zh-Hans": "已有一段时间没有任务在运行。",
+        ]
+        for language in Self.languages {
+            let table = try self.table(language)
+            XCTAssertEqual(table["Nothing was working for %lld minutes."], withMinutes[language], language)
+            XCTAssertEqual(table["Nothing was working for a while."], withoutMinutes[language], language)
+        }
+    }
+
     /// Copied from SecurityPrivacyExtension.appex on macOS 26.6.2: InfoPlist.loctable
     /// CFBundleDisplayName, Localizable.loctable "Advanced…" and
     /// "Log out automatically after inactivity", no-break spaces included.

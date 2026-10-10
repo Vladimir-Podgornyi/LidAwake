@@ -30,6 +30,11 @@ public enum StopNotice {
             return String(localized: "The power source could not be read.")
         case .leaseExpired:
             return String(localized: "LidAwake closed unexpectedly, so normal sleep was restored.")
+        case .idle:
+            guard let minutes = record.idleMinutes else {
+                return String(localized: "Nothing was working for a while.")
+            }
+            return String(localized: "Nothing was working for \(minutes) minutes.")
         }
     }
 }

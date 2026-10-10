@@ -65,6 +65,39 @@ private final class FakeThermal: ThermalStateReading {
     }
 }
 
+private final class FakeIdle: IdleWatching {
+    var countedMinutes = 0
+    private(set) var requiredMinutes = 0
+    private(set) var sampleCount = 0
+    private(set) var restartCount = 0
+
+    func sample() {
+        sampleCount += 1
+    }
+
+    func require(minutes: Int) {
+        guard minutes != requiredMinutes else { return }
+        requiredMinutes = minutes
+        countedMinutes = 0
+    }
+
+    func restart() {
+        restartCount += 1
+        countedMinutes = 0
+    }
+
+    func status() -> IdleStatus {
+        IdleStatus(
+            state: requiredMinutes == 0 ? .off : .counting,
+            countedMinutes: countedMinutes,
+            requiredMinutes: requiredMinutes,
+            cores: nil,
+            inputIdleSeconds: nil,
+            holders: nil
+        )
+    }
+}
+
 private final class FakeStopReasons: StopReasonStore {
     var record: StopRecord?
 
@@ -80,6 +113,7 @@ final class LidSessionTests: XCTestCase {
     private let awakeClock = FakeClock()
     private let power = FakePower()
     private let thermal = FakeThermal()
+    private let idle = FakeIdle()
     private let stopReasons = FakeStopReasons()
     private let wallTime = Date(timeIntervalSince1970: 1_800_000_000)
     private let noLimits = SafetySettings.off
@@ -98,6 +132,7 @@ final class LidSessionTests: XCTestCase {
             awakeClock: awakeClock,
             power: power,
             thermal: thermal,
+            idle: idle,
             stopReasons: stopReasons,
             wallClock: { [wallTime] in wallTime }
         )
@@ -417,6 +452,7 @@ final class LidSessionTests: XCTestCase {
             awakeClock: awakeClock,
             power: power,
             thermal: thermal,
+            idle: idle,
             stopReasons: stopReasons
         )
         XCTAssertEqual(first.start(lease: 120, safety: noLimits), .ok)
@@ -431,6 +467,7 @@ final class LidSessionTests: XCTestCase {
             awakeClock: awakeClock,
             power: power,
             thermal: thermal,
+            idle: idle,
             stopReasons: stopReasons
         )
         XCTAssertFalse(second.isActive)
@@ -659,6 +696,7 @@ final class LidSessionTests: XCTestCase {
             awakeClock: self.awakeClock,
                 power: self.power,
                 thermal: self.thermal,
+                idle: self.idle,
                 stopReasons: FileStopReasonStore(directory: directory),
                 wallClock: { [wallTime = self.wallTime] in wallTime }
             )
@@ -705,6 +743,92 @@ final class LidSessionTests: XCTestCase {
             XCTAssertEqual(session.renew(lease: 120, safety: settings).code, .invalidArgument, "\(settings)")
         }
         XCTAssertEqual(session.safety, limits(timer: 86_400, battery: 100, idleMinutes: 240))
+    }
+
+    // MARK: Idle sleep
+
+    func testIdleCountEndsSessionWithTheMinutesItCounted() {
+        let session = makeSession()
+        XCTAssertEqual(session.start(lease: 600, safety: limits(idleMinutes: 20)), .ok)
+        XCTAssertEqual(idle.requiredMinutes, 20)
+        XCTAssertEqual(idle.restartCount, 1)
+
+        idle.countedMinutes = 19
+        XCTAssertNil(session.enforceLimits())
+        XCTAssertTrue(session.isActive)
+        XCTAssertTrue(flag.value)
+
+        idle.countedMinutes = 20
+        XCTAssertEqual(session.enforceLimits(), .ok)
+        XCTAssertFalse(session.isActive)
+        XCTAssertFalse(flag.value)
+        XCTAssertFalse(marker.isSet)
+        XCTAssertEqual(stopReasons.record, StopRecord(reason: .idle, time: wallTime, idleMinutes: 20))
+    }
+
+    func testIdleSleepOffNeverEndsSession() {
+        let session = makeSession()
+        XCTAssertEqual(session.start(lease: 600, safety: noLimits), .ok)
+        XCTAssertEqual(idle.requiredMinutes, 0)
+
+        idle.countedMinutes = 240
+        XCTAssertNil(session.enforceLimits())
+        XCTAssertTrue(session.isActive)
+        XCTAssertNil(stopReasons.record)
+    }
+
+    func testIdleReadingsAreTakenWithoutASession() {
+        let session = makeSession()
+        XCTAssertNil(session.enforceLimits())
+        XCTAssertEqual(idle.sampleCount, 1)
+        XCTAssertEqual(idle.requiredMinutes, 0)
+
+        XCTAssertEqual(session.start(lease: 600, safety: limits(idleMinutes: 10)), .ok)
+        XCTAssertNil(session.enforceLimits())
+        XCTAssertEqual(idle.sampleCount, 2)
+        XCTAssertEqual(idle.requiredMinutes, 10)
+
+        XCTAssertEqual(session.end(), .ok)
+        XCTAssertEqual(idle.requiredMinutes, 0)
+        XCTAssertNil(session.enforceLimits())
+        XCTAssertEqual(idle.sampleCount, 3)
+    }
+
+    func testPauseStopsTheIdleCountAndResumingStartsItOver() {
+        power.reading = PowerReading(battery: .percent(80), source: .battery)
+        let session = makeSession()
+        let settings = SafetySettings(
+            timerSeconds: 0,
+            batteryLimitPercent: 0,
+            thermalProtection: false,
+            chargingOnly: true,
+            idleSleepMinutes: 10
+        )
+        XCTAssertEqual(session.start(lease: 600, safety: settings), .ok)
+        XCTAssertTrue(session.isPaused)
+        XCTAssertEqual(idle.requiredMinutes, 0)
+
+        idle.countedMinutes = 9
+        XCTAssertNil(session.enforceLimits())
+        XCTAssertEqual(idle.countedMinutes, 9)
+        XCTAssertTrue(session.isActive)
+
+        power.reading = PowerReading(battery: .percent(80), source: .ac)
+        XCTAssertEqual(session.enforceLimits(), .ok)
+        XCTAssertFalse(session.isPaused)
+        XCTAssertEqual(idle.requiredMinutes, 10)
+        XCTAssertEqual(idle.countedMinutes, 0)
+    }
+
+    func testTimerStillEndsSessionWithIdleSleepOn() {
+        let session = makeSession()
+        XCTAssertEqual(session.start(lease: 600, safety: limits(timer: 60, idleMinutes: 20)), .ok)
+
+        idle.countedMinutes = 5
+        advance(60)
+        XCTAssertEqual(session.enforceLimits(), .ok)
+        XCTAssertEqual(stopReasons.record?.reason, .timer)
+        XCTAssertNil(stopReasons.record?.idleMinutes)
     }
 
     func testStatusReportsTimerAndPower() {

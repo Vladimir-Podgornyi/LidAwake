@@ -162,7 +162,7 @@ public struct XPCHelperConnection: HelperConnecting, LidSessionService {
 
     public func lastStopReason() async throws -> StopRecord? {
         try await call(timeout: timeout) { helper, done in
-            helper.lastStopReason { code, message, reason, time, percent in
+            helper.lastStopReason { code, message, reason, time, percent, idleMinutes in
                 done(Self.result(code, message).flatMap {
                     guard let reason else { return .success(nil) }
                     guard let parsed = StopReason(rawValue: reason) else {
@@ -171,7 +171,8 @@ public struct XPCHelperConnection: HelperConnecting, LidSessionService {
                     return .success(StopRecord(
                         reason: parsed,
                         time: Date(timeIntervalSince1970: time),
-                        batteryPercent: percent < 0 ? nil : percent
+                        batteryPercent: percent < 0 ? nil : percent,
+                        idleMinutes: idleMinutes < 0 ? nil : idleMinutes
                     ))
                 })
             }

@@ -86,6 +86,8 @@
 "The thermal state could not be read." = "The thermal state could not be read.";
 "The power source could not be read." = "The power source could not be read.";
 "LidAwake closed unexpectedly, so normal sleep was restored." = "LidAwake closed unexpectedly, so normal sleep was restored.";
+"Nothing was working for %lld minutes." = "Nothing was working for %lld minutes.";
+"Nothing was working for a while." = "Nothing was working for a while.";
 "LidAwake paused" = "LidAwake paused";
 "Running on battery. It resumes when you plug in." = "Running on battery. It resumes when you plug in.";
 

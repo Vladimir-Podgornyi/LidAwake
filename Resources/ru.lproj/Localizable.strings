@@ -86,6 +86,8 @@
 "The thermal state could not be read." = "Не удалось узнать температурное состояние.";
 "The power source could not be read." = "Не удалось определить источник питания.";
 "LidAwake closed unexpectedly, so normal sleep was restored." = "LidAwake неожиданно завершился, обычный сон восстановлен.";
+"Nothing was working for %lld minutes." = "%lld мин ничего не работало.";
+"Nothing was working for a while." = "Какое-то время ничего не работало.";
 "LidAwake paused" = "LidAwake на паузе";
 "Running on battery. It resumes when you plug in." = "Mac работает от батареи. Режим продолжится после подключения зарядки.";
 

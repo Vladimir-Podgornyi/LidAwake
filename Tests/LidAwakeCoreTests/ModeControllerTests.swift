@@ -770,6 +770,14 @@ final class ModeControllerTests: XCTestCase {
             StopNotice.body(for: StopRecord(reason: .powerUnreadable, time: time)),
             "The power source could not be read."
         )
+        XCTAssertEqual(
+            StopNotice.body(for: StopRecord(reason: .idle, time: time, idleMinutes: 20)),
+            "Nothing was working for 20 minutes."
+        )
+        XCTAssertEqual(
+            StopNotice.body(for: StopRecord(reason: .idle, time: time)),
+            "Nothing was working for a while."
+        )
         XCTAssertEqual(PauseNotice.title, "LidAwake paused")
         XCTAssertEqual(PauseNotice.body, "Running on battery. It resumes when you plug in.")
     }

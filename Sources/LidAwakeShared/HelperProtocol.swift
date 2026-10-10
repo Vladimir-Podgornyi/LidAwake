@@ -27,7 +27,8 @@ import Foundation
     /// a `ThermalState` and whether the session is paused.
     func sessionStatus(reply: @escaping (Int, String?, Int, Int, Int, Int, Int, Int, Bool) -> Void)
     /// Replies with a result code, an error message, a `StopReason` (nil when none),
-    /// the time in seconds since 1970 and the battery percentage (-1 when not recorded).
-    func lastStopReason(reply: @escaping (Int, String?, String?, Double, Int) -> Void)
+    /// the time in seconds since 1970, the battery percentage (-1 when not recorded)
+    /// and the idle minutes (-1 when not recorded).
+    func lastStopReason(reply: @escaping (Int, String?, String?, Double, Int, Int) -> Void)
     func clearStopReason(reply: @escaping (Int, String?) -> Void)
 }

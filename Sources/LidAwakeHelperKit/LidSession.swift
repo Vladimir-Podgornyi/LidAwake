@@ -51,6 +51,7 @@ public final class LidSession {
     private let awakeClock: SessionClock
     private let power: PowerSourceReading
     private let thermal: ThermalStateReading
+    private let idle: IdleWatching
     private let stopReasons: StopReasonStore
     private let wallClock: () -> Date
 
@@ -73,6 +74,7 @@ public final class LidSession {
         awakeClock: SessionClock,
         power: PowerSourceReading,
         thermal: ThermalStateReading,
+        idle: IdleWatching,
         stopReasons: StopReasonStore,
         wallClock: @escaping () -> Date = Date.init
     ) {
@@ -82,6 +84,7 @@ public final class LidSession {
         self.awakeClock = awakeClock
         self.power = power
         self.thermal = thermal
+        self.idle = idle
         self.stopReasons = stopReasons
         self.wallClock = wallClock
     }
@@ -151,6 +154,7 @@ public final class LidSession {
         }
         deadline = awakeClock.now + lease
         self.safety = safety
+        updateIdleRequirement()
 
         switch chargingCheck(enabled: safety.chargingOnly) {
         case .unreadable:
@@ -191,17 +195,22 @@ public final class LidSession {
         startedAt = nil
         safety = .off
         isPaused = false
+        updateIdleRequirement()
         // A paused session has already released its flag.
         guard ended == .ours, !wasPaused else { return .ok }
         return releaseFlag()
     }
 
     /// Ends the session when the timer runs out, the Mac gets too hot, the battery reaches its limit,
-    /// the power source cannot be read or the lease runs out, checked in that order;
-    /// otherwise pauses or resumes it as the power source requires.
-    /// Returns nil when nothing changed.
+    /// the power source cannot be read, the lease runs out or nothing has been working for the set
+    /// number of minutes, checked in that order; otherwise pauses or resumes it as the power source
+    /// requires. Returns nil when nothing changed.
+    ///
+    /// The idle readings are taken even without a session, so the helper can report what it sees.
     @discardableResult
     public func enforceLimits() -> SessionResult? {
+        updateIdleRequirement()
+        idle.sample()
         guard isActive else { return nil }
         if let remaining = timerRemaining, remaining <= 0 {
             return stop(.timer, batteryPercent: nil)
@@ -218,6 +227,9 @@ public final class LidSession {
         }
         if let deadline, awakeClock.now >= deadline {
             return stop(.leaseExpired, batteryPercent: nil)
+        }
+        if safety.idleSleepMinutes > 0, idle.countedMinutes >= safety.idleSleepMinutes {
+            return stop(.idle, batteryPercent: nil, idleMinutes: idle.countedMinutes)
         }
         switch power {
         case .pause:
@@ -368,6 +380,7 @@ public final class LidSession {
             guard released == .ok else { return released }
         }
         isPaused = true
+        updateIdleRequirement()
         return .ok
     }
 
@@ -384,19 +397,31 @@ public final class LidSession {
             if isSet {
                 ownership = .foreign
                 isPaused = false
+                updateIdleRequirement()
                 return .ok
             }
             let claimed = claimFlag()
             guard claimed == .ok else { return claimed }
         }
         isPaused = false
+        updateIdleRequirement()
         return .ok
     }
 
+    /// The idle count runs only while a session actually holds the Mac awake.
+    private func updateIdleRequirement() {
+        idle.require(minutes: isActive && !isPaused ? safety.idleSleepMinutes : 0)
+    }
+
     @discardableResult
-    private func stop(_ reason: StopReason, batteryPercent: Int?) -> SessionResult {
+    private func stop(_ reason: StopReason, batteryPercent: Int?, idleMinutes: Int? = nil) -> SessionResult {
         // The session ends even when the reason cannot be saved.
-        try? stopReasons.write(StopRecord(reason: reason, time: wallClock(), batteryPercent: batteryPercent))
+        try? stopReasons.write(StopRecord(
+            reason: reason,
+            time: wallClock(),
+            batteryPercent: batteryPercent,
+            idleMinutes: idleMinutes
+        ))
         return end()
     }
 
@@ -431,6 +456,8 @@ public final class LidSession {
         isPaused = paused
         startedAt = clock.now
         deadline = awakeClock.now + lease
+        updateIdleRequirement()
+        idle.restart()
     }
 
     // The marker stays when the flag cannot be cleared, so a later cleanup retries.

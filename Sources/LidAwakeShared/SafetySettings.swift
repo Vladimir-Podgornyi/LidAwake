@@ -46,6 +46,7 @@ public enum StopReason: String, Codable, Equatable {
     case thermalUnreadable
     case powerUnreadable
     case leaseExpired
+    case idle
 }
 
 public struct StopRecord: Codable, Equatable {
@@ -53,10 +54,13 @@ public struct StopRecord: Codable, Equatable {
     public let time: Date
     /// Set for `battery`: the level that triggered the stop.
     public let batteryPercent: Int?
+    /// Set for `idle`: the minutes nothing was working.
+    public let idleMinutes: Int?
 
-    public init(reason: StopReason, time: Date, batteryPercent: Int? = nil) {
+    public init(reason: StopReason, time: Date, batteryPercent: Int? = nil, idleMinutes: Int? = nil) {
         self.reason = reason
         self.time = time
         self.batteryPercent = batteryPercent
+        self.idleMinutes = idleMinutes
     }
 }
