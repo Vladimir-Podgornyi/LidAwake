@@ -160,6 +160,26 @@ public struct XPCHelperConnection: HelperConnecting, LidSessionService {
         }
     }
 
+    public func idleStatus() async throws -> IdleStatus {
+        try await call(timeout: timeout) { helper, done in
+            helper.idleStatus { code, message, state, counted, required, cores, input, holders in
+                done(Self.result(code, message).flatMap {
+                    guard let state = IdleState(rawValue: state) else {
+                        return .failure(HelperError.connection(String(localized: "Unexpected helper reply.")))
+                    }
+                    return .success(IdleStatus(
+                        state: state,
+                        countedMinutes: counted,
+                        requiredMinutes: required,
+                        cores: cores < 0 ? nil : cores,
+                        inputIdleSeconds: input < 0 ? nil : input,
+                        holders: holders.map { $0.isEmpty ? [] : $0.components(separatedBy: "\n") }
+                    ))
+                })
+            }
+        }
+    }
+
     public func lastStopReason() async throws -> StopRecord? {
         try await call(timeout: timeout) { helper, done in
             helper.lastStopReason { code, message, reason, time, percent, idleMinutes in

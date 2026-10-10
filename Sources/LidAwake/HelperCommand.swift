@@ -58,6 +58,9 @@ enum HelperCommand {
                 line += " timer=\(status.timerRemaining.map(String.init) ?? "off")"
                 line += " battery=\(status.power.battery.token) power=\(status.power.source.token)"
                 line += " thermal=\(status.thermal.token)"
+                let idle = try await Self.idleStatus(from: connection)
+                line += " idle=\(idle.token) cores=\(idle.coresToken)"
+                line += " input=\(idle.inputToken) holders=\(idle.holdersToken)"
             }
         } catch {
             printError("helper: \(error.localizedDescription)")
@@ -67,6 +70,18 @@ enum HelperCommand {
         }
         print(line)
         return 0
+    }
+
+    /// A helper that has just started has nothing to average the load over yet, so the command waits.
+    private static func idleStatus(from connection: XPCHelperConnection) async throws -> IdleStatus {
+        var status = try await connection.idleStatus()
+        var attempts = 0
+        while status.cores == nil, attempts < 2 {
+            attempts += 1
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            status = try await connection.idleStatus()
+        }
+        return status
     }
 
     private static func token(for registration: HelperRegistration) -> String {

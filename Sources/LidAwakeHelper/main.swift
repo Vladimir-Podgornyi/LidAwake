@@ -88,6 +88,22 @@ final class Helper: NSObject, HelperProtocol {
         }
     }
 
+    func idleStatus(reply: @escaping (Int, String?, Int, Int, Int, Double, Double, String?) -> Void) {
+        DispatchQueue.main.async {
+            let status = idleWatcher.status()
+            reply(
+                HelperResultCode.ok.rawValue,
+                nil,
+                status.state.rawValue,
+                status.countedMinutes,
+                status.requiredMinutes,
+                status.cores ?? -1,
+                status.inputIdleSeconds ?? -1,
+                status.holders?.joined(separator: "\n")
+            )
+        }
+    }
+
     func lastStopReason(reply: @escaping (Int, String?, String?, Double, Int, Int) -> Void) {
         DispatchQueue.main.async {
             let record = session.lastStopReason()
