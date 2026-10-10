@@ -12,10 +12,13 @@ public final class SafetyPreferences: ObservableObject {
         public static let thermalProtectionEnabled = "thermalProtectionEnabled"
         public static let chargingOnlyEnabled = "chargingOnlyEnabled"
         public static let lockOnLidCloseEnabled = "lockOnLidCloseEnabled"
+        public static let idleSleepEnabled = "idleSleepEnabled"
+        public static let idleSleepMinutes = "idleSleepMinutes"
     }
 
     public static let timerChoices = [1800, 3600, 7200, 14_400, 28_800]
     public static let batteryLimitChoices = [10, 20, 30, 40, 50]
+    public static let idleSleepChoices = [10, 20, 30, 60]
 
     @Published public var timerEnabled: Bool {
         didSet { save(timerEnabled, Key.timerEnabled) }
@@ -34,6 +37,12 @@ public final class SafetyPreferences: ObservableObject {
     }
     @Published public var chargingOnlyEnabled: Bool {
         didSet { save(chargingOnlyEnabled, Key.chargingOnlyEnabled) }
+    }
+    @Published public var idleSleepEnabled: Bool {
+        didSet { save(idleSleepEnabled, Key.idleSleepEnabled) }
+    }
+    @Published public var idleSleepMinutes: Int {
+        didSet { save(idleSleepMinutes, Key.idleSleepMinutes) }
     }
     /// Not sent to the helper, so changing it does not fire `changes`.
     @Published public var lockOnLidCloseEnabled: Bool {
@@ -55,6 +64,8 @@ public final class SafetyPreferences: ObservableObject {
             Key.thermalProtectionEnabled: true,
             Key.chargingOnlyEnabled: false,
             Key.lockOnLidCloseEnabled: true,
+            Key.idleSleepEnabled: false,
+            Key.idleSleepMinutes: 20,
         ])
         timerEnabled = defaults.bool(forKey: Key.timerEnabled)
         timerSeconds = Self.clamp(defaults.integer(forKey: Key.timerSeconds), to: SafetySettings.timerRange)
@@ -66,6 +77,8 @@ public final class SafetyPreferences: ObservableObject {
         thermalProtectionEnabled = defaults.bool(forKey: Key.thermalProtectionEnabled)
         chargingOnlyEnabled = defaults.bool(forKey: Key.chargingOnlyEnabled)
         lockOnLidCloseEnabled = defaults.bool(forKey: Key.lockOnLidCloseEnabled)
+        idleSleepEnabled = defaults.bool(forKey: Key.idleSleepEnabled)
+        idleSleepMinutes = Self.clamp(defaults.integer(forKey: Key.idleSleepMinutes), to: SafetySettings.idleSleepRange)
     }
 
     /// The timer applies in both modes; the other protections only in Run with Lid Closed.
@@ -83,7 +96,8 @@ public final class SafetyPreferences: ObservableObject {
             timerSeconds: timerEnabled ? timerSeconds : 0,
             batteryLimitPercent: batteryLimitApplies && batteryLimitEnabled ? batteryLimitPercent : 0,
             thermalProtection: thermalProtectionEnabled,
-            chargingOnly: chargingOnlyEnabled
+            chargingOnly: chargingOnlyEnabled,
+            idleSleepMinutes: idleSleepEnabled ? idleSleepMinutes : 0
         )
     }
 

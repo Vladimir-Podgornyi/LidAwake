@@ -21,25 +21,31 @@ final class SafetyPreferencesTests: XCTestCase {
     func testValuesBelowRangeReadAsLowest() {
         defaults.set(0, forKey: SafetyPreferences.Key.timerSeconds)
         defaults.set(-5, forKey: SafetyPreferences.Key.batteryLimitPercent)
+        defaults.set(0, forKey: SafetyPreferences.Key.idleSleepMinutes)
         let preferences = SafetyPreferences(defaults: defaults)
         XCTAssertEqual(preferences.timerSeconds, 60)
         XCTAssertEqual(preferences.batteryLimitPercent, 1)
+        XCTAssertEqual(preferences.idleSleepMinutes, 1)
     }
 
     func testValuesAboveRangeReadAsHighest() {
         defaults.set(100_000, forKey: SafetyPreferences.Key.timerSeconds)
         defaults.set(150, forKey: SafetyPreferences.Key.batteryLimitPercent)
+        defaults.set(1000, forKey: SafetyPreferences.Key.idleSleepMinutes)
         let preferences = SafetyPreferences(defaults: defaults)
         XCTAssertEqual(preferences.timerSeconds, 86_400)
         XCTAssertEqual(preferences.batteryLimitPercent, 100)
+        XCTAssertEqual(preferences.idleSleepMinutes, 240)
     }
 
     func testValuesInRangeAreKept() {
         defaults.set(5400, forKey: SafetyPreferences.Key.timerSeconds)
         defaults.set(35, forKey: SafetyPreferences.Key.batteryLimitPercent)
+        defaults.set(45, forKey: SafetyPreferences.Key.idleSleepMinutes)
         let preferences = SafetyPreferences(defaults: defaults)
         XCTAssertEqual(preferences.timerSeconds, 5400)
         XCTAssertEqual(preferences.batteryLimitPercent, 35)
+        XCTAssertEqual(preferences.idleSleepMinutes, 45)
     }
 
     func testClampedValuesAreAcceptedByTheHelper() {
@@ -47,7 +53,32 @@ final class SafetyPreferencesTests: XCTestCase {
         defaults.set(true, forKey: SafetyPreferences.Key.timerEnabled)
         defaults.set(0, forKey: SafetyPreferences.Key.batteryLimitPercent)
         defaults.set(true, forKey: SafetyPreferences.Key.batteryLimitEnabled)
+        defaults.set(0, forKey: SafetyPreferences.Key.idleSleepMinutes)
+        defaults.set(true, forKey: SafetyPreferences.Key.idleSleepEnabled)
         XCTAssertTrue(SafetyPreferences(defaults: defaults).helperSettings.isValid)
+    }
+
+    func testIdleSleepIsSentOnlyWhenOn() {
+        let preferences = SafetyPreferences(defaults: defaults)
+        XCTAssertFalse(preferences.idleSleepEnabled)
+        XCTAssertEqual(preferences.helperSettings.idleSleepMinutes, 0)
+
+        preferences.idleSleepEnabled = true
+        preferences.idleSleepMinutes = 30
+        XCTAssertEqual(preferences.helperSettings.idleSleepMinutes, 30)
+
+        preferences.idleSleepEnabled = false
+        XCTAssertEqual(preferences.helperSettings.idleSleepMinutes, 0)
+        XCTAssertEqual(preferences.idleSleepMinutes, 30)
+    }
+
+    func testIdleSleepChoicesAreAcceptedByTheHelper() {
+        let preferences = SafetyPreferences(defaults: defaults)
+        preferences.idleSleepEnabled = true
+        for minutes in SafetyPreferences.idleSleepChoices {
+            preferences.idleSleepMinutes = minutes
+            XCTAssertTrue(preferences.helperSettings.isValid, "\(minutes)")
+        }
     }
 
     func testOnlyWhileChargingSendsNoBatteryLimit() {
@@ -97,5 +128,7 @@ final class SafetyPreferencesTests: XCTestCase {
         let preferences = SafetyPreferences(defaults: defaults)
         XCTAssertEqual(preferences.timerSeconds, 7200)
         XCTAssertEqual(preferences.batteryLimitPercent, 20)
+        XCTAssertFalse(preferences.idleSleepEnabled)
+        XCTAssertEqual(preferences.idleSleepMinutes, 20)
     }
 }

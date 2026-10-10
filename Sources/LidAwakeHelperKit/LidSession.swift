@@ -301,7 +301,7 @@ public final class LidSession {
 
     private static let invalidSafety = SessionResult(
         code: .invalidArgument,
-        message: "Timer must be 0 or \(SafetySettings.timerRange.lowerBound) to \(SafetySettings.timerRange.upperBound) seconds; battery limit must be 0 to 100 percent."
+        message: "Timer must be 0 or \(SafetySettings.timerRange.lowerBound) to \(SafetySettings.timerRange.upperBound) seconds; battery limit must be 0 to 100 percent; idle sleep must be 0 or \(SafetySettings.idleSleepRange.lowerBound) to \(SafetySettings.idleSleepRange.upperBound) minutes."
     )
 
     // Counted from the start of the session, even after the timer setting changes, and through sleep.

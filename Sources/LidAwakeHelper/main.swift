@@ -28,13 +28,15 @@ final class Helper: NSObject, HelperProtocol {
         batteryLimitPercent: Int,
         thermalProtection: Bool,
         chargingOnly: Bool,
+        idleSleepMinutes: Int,
         reply: @escaping (Int, String?) -> Void
     ) {
         let safety = SafetySettings(
             timerSeconds: timerSeconds,
             batteryLimitPercent: batteryLimitPercent,
             thermalProtection: thermalProtection,
-            chargingOnly: chargingOnly
+            chargingOnly: chargingOnly,
+            idleSleepMinutes: idleSleepMinutes
         )
         withLease(leaseSeconds, reply: reply) { session.start(lease: $0, safety: safety) }
     }
@@ -45,13 +47,15 @@ final class Helper: NSObject, HelperProtocol {
         batteryLimitPercent: Int,
         thermalProtection: Bool,
         chargingOnly: Bool,
+        idleSleepMinutes: Int,
         reply: @escaping (Int, String?) -> Void
     ) {
         let safety = SafetySettings(
             timerSeconds: timerSeconds,
             batteryLimitPercent: batteryLimitPercent,
             thermalProtection: thermalProtection,
-            chargingOnly: chargingOnly
+            chargingOnly: chargingOnly,
+            idleSleepMinutes: idleSleepMinutes
         )
         withLease(leaseSeconds, reply: reply) { session.renew(lease: $0, safety: safety) }
     }

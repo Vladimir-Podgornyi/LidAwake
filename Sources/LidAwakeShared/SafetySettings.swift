@@ -3,6 +3,7 @@ import Foundation
 public struct SafetySettings: Equatable {
     public static let timerRange = 60...86_400
     public static let batteryLimitRange = 1...100
+    public static let idleSleepRange = 1...240
     public static let off = SafetySettings(timerSeconds: 0, batteryLimitPercent: 0, thermalProtection: false)
 
     /// 0 turns the timer off.
@@ -13,17 +14,27 @@ public struct SafetySettings: Equatable {
     public let thermalProtection: Bool
     /// Pauses the session while the Mac runs on battery.
     public let chargingOnly: Bool
+    /// Minutes of an idle Mac that end the session; 0 turns it off.
+    public let idleSleepMinutes: Int
 
-    public init(timerSeconds: Int, batteryLimitPercent: Int, thermalProtection: Bool, chargingOnly: Bool = false) {
+    public init(
+        timerSeconds: Int,
+        batteryLimitPercent: Int,
+        thermalProtection: Bool,
+        chargingOnly: Bool = false,
+        idleSleepMinutes: Int = 0
+    ) {
         self.timerSeconds = timerSeconds
         self.batteryLimitPercent = batteryLimitPercent
         self.thermalProtection = thermalProtection
         self.chargingOnly = chargingOnly
+        self.idleSleepMinutes = idleSleepMinutes
     }
 
     public var isValid: Bool {
         (timerSeconds == 0 || Self.timerRange.contains(timerSeconds))
             && (batteryLimitPercent == 0 || Self.batteryLimitRange.contains(batteryLimitPercent))
+            && (idleSleepMinutes == 0 || Self.idleSleepRange.contains(idleSleepMinutes))
     }
 }
 

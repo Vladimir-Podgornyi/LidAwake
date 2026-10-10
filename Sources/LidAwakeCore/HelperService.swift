@@ -105,7 +105,8 @@ public struct XPCHelperConnection: HelperConnecting, LidSessionService {
                 timerSeconds: safety.timerSeconds,
                 batteryLimitPercent: safety.batteryLimitPercent,
                 thermalProtection: safety.thermalProtection,
-                chargingOnly: safety.chargingOnly
+                chargingOnly: safety.chargingOnly,
+                idleSleepMinutes: safety.idleSleepMinutes
             ) { done(Self.result($0, $1)) }
         }
     }
@@ -117,7 +118,8 @@ public struct XPCHelperConnection: HelperConnecting, LidSessionService {
                 timerSeconds: safety.timerSeconds,
                 batteryLimitPercent: safety.batteryLimitPercent,
                 thermalProtection: safety.thermalProtection,
-                chargingOnly: safety.chargingOnly
+                chargingOnly: safety.chargingOnly,
+                idleSleepMinutes: safety.idleSleepMinutes
             ) { done(Self.result($0, $1)) }
         }
     }

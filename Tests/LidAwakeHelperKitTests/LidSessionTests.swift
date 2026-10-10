@@ -441,8 +441,18 @@ final class LidSessionTests: XCTestCase {
 
     // MARK: Safety limits
 
-    private func limits(timer: Int = 0, battery: Int = 0, thermal: Bool = false) -> SafetySettings {
-        SafetySettings(timerSeconds: timer, batteryLimitPercent: battery, thermalProtection: thermal)
+    private func limits(
+        timer: Int = 0,
+        battery: Int = 0,
+        thermal: Bool = false,
+        idleMinutes: Int = 0
+    ) -> SafetySettings {
+        SafetySettings(
+            timerSeconds: timer,
+            batteryLimitPercent: battery,
+            thermalProtection: thermal,
+            idleSleepMinutes: idleMinutes
+        )
     }
 
     func testTimerEndsSession() {
@@ -675,6 +685,8 @@ final class LidSessionTests: XCTestCase {
             limits(timer: 86_401),
             limits(battery: -1),
             limits(battery: 101),
+            limits(idleMinutes: -1),
+            limits(idleMinutes: 241),
         ]
         let session = makeSession()
         for settings in invalid {
@@ -684,12 +696,15 @@ final class LidSessionTests: XCTestCase {
         XCTAssertEqual(flag.writes, [])
         XCTAssertFalse(marker.isSet)
 
-        XCTAssertEqual(session.start(lease: 120, safety: limits(timer: 60, battery: 1)), .ok)
-        XCTAssertEqual(session.renew(lease: 120, safety: limits(timer: 86_400, battery: 100)), .ok)
+        XCTAssertEqual(session.start(lease: 120, safety: limits(timer: 60, battery: 1, idleMinutes: 1)), .ok)
+        XCTAssertEqual(
+            session.renew(lease: 120, safety: limits(timer: 86_400, battery: 100, idleMinutes: 240)),
+            .ok
+        )
         for settings in invalid {
             XCTAssertEqual(session.renew(lease: 120, safety: settings).code, .invalidArgument, "\(settings)")
         }
-        XCTAssertEqual(session.safety, limits(timer: 86_400, battery: 100))
+        XCTAssertEqual(session.safety, limits(timer: 86_400, battery: 100, idleMinutes: 240))
     }
 
     func testStatusReportsTimerAndPower() {

@@ -8,6 +8,7 @@ import Foundation
         batteryLimitPercent: Int,
         thermalProtection: Bool,
         chargingOnly: Bool,
+        idleSleepMinutes: Int,
         reply: @escaping (Int, String?) -> Void
     )
     func renewSession(
@@ -16,6 +17,7 @@ import Foundation
         batteryLimitPercent: Int,
         thermalProtection: Bool,
         chargingOnly: Bool,
+        idleSleepMinutes: Int,
         reply: @escaping (Int, String?) -> Void
     )
     func endSession(reply: @escaping (Int, String?) -> Void)
