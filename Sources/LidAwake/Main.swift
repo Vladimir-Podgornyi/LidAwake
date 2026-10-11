@@ -12,6 +12,9 @@ enum Main {
         case nil:
             break
         }
+        if CommandLine.arguments.contains(LogCommand.flag) {
+            exit(LogCommand.run())
+        }
         if CommandLine.arguments.contains(AutoLogoutCommand.flag) {
             exit(AutoLogoutCommand.run())
         }
