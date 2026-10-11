@@ -22,6 +22,7 @@ public final class ModeController: ObservableObject {
     private let notifier: StopNotifying
     private let lidMonitor: LidMonitoring
     private let screenLocker: ScreenLocking
+    private let activityLog: ActivityLogging
     private let leaseSeconds: Int
     private let renewalSleep: () async throws -> Void
     private let timerCheckSleep: () async throws -> Void
@@ -41,6 +42,7 @@ public final class ModeController: ObservableObject {
         powerSourceMonitor: PowerSourceMonitoring = IOKitPowerSourceMonitor(),
         lidMonitor: LidMonitoring = IOKitLidMonitor(),
         screenLocker: ScreenLocking = LoginScreenLocker(),
+        activityLog: ActivityLogging = NoActivityLog(),
         leaseSeconds: Int = 120,
         renewalSleep: @escaping () async throws -> Void = { try await Task.sleep(nanoseconds: 30_000_000_000) },
         timerCheckSleep: @escaping () async throws -> Void = { try await Task.sleep(nanoseconds: 5_000_000_000) },
@@ -55,6 +57,7 @@ public final class ModeController: ObservableObject {
         self.powerSourceMonitor = powerSourceMonitor
         self.lidMonitor = lidMonitor
         self.screenLocker = screenLocker
+        self.activityLog = activityLog
         self.leaseSeconds = leaseSeconds
         self.renewalSleep = renewalSleep
         self.timerCheckSleep = timerCheckSleep
@@ -93,20 +96,27 @@ public final class ModeController: ObservableObject {
         do {
             switch newMode {
             case .off:
+                let previous = mode
                 await leaveCurrentMode()
                 mode = .off
+                recordTurnedOffByUser(previous)
             case .keepScreenOn:
+                let previous = mode
                 await leaveCurrentMode()
                 mode = .off
+                recordTurnedOffByUser(previous)
                 try displayAssertion.acquire()
                 mode = .keepScreenOn
+                activityLog.record(.modeOn(.keepScreenOn))
                 startTimer()
             case .lidClosed:
                 try await helper.prepareForSession()
                 try await sessions.startSession(leaseSeconds: leaseSeconds, safety: preferences.helperSettings)
                 displayAssertion.release()
                 activity.begin()
+                recordTurnedOffByUser(mode)
                 mode = .lidClosed
+                activityLog.record(.modeOn(.lidClosed))
                 startRenewals()
                 startTimer()
                 await updatePauseState()
@@ -141,11 +151,12 @@ public final class ModeController: ObservableObject {
         } catch {
             message = .failed(error.localizedDescription)
         }
-        if await reportStopReason() {
+        if await reportStopReason(mode: .lidClosed) {
             return
         }
         if endedSession {
             message = .restarted
+            activityLog.record(.modeOff(.lidClosed, .previousSession))
         }
     }
 
@@ -161,10 +172,11 @@ public final class ModeController: ObservableObject {
             defer { isBusy = false }
             await leaveCurrentMode()
             mode = .off
-            if case HelperError.helper(.noSession, _) = error, await reportStopReason() {
+            if case HelperError.helper(.noSession, _) = error, await reportStopReason(mode: .lidClosed) {
                 return
             }
             message = .turnedOffWithError(error.localizedDescription)
+            activityLog.record(.modeOff(.lidClosed, .error(error.localizedDescription)))
         }
     }
 
@@ -178,7 +190,7 @@ public final class ModeController: ObservableObject {
             defer { isBusy = false }
             await leaveCurrentMode()
             mode = .off
-            report(StopRecord(reason: .timer, time: Date()))
+            report(StopRecord(reason: .timer, time: Date()), mode: .keepScreenOn)
         case .lidClosed:
             // The helper ends the session on its own; renewing finds out sooner.
             await renew()
@@ -214,6 +226,9 @@ public final class ModeController: ObservableObject {
         isPaused = status.paused
         if isPaused && !wasPaused {
             notifier.post(title: PauseNotice.title, body: PauseNotice.body)
+            activityLog.record(.paused)
+        } else if !isPaused && wasPaused {
+            activityLog.record(.resumed)
         }
     }
 
@@ -225,7 +240,7 @@ public final class ModeController: ObservableObject {
 
     /// Shows and clears the reason the helper last ended a session; false when there is none.
     @discardableResult
-    private func reportStopReason() async -> Bool {
+    private func reportStopReason(mode: Mode) async -> Bool {
         let record: StopRecord?
         do {
             record = try await sessions.lastStopReason()
@@ -233,7 +248,7 @@ public final class ModeController: ObservableObject {
             return false
         }
         guard let record else { return false }
-        report(record)
+        report(record, mode: mode)
         do {
             try await sessions.clearStopReason()
         } catch {
@@ -243,10 +258,23 @@ public final class ModeController: ObservableObject {
     }
 
     // The window shows the text too, so it is seen even without notification permission.
-    private func report(_ record: StopRecord) {
+    private func report(_ record: StopRecord, mode: Mode) {
         let body = StopNotice.body(for: record)
         notifier.post(title: StopNotice.title, body: body)
         message = .turnedOff(body)
+        let reason = ModeOffReason.stopped(
+            record.reason,
+            batteryPercent: record.batteryPercent,
+            idleMinutes: record.idleMinutes,
+            timerSeconds: record.reason == .timer ? preferences.timerLimit : nil
+        )
+        // The helper's time, since a stop found after the Mac woke happened before it slept.
+        activityLog.record(.modeOff(mode, reason), at: record.time)
+    }
+
+    private func recordTurnedOffByUser(_ previous: Mode) {
+        guard previous != .off else { return }
+        activityLog.record(.modeOff(previous, .user))
     }
 
     private func leaveCurrentMode() async {

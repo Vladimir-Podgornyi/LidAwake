@@ -13,6 +13,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let settingsDisclosure = SettingsDisclosurePreference()
     let updates = UpdateChecker(source: UpdateBuild.source())
     let autoLogout = AutoLogoutMonitor()
+    let activityLog = ActivityLog()
+    let sleepRecorder: SystemSleepRecorder
 
     override init() {
         helperClient = HelperClient()
@@ -20,8 +22,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             helper: helperClient,
             sessions: XPCHelperConnection(),
             preferences: SafetyPreferences(),
-            notifier: UserNotificationNotifier()
+            notifier: UserNotificationNotifier(),
+            activityLog: activityLog
         )
+        sleepRecorder = SystemSleepRecorder(log: activityLog)
         modeController = controller
         helperSetup = HelperSetup(
             helper: helperClient,
@@ -33,6 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         launchAtLogin.enableOnFirstLaunch()
+        sleepRecorder.start()
         updates.start()
         Task {
             await helperClient.updateIfOutdated()

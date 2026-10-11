@@ -140,6 +140,19 @@ private final class FakeScreenLocker: ScreenLocking {
     }
 }
 
+@MainActor
+private final class FakeActivityLog: ActivityLogging {
+    private(set) var records: [(event: ActivityEvent, time: Date?)] = []
+
+    var events: [ActivityEvent] {
+        records.map(\.event)
+    }
+
+    func record(_ event: ActivityEvent, at time: Date?) {
+        records.append((event, time))
+    }
+}
+
 private final class FakeTime {
     var now: TimeInterval = 1000
 }
@@ -162,6 +175,7 @@ final class ModeControllerTests: XCTestCase {
     private let lidMonitor = FakeLidMonitor()
     private let locker = FakeScreenLocker()
     private let time = FakeTime()
+    private let log = FakeActivityLog()
     private let suiteName = "ModeControllerTests-\(UUID().uuidString)"
     private lazy var preferences = SafetyPreferences(defaults: UserDefaults(suiteName: suiteName)!)
 
@@ -182,6 +196,7 @@ final class ModeControllerTests: XCTestCase {
             powerSourceMonitor: powerMonitor,
             lidMonitor: lidMonitor,
             screenLocker: locker,
+            activityLog: log,
             leaseSeconds: 120,
             renewalSleep: renewalSleep ?? { try await Task.sleep(nanoseconds: 3_600_000_000_000) },
             timerCheckSleep: { try await Task.sleep(nanoseconds: 3_600_000_000_000) },
@@ -973,5 +988,193 @@ final class ModeControllerTests: XCTestCase {
     func testAvailableLockShowsNoNotice() {
         let controller = makeController()
         XCTAssertNil(controller.screenLockNotice)
+    }
+
+    // MARK: Activity log
+
+    func testLogKeepScreenOnTurnedOnAndOff() async throws {
+        let controller = makeController()
+
+        try await controller.select(.keepScreenOn)
+        try await controller.select(.off)
+        XCTAssertEqual(log.events, [.modeOn(.keepScreenOn), .modeOff(.keepScreenOn, .user)])
+        XCTAssertTrue(log.records.allSatisfy { $0.time == nil })
+    }
+
+    func testLogLidClosedTurnedOnAndOff() async throws {
+        let controller = makeController()
+
+        try await controller.select(.lidClosed)
+        try await controller.select(.off)
+        XCTAssertEqual(log.events, [.modeOn(.lidClosed), .modeOff(.lidClosed, .user)])
+    }
+
+    func testLogOffWhileOffWritesNothing() async throws {
+        let controller = makeController()
+
+        try await controller.select(.off)
+        await controller.checkTimer()
+        XCTAssertEqual(log.events, [])
+    }
+
+    func testLogSwitchingModesWritesOffThenOn() async throws {
+        let controller = makeController()
+        try await controller.select(.keepScreenOn)
+
+        try await controller.select(.lidClosed)
+        XCTAssertEqual(log.events, [.modeOn(.keepScreenOn), .modeOff(.keepScreenOn, .user), .modeOn(.lidClosed)])
+
+        try await controller.select(.keepScreenOn)
+        XCTAssertEqual(Array(log.events.dropFirst(3)), [.modeOff(.lidClosed, .user), .modeOn(.keepScreenOn)])
+    }
+
+    func testLogFailedTurnOnWritesNothing() async throws {
+        assertion.shouldFail = true
+        helper.notReady = .notReady("Install the helper to run with the lid closed.")
+        let controller = makeController()
+
+        try? await controller.select(.keepScreenOn)
+        try? await controller.select(.lidClosed)
+        XCTAssertEqual(log.events, [])
+
+        assertion.shouldFail = false
+        helper.notReady = nil
+        sessions.startError = HelperError.timeout
+        try await controller.select(.keepScreenOn)
+        try? await controller.select(.lidClosed)
+        XCTAssertEqual(controller.mode, .keepScreenOn)
+        XCTAssertEqual(log.events, [.modeOn(.keepScreenOn)])
+    }
+
+    func testLogEveryHelperStopWithItsTimeAndNumbers() async throws {
+        preferences.timerEnabled = true
+        preferences.timerSeconds = 14400
+        let stops: [StopRecord] = [
+            StopRecord(reason: .timer, time: Date(timeIntervalSince1970: 1_800_000_001)),
+            StopRecord(reason: .battery, time: Date(timeIntervalSince1970: 1_800_000_002), batteryPercent: 15),
+            StopRecord(reason: .batteryUnreadable, time: Date(timeIntervalSince1970: 1_800_000_003)),
+            StopRecord(reason: .thermal, time: Date(timeIntervalSince1970: 1_800_000_004)),
+            StopRecord(reason: .thermalUnreadable, time: Date(timeIntervalSince1970: 1_800_000_005)),
+            StopRecord(reason: .powerUnreadable, time: Date(timeIntervalSince1970: 1_800_000_006)),
+            StopRecord(reason: .leaseExpired, time: Date(timeIntervalSince1970: 1_800_000_007)),
+            StopRecord(reason: .idle, time: Date(timeIntervalSince1970: 1_800_000_008), idleMinutes: 20),
+        ]
+        let controller = makeController()
+
+        for stop in stops {
+            sessions.renewError = nil
+            try await controller.select(.lidClosed)
+            sessions.stopRecord = stop
+            sessions.renewError = HelperError.helper(.noSession, "No active session.")
+            await controller.renew()
+
+            XCTAssertEqual(controller.mode, .off)
+            let last = log.records.last
+            XCTAssertEqual(last?.event, .modeOff(.lidClosed, .stopped(
+                stop.reason,
+                batteryPercent: stop.batteryPercent,
+                idleMinutes: stop.idleMinutes,
+                timerSeconds: stop.reason == .timer ? 14400 : nil
+            )))
+            XCTAssertEqual(last?.time, stop.time)
+        }
+        XCTAssertEqual(log.records.count, stops.count * 2)
+    }
+
+    func testLogKeepScreenOnTimerWithItsLength() async throws {
+        preferences.timerEnabled = true
+        preferences.timerSeconds = 3600
+        let controller = makeController()
+        try await controller.select(.keepScreenOn)
+
+        time.now += 3600
+        await controller.checkTimer()
+        XCTAssertEqual(log.events, [
+            .modeOn(.keepScreenOn),
+            .modeOff(.keepScreenOn, .stopped(.timer, timerSeconds: 3600)),
+        ])
+        XCTAssertNotNil(log.records.last?.time)
+    }
+
+    func testLogRenewalErrorWithoutReason() async throws {
+        let controller = makeController()
+        try await controller.select(.lidClosed)
+
+        sessions.renewError = HelperError.timeout
+        await controller.renew()
+        XCTAssertEqual(log.events, [.modeOn(.lidClosed), .modeOff(.lidClosed, .error(HelperError.timeout.localizedDescription))])
+
+        sessions.renewError = nil
+        try await controller.select(.lidClosed)
+        sessions.renewError = HelperError.helper(.noSession, "No active session.")
+        await controller.renew()
+        XCTAssertEqual(log.events.last, .modeOff(.lidClosed, .error("No active session.")))
+        XCTAssertEqual(log.events.count, 4)
+    }
+
+    func testLogSessionOfEarlierRunAtLaunch() async {
+        sessions.session = .ours
+        let controller = makeController()
+
+        await controller.clearLeftover()
+        XCTAssertEqual(log.events, [.modeOff(.lidClosed, .previousSession)])
+    }
+
+    func testLogReasonFoundAtLaunchWithItsTime() async {
+        let stopped = Date(timeIntervalSince1970: 1_800_000_000)
+        sessions.session = .ours
+        sessions.stopRecord = StopRecord(reason: .idle, time: stopped, idleMinutes: 20)
+        let controller = makeController()
+
+        await controller.clearLeftover()
+        XCTAssertEqual(log.events, [.modeOff(.lidClosed, .stopped(.idle, idleMinutes: 20))])
+        XCTAssertEqual(log.records.first?.time, stopped)
+    }
+
+    func testLogQuietLaunchWritesNothing() async {
+        let controller = makeController()
+
+        await controller.clearLeftover()
+        XCTAssertEqual(log.events, [])
+    }
+
+    func testLogOneStopIsOneEntry() async throws {
+        let controller = makeController()
+        try await controller.select(.lidClosed)
+
+        sessions.stopRecord = StopRecord(reason: .thermal, time: Date())
+        sessions.renewError = HelperError.helper(.noSession, "No active session.")
+        await controller.renew()
+        await controller.renew()
+        await controller.clearLeftover()
+        XCTAssertEqual(log.events, [.modeOn(.lidClosed), .modeOff(.lidClosed, .stopped(.thermal))])
+    }
+
+    func testLogPauseAndResume() async throws {
+        let controller = makeController()
+        try await controller.select(.lidClosed)
+
+        sessions.paused = true
+        powerMonitor.change()
+        await settle { controller.isPaused }
+        await controller.renew()
+        sessions.paused = false
+        powerMonitor.change()
+        await settle { !controller.isPaused }
+        XCTAssertEqual(log.events, [.modeOn(.lidClosed), .paused, .resumed])
+    }
+
+    func testLogLeavingModeWhilePausedIsNoResume() async throws {
+        sessions.paused = true
+        let controller = makeController()
+        try await controller.select(.lidClosed)
+
+        try await controller.select(.off)
+        XCTAssertEqual(log.events, [.modeOn(.lidClosed), .paused, .modeOff(.lidClosed, .user)])
+
+        try await controller.select(.lidClosed)
+        sessions.renewError = HelperError.timeout
+        await controller.renew()
+        XCTAssertFalse(log.events.dropFirst(3).contains(.resumed))
     }
 }
