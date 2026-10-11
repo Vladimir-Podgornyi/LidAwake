@@ -52,7 +52,7 @@ Each protection is turned on separately in Settings.
 | Stop on low battery | Ends the mode when the Mac runs on battery and the charge is at or below the limit (10 to 50 %). Not used while Only while charging is on, because the mode is already paused on battery | on, 20 % |
 | Only while charging | Pauses the mode on battery power and resumes it when power is connected | off |
 | Turn off after | Ends the mode after the chosen time (30 min to 8 hours), counted from the moment it was switched on | off, 2 hours |
-| Sleep when idle | Ends the mode when nothing has been working on the Mac for the chosen time (10 to 60 min) | off, 20 min |
+| Sleep when idle | Ends the mode when nothing has been working on the Mac for the chosen time (10 to 60 min) | off, 20 min; turns itself off when the mode ends |
 
 The timer applies to both modes; the other four protections apply only to Run with Lid Closed.
 
@@ -77,6 +77,8 @@ A minute with none of them is a quiet minute. When the chosen number of quiet mi
 Not counted: network and disk activity, so a long download does not keep the Mac awake; sleep requests from the services of macOS itself; a program that has stopped and is waiting for your answer.
 
 While the mode is on, the row in Settings shows what is keeping the Mac awake or how many quiet minutes have been counted.
+
+Sleep when idle applies to one session. When Run with Lid Closed turns off, for any reason, the setting turns itself off too, so the next session keeps the Mac awake until you turn it on again.
 
 If a tool does not ask macOS to stay awake and uses little processor time, LidAwake cannot tell that it is working. Start it through `caffeinate`, which holds a sleep request until the command exits:
 
