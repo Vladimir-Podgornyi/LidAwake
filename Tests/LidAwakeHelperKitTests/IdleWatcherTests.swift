@@ -280,6 +280,39 @@ final class IdleWatcherTests: XCTestCase {
         XCTAssertEqual(status.token, "busy-cpu")
     }
 
+    func testARequestIsNamedBeforeTheLoad() {
+        let watcher = makeWatcher(minutes: 5)
+        source.sleepRequests = [request()]
+        source.cpuBusySeconds = 100
+        clock.now += 10
+        XCTAssertEqual(watcher.status().state, .busyApp)
+    }
+
+    func testTheLoadIsNamedBeforeInput() {
+        let watcher = makeWatcher(minutes: 5)
+        source.inputIdleSeconds = 5
+        source.cpuBusySeconds = 100
+        clock.now += 10
+        XCTAssertEqual(watcher.status().state, .busyCPU)
+    }
+
+    func testAskingForTheStatusOftenLeavesTheCountAlone() {
+        let asked = makeWatcher(minutes: 30)
+        let left = IdleWatcher(source: source, clock: clock)
+        left.sample()
+        left.require(minutes: 30)
+        for _ in 1...10 {
+            for _ in 1...12 {
+                clock.now += 5
+                _ = asked.status()
+            }
+            left.sample()
+        }
+        XCTAssertEqual(asked.countedMinutes, 10)
+        XCTAssertEqual(left.countedMinutes, 10)
+        XCTAssertEqual(asked.status().token, "counting:10/30")
+    }
+
     // MARK: Which requests count
 
     func testOnlyRequestsThatMeanWorkCount() {

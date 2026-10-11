@@ -109,8 +109,8 @@ public final class IdleWatcher: IdleWatching {
 
     private func state() -> IdleState {
         guard requiredMinutes > 0 else { return .off }
-        if let lastCores, lastCores > Self.busyCores { return .busyCPU }
         if let lastHolders, !lastHolders.isEmpty { return .busyApp }
+        if let lastCores, lastCores > Self.busyCores { return .busyCPU }
         if let lastInputIdleSeconds, lastInputIdleSeconds < Self.recentInputSeconds { return .busyInput }
         return .counting
     }
