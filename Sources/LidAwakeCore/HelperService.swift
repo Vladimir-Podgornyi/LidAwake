@@ -20,6 +20,10 @@ public protocol HelperConnecting {
     func protocolVersion() async throws -> Int
 }
 
+public protocol IdleStatusReading {
+    func idleStatus() async throws -> IdleStatus
+}
+
 public protocol LidSessionService {
     func startSession(leaseSeconds: Int, safety: SafetySettings) async throws
     func renewSession(leaseSeconds: Int, safety: SafetySettings) async throws
@@ -82,7 +86,7 @@ public struct DaemonHelperService: HelperService {
     }
 }
 
-public struct XPCHelperConnection: HelperConnecting, LidSessionService {
+public struct XPCHelperConnection: HelperConnecting, LidSessionService, IdleStatusReading {
     private let timeout: TimeInterval
     private let sessionTimeout: TimeInterval
 

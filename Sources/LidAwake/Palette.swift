@@ -24,6 +24,8 @@ enum Palette {
 
     static let solidWindowBackground = Color(nsColor: .windowBackgroundColor)
     static let valueBackground = Color(nsColor: .quaternaryLabelColor)
+    /// The track of a switch that is off, as in the mockup.
+    static let switchOff = dynamic { color($0 ? 0x6E717A : 0x8E9197) }
 
     private static let blueAccent = dynamic(AccentTheme.blue.color)
     private static let amberAccent = dynamic(AccentTheme.amber.color)

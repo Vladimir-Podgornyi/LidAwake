@@ -64,7 +64,8 @@ struct LidAwakeApp: App {
                 windowStyle: appDelegate.windowStyle,
                 disclosure: appDelegate.settingsDisclosure,
                 updates: appDelegate.updates,
-                autoLogout: appDelegate.autoLogout
+                autoLogout: appDelegate.autoLogout,
+                idleSource: XPCHelperConnection()
             )
         } label: {
             MenuBarIcon(controller: appDelegate.modeController)

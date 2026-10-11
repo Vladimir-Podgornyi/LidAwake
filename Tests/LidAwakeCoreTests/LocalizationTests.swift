@@ -135,6 +135,48 @@ final class LocalizationTests: XCTestCase {
         }
     }
 
+    func testSleepWhenIdleStrings() throws {
+        let expected: [String: [String: String]] = [
+            "Sleep when idle": [
+                "de": "Ruhezustand bei Leerlauf",
+                "ru": "Сон после простоя",
+                "zh-Hans": "空闲时睡眠",
+            ],
+            "After the work is done": [
+                "de": "Wenn die Arbeit erledigt ist",
+                "ru": "Когда работа закончена",
+                "zh-Hans": "任务完成后",
+            ],
+            "Kept awake by %@": [
+                "de": "Wach gehalten von %@",
+                "ru": "Не даёт уснуть: %@",
+                "zh-Hans": "%@ 正在阻止睡眠",
+            ],
+            "Kept awake by CPU load": [
+                "de": "Wach gehalten durch CPU-Last",
+                "ru": "Не даёт уснуть: нагрузка процессора",
+                "zh-Hans": "CPU 负载正在阻止睡眠",
+            ],
+            "Kept awake by keyboard or mouse": [
+                "de": "Wach gehalten durch Tastatur oder Maus",
+                "ru": "Не даёт уснуть: клавиатура или мышь",
+                "zh-Hans": "键盘或鼠标操作正在阻止睡眠",
+            ],
+            "Idle for %lld of %lld min": [
+                "de": "Leerlauf: %lld von %lld\u{00A0}Min.",
+                "ru": "Простой: %lld из %lld\u{00A0}мин",
+                "zh-Hans": "已空闲 %lld / %lld 分钟",
+            ],
+        ]
+        let english = try table("en")
+        for (key, translations) in expected {
+            XCTAssertEqual(english[key], key)
+            for (language, value) in translations {
+                XCTAssertEqual(try table(language)[key], value, "\(language): \(key)")
+            }
+        }
+    }
+
     func testBatteryLimitNoticeWithOnlyWhileCharging() throws {
         let key = "Not used with Only while charging"
         let expected = [

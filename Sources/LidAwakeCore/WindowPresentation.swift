@@ -269,4 +269,68 @@ public enum DurationFormat {
     public static func percent(_ value: Int) -> String {
         String(localized: "\(value)%")
     }
+
+    /// Always in minutes, so 60 stays "60 min".
+    public static func minutes(_ value: Int) -> String {
+        String(localized: "\(value) min")
+    }
+}
+
+public enum MenuChoices {
+    /// Keeps a stored value that is not one of the choices visible and selectable.
+    public static func list(_ choices: [Int], current: Int) -> [Int] {
+        choices.contains(current) ? choices : (choices + [current]).sorted()
+    }
+}
+
+/// The line under Sleep when idle.
+public struct IdleSleepNote: Equatable {
+    public enum Dot: Equatable {
+        /// Something keeps the Mac awake.
+        case busy
+        /// Nothing does; the quiet minutes are being counted.
+        case counting
+    }
+
+    public let text: String
+    /// nil for the plain text.
+    public let dot: Dot?
+
+    /// Longer names are cut, so the line fits in two lines in every language.
+    public static let longestAppName = 32
+
+    public init(text: String, dot: Dot?) {
+        self.text = text
+        self.dot = dot
+    }
+
+    /// `status` is nil until the helper has answered, or when it could not be asked.
+    public static func make(mode: Mode, isEnabled: Bool, isPaused: Bool, status: IdleStatus?) -> IdleSleepNote {
+        let plain = IdleSleepNote(text: String(localized: "After the work is done"), dot: nil)
+        guard mode == .lidClosed, isEnabled, !isPaused, let status else { return plain }
+        switch status.state {
+        case .off:
+            return plain
+        case .busyApp:
+            guard let name = appName(status.holders) else { return plain }
+            return IdleSleepNote(text: String(localized: "Kept awake by \(name)"), dot: .busy)
+        case .busyCPU:
+            return IdleSleepNote(text: String(localized: "Kept awake by CPU load"), dot: .busy)
+        case .busyInput:
+            return IdleSleepNote(text: String(localized: "Kept awake by keyboard or mouse"), dot: .busy)
+        case .counting:
+            return IdleSleepNote(
+                text: String(localized: "Idle for \(status.countedMinutes) of \(status.requiredMinutes) min"),
+                dot: .counting
+            )
+        }
+    }
+
+    /// The helper lists the programs in no fixed order; the smallest name keeps the line steady.
+    static func appName(_ holders: [String]?) -> String? {
+        let names = (holders ?? []).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        guard let name = names.min() else { return nil }
+        guard name.count > longestAppName else { return name }
+        return String(name.prefix(longestAppName - 1)) + "…"
+    }
 }

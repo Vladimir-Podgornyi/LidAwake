@@ -6,8 +6,9 @@ import SwiftUI
 /// `--render-window <folder>`: draws the window with default settings in the Off and the
 /// Keep Screen On positions, with the settings collapsed and expanded, Off with the update
 /// banner, Keep Screen On with the automatic logout warning, Off expanded in a window limited
-/// to 600 points, Keep Screen On expanded with both banners, and Run with Lid Closed expanded with
-/// Only while charging on, without touching the helper, the login item, the display, the network or the saved settings.
+/// to 600 points, Keep Screen On expanded with both banners, Run with Lid Closed expanded with
+/// Only while charging on, and Run with Lid Closed expanded with Sleep when idle on and a made-up
+/// idle state, without touching the helper, the login item, the display, the network or the saved settings.
 enum WindowSnapshot {
     static let flag = "--render-window"
 
@@ -52,6 +53,8 @@ enum WindowSnapshot {
         var showsUpdate = false
         var showsAutoLogout = false
         var chargingOnly = false
+        /// Turns Sleep when idle on and stands in for the helper's answer.
+        var idle: IdleStatus?
         var maxHeight: CGFloat?
         var name: String?
 
@@ -79,7 +82,39 @@ enum WindowSnapshot {
                 chargingOnly: true,
                 name: "lid-expanded-charging-light.png"
             ),
+            Shot(
+                mode: .lidClosed,
+                isExpanded: true,
+                isDark: false,
+                idle: idleStatus(.busyApp, holders: ["Example App"]),
+                name: "lid-expanded-idle-app-light.png"
+            ),
+            Shot(
+                mode: .lidClosed,
+                isExpanded: true,
+                isDark: false,
+                idle: idleStatus(.counting, counted: 7),
+                name: "lid-expanded-idle-counting-light.png"
+            ),
+            Shot(
+                mode: .lidClosed,
+                isExpanded: true,
+                isDark: true,
+                idle: idleStatus(.counting, counted: 7),
+                name: "lid-expanded-idle-counting-dark.png"
+            ),
         ]
+
+        private static func idleStatus(_ state: IdleState, counted: Int = 0, holders: [String] = []) -> IdleStatus {
+            IdleStatus(
+                state: state,
+                countedMinutes: counted,
+                requiredMinutes: 20,
+                cores: 0.2,
+                inputIdleSeconds: 600,
+                holders: holders
+            )
+        }
 
         var fileName: String {
             if let name {
@@ -115,6 +150,8 @@ enum WindowSnapshot {
         let arguments = UserDefaults.standard.volatileDomain(forName: UserDefaults.argumentDomain)
         var shotArguments = arguments
         shotArguments[SafetyPreferences.Key.chargingOnlyEnabled] = shot.chargingOnly
+        shotArguments[SafetyPreferences.Key.idleSleepEnabled] = shot.idle != nil
+        shotArguments[SafetyPreferences.Key.idleSleepMinutes] = 20
         UserDefaults.standard.setVolatileDomain(shotArguments, forName: UserDefaults.argumentDomain)
         defer { UserDefaults.standard.setVolatileDomain(arguments, forName: UserDefaults.argumentDomain) }
         let inert = Inert()
@@ -153,6 +190,7 @@ enum WindowSnapshot {
                 source: FixedAutoLogout(delay: shot.showsAutoLogout ? 3600 : nil),
                 defaults: defaults
             ),
+            idleSource: FixedIdleStatus(status: shot.idle),
             // The offscreen window has no screen, so the limit is set here or not at all.
             heightLimit: .fixed(shot.maxHeight)
         )
@@ -215,6 +253,16 @@ private struct FixedAutoLogout: AutoLogoutSource {
     let delay: Int?
 
     func delaySeconds() -> Int? { delay }
+}
+
+/// Answers as the helper would, or fails like a helper that cannot be reached.
+private struct FixedIdleStatus: IdleStatusReading {
+    let status: IdleStatus?
+
+    func idleStatus() async throws -> IdleStatus {
+        guard let status else { throw CancellationError() }
+        return status
+    }
 }
 
 private final class ActiveLookingApplication: NSApplication {

@@ -38,6 +38,12 @@
 "Pauses on battery, resumes on power" = "Пауза на батарее, работа от сети";
 "Turn off after" = "Выключить через";
 "Counts from the moment you switch on" = "Отсчёт с момента включения";
+"Sleep when idle" = "Сон после простоя";
+"After the work is done" = "Когда работа закончена";
+"Kept awake by %@" = "Не даёт уснуть: %@";
+"Kept awake by CPU load" = "Не даёт уснуть: нагрузка процессора";
+"Kept awake by keyboard or mouse" = "Не даёт уснуть: клавиатура или мышь";
+"Idle for %lld of %lld min" = "Простой: %lld из %lld мин";
 "Lock screen when the lid closes" = "Блокировать при закрытии крышки";
 "Screen lock is not available on this macOS version." = "Блокировка экрана недоступна в этой версии macOS.";
 "Launch at login" = "Запускать при входе";

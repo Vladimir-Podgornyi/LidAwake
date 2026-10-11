@@ -38,6 +38,12 @@
 "Pauses on battery, resumes on power" = "电池供电时暂停，接通电源后恢复";
 "Turn off after" = "定时关闭";
 "Counts from the moment you switch on" = "从开启模式时开始计时";
+"Sleep when idle" = "空闲时睡眠";
+"After the work is done" = "任务完成后";
+"Kept awake by %@" = "%@ 正在阻止睡眠";
+"Kept awake by CPU load" = "CPU 负载正在阻止睡眠";
+"Kept awake by keyboard or mouse" = "键盘或鼠标操作正在阻止睡眠";
+"Idle for %lld of %lld min" = "已空闲 %lld / %lld 分钟";
 "Lock screen when the lid closes" = "合盖时锁定屏幕";
 "Screen lock is not available on this macOS version." = "当前 macOS 版本不支持此锁屏功能。";
 "Launch at login" = "登录时启动";

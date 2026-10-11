@@ -38,6 +38,12 @@
 "Pauses on battery, resumes on power" = "Pause im Akkubetrieb, weiter am Netzteil";
 "Turn off after" = "Ausschalten nach";
 "Counts from the moment you switch on" = "Ab dem Einschalten";
+"Sleep when idle" = "Ruhezustand bei Leerlauf";
+"After the work is done" = "Wenn die Arbeit erledigt ist";
+"Kept awake by %@" = "Wach gehalten von %@";
+"Kept awake by CPU load" = "Wach gehalten durch CPU-Last";
+"Kept awake by keyboard or mouse" = "Wach gehalten durch Tastatur oder Maus";
+"Idle for %lld of %lld min" = "Leerlauf: %lld von %lld Min.";
 "Lock screen when the lid closes" = "Beim Zuklappen sperren";
 "Screen lock is not available on this macOS version." = "Die Bildschirmsperre ist in dieser macOS-Version nicht verfügbar.";
 "Launch at login" = "Bei der Anmeldung öffnen";

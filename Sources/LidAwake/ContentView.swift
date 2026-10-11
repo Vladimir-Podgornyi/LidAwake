@@ -13,6 +13,7 @@ struct ContentView: View {
     @ObservedObject var disclosure: SettingsDisclosurePreference
     @ObservedObject var updates: UpdateChecker
     @ObservedObject var autoLogout: AutoLogoutMonitor
+    let idleSource: IdleStatusReading
     var heightLimit: HeightLimit = .screen
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
@@ -21,6 +22,8 @@ struct ContentView: View {
     @State private var fixedHeight: CGFloat = 0
     @State private var scrollingContentHeight: CGFloat = 0
     @FocusState private var focusedCard: Mode?
+    @State private var isWindowKey = false
+    @State private var idleStatus: IdleStatus?
 
     private let power = IOKitPowerSource()
     private let isSystem26OrLater = WindowLook.isSystem26OrLater
@@ -55,6 +58,7 @@ struct ContentView: View {
         }
         .frame(width: 320, alignment: .leading)
         .background(WindowGeometryReader(limit: $screenLimit, isScrolling: scrollHeight != nil))
+        .background(WindowKeyReader(isKey: $isWindowKey))
         .background(look.drawsOwnBackground ? Palette.solidWindowBackground : .clear)
         .tint(accentColor)
         .onAppear {
@@ -70,6 +74,37 @@ struct ContentView: View {
             }
         }
         .onChange(of: controller.mode) { _ in autoLogout.refresh() }
+        .task(id: idlePoll) { await pollIdleStatus() }
+    }
+
+    /// The menu bar window closes when it stops being key, so key means open.
+    private var idlePoll: IdlePoll {
+        IdlePoll(
+            isActive: isWindowKey && controller.mode == .lidClosed && preferences.idleSleepEnabled && !controller.isPaused,
+            minutes: preferences.idleSleepMinutes
+        )
+    }
+
+    private func pollIdleStatus() async {
+        guard idlePoll.isActive else {
+            idleStatus = nil
+            return
+        }
+        while !Task.isCancelled {
+            let status = try? await idleSource.idleStatus()
+            guard !Task.isCancelled else { return }
+            idleStatus = status
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+        }
+    }
+
+    private var idleNote: IdleSleepNote {
+        IdleSleepNote.make(
+            mode: controller.mode,
+            isEnabled: preferences.idleSleepEnabled,
+            isPaused: controller.isPaused,
+            status: idleStatus
+        )
     }
 
     /// Everything below the mode cards; it scrolls when the window would not fit on the screen.
@@ -243,6 +278,7 @@ struct ContentView: View {
                 chargingToggle
             }
             timerRow
+            idleRow
         }
     }
 
@@ -267,6 +303,10 @@ struct ContentView: View {
             SettingRow(title: "Only while charging", minHeight: 40) {
                 chargingToggle
             }
+            SettingRow(title: "Sleep when idle", minHeight: 40) {
+                idleValue
+                idleToggle
+            }
             lockRow(minHeight: 40)
         }
         .opacity(0.45)
@@ -278,11 +318,39 @@ struct ContentView: View {
             ValueMenu(
                 label: "Turn off after",
                 selection: $preferences.timerSeconds,
-                choices: Self.choices(SafetyPreferences.timerChoices, current: preferences.timerSeconds),
+                choices: MenuChoices.list(SafetyPreferences.timerChoices, current: preferences.timerSeconds),
                 title: DurationFormat.choice
             )
             SwitchToggle(title: "Turn off after", isOn: $preferences.timerEnabled)
         }
+    }
+
+    private var idleRow: some View {
+        let note = idleNote
+        return SettingRow(title: "Sleep when idle", note: note.text, noteDot: note.dot.map(idleDotColor)) {
+            idleValue
+            idleToggle
+        }
+    }
+
+    private func idleDotColor(_ dot: IdleSleepNote.Dot) -> Color {
+        switch dot {
+        case .busy: return accentColor
+        case .counting: return Palette.switchOff
+        }
+    }
+
+    private var idleValue: some View {
+        ValueMenu(
+            label: "Sleep when idle",
+            selection: $preferences.idleSleepMinutes,
+            choices: MenuChoices.list(SafetyPreferences.idleSleepChoices, current: preferences.idleSleepMinutes),
+            title: DurationFormat.minutes
+        )
+    }
+
+    private var idleToggle: some View {
+        SwitchToggle(title: "Sleep when idle", isOn: $preferences.idleSleepEnabled)
     }
 
     private var thermalToggle: some View {
@@ -293,7 +361,7 @@ struct ContentView: View {
         ValueMenu(
             label: "Battery limit",
             selection: $preferences.batteryLimitPercent,
-            choices: Self.choices(SafetyPreferences.batteryLimitChoices, current: preferences.batteryLimitPercent),
+            choices: MenuChoices.list(SafetyPreferences.batteryLimitChoices, current: preferences.batteryLimitPercent),
             title: DurationFormat.percent
         )
     }
@@ -398,11 +466,11 @@ struct ContentView: View {
         .keyboardShortcut("q", modifiers: .command)
         .accessibilityLabel(Text("Quit LidAwake"))
     }
+}
 
-    /// Keeps a stored value that is not one of the choices visible and selectable.
-    private static func choices(_ list: [Int], current: Int) -> [Int] {
-        list.contains(current) ? list : (list + [current]).sorted()
-    }
+private struct IdlePoll: Equatable {
+    let isActive: Bool
+    let minutes: Int
 }
 
 private extension Mode {
@@ -636,6 +704,9 @@ private struct SectionHeader: View {
 private struct SettingRow<Controls: View>: View {
     let title: LocalizedStringKey
     var detail: LocalizedStringKey?
+    /// Text from the app rather than a fixed string, with an optional dot before it.
+    var note: String?
+    var noteDot: Color?
     var minHeight: CGFloat = 44
     @ViewBuilder let controls: Controls
 
@@ -648,6 +719,23 @@ private struct SettingRow<Controls: View>: View {
                     Text(detail)
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
+                }
+                if let note {
+                    HStack(alignment: .firstTextBaseline, spacing: 5) {
+                        if let noteDot {
+                            Circle()
+                                .fill(noteDot)
+                                .frame(width: 6, height: 6)
+                                // Centered on the lowercase letters rather than sitting on the baseline.
+                                .alignmentGuide(.firstTextBaseline) { $0.height / 2 + 3 }
+                                .accessibilityHidden(true)
+                        }
+                        Text(note)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                            .truncationMode(.tail)
+                    }
                 }
             }
             .accessibilityElement(children: .combine)
@@ -756,6 +844,56 @@ private struct HeightReader: View {
         if value != height {
             height = value
         }
+    }
+}
+
+/// Reports whether the window the view is in is the key window.
+private struct WindowKeyReader: NSViewRepresentable {
+    @Binding var isKey: Bool
+
+    func makeNSView(context: Context) -> WindowKeyView {
+        let view = WindowKeyView()
+        view.onChange = { value in
+            if value != isKey {
+                isKey = value
+            }
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: WindowKeyView, context: Context) {}
+}
+
+private final class WindowKeyView: NSView {
+    var onChange: ((Bool) -> Void)?
+    private var observers: [NSObjectProtocol] = []
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        observers.forEach(NotificationCenter.default.removeObserver)
+        observers = []
+        guard let window else {
+            report(false)
+            return
+        }
+        let center = NotificationCenter.default
+        for name in [NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification] {
+            observers.append(center.addObserver(forName: name, object: window, queue: .main) { [weak self, weak window] _ in
+                self?.report(window?.isKeyWindow ?? false)
+            })
+        }
+        report(window.isKeyWindow)
+    }
+
+    private func report(_ isKey: Bool) {
+        // Not during a view update: the value goes into SwiftUI state.
+        DispatchQueue.main.async { [weak self] in
+            self?.onChange?(isKey)
+        }
+    }
+
+    deinit {
+        observers.forEach(NotificationCenter.default.removeObserver)
     }
 }
 
