@@ -181,3 +181,17 @@ final class WindowMessageTests: XCTestCase {
         XCTAssertEqual(messages.map(\.title), ["Permission needed", "LidAwake turned off"])
     }
 }
+
+final class OpeningFocusTests: XCTestCase {
+    func testOffFocusesOff() {
+        XCTAssertEqual(OpeningFocus.card(selected: .off), .off)
+    }
+
+    func testKeepScreenOnFocusesKeepScreenOn() {
+        XCTAssertEqual(OpeningFocus.card(selected: .keepScreenOn), .keepScreenOn)
+    }
+
+    func testLidClosedFocusesLidClosed() {
+        XCTAssertEqual(OpeningFocus.card(selected: .lidClosed), .lidClosed)
+    }
+}

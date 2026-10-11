@@ -16,6 +16,14 @@ public enum SafetyLayout: Equatable {
     }
 }
 
+public enum OpeningFocus {
+    /// The mode card that takes keyboard focus when the window opens: the selected one, so the
+    /// focus ring and the selection mark the same card.
+    public static func card(selected: Mode) -> Mode {
+        selected
+    }
+}
+
 public enum StatusLine {
     /// The text next to the app name; nil when there is nothing to show.
     public static func text(mode: Mode, isPaused: Bool, timerRemaining: TimeInterval?, battery: BatteryLevel) -> String? {

@@ -20,6 +20,7 @@ struct ContentView: View {
     @State private var screenLimit: CGFloat?
     @State private var fixedHeight: CGFloat = 0
     @State private var scrollingContentHeight: CGFloat = 0
+    @FocusState private var focusedCard: Mode?
 
     private let power = IOKitPowerSource()
     private let isSystem26OrLater = WindowLook.isSystem26OrLater
@@ -63,6 +64,10 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
             launchAtLogin.refresh()
             autoLogout.refresh()
+            // After AppKit has given focus to the first card as the window opens.
+            DispatchQueue.main.async {
+                focusedCard = OpeningFocus.card(selected: controller.mode)
+            }
         }
         .onChange(of: controller.mode) { _ in autoLogout.refresh() }
     }
@@ -140,6 +145,7 @@ struct ContentView: View {
                 ModeCard(mode: mode, isSelected: controller.mode == mode, accent: accentColor, look: look) {
                     Task { await helperSetup.select(mode) }
                 }
+                .focused($focusedCard, equals: mode)
             }
         }
         .disabled(controller.isBusy)
