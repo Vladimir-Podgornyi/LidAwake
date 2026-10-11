@@ -15,7 +15,7 @@
 ## Why LidAwake
 
 - Keeps the Mac running with the lid closed; no external display is needed.
-- Stops by itself when the Mac gets hot, when the battery runs low or when the timer ends, and can run only while charging.
+- Stops by itself when the Mac gets hot, when the battery runs low, when the timer ends or when the work is done, and can run only while charging.
 - If the app quits unexpectedly or stops responding, normal sleep returns by itself within two minutes.
 - Open source (MIT), no account and no analytics. The only network request is a daily update check, and it can be turned off.
 - The interface is in English, German, Russian and Simplified Chinese.
@@ -32,7 +32,7 @@ LidAwake keeps a Mac from sleeping in two situations: when you step away from th
 | Screen | as usual | stays on | may turn off and lock |
 | Closing the lid | the Mac sleeps | the Mac sleeps | the Mac keeps running |
 | Helper | not used | not used | required |
-| Protections | none | timer only | all four |
+| Protections | none | timer only | all five |
 
 <p align="center">
   <picture>
@@ -52,14 +52,37 @@ Each protection is turned on separately in Settings.
 | Stop on low battery | Ends the mode when the Mac runs on battery and the charge is at or below the limit (10 to 50 %). Not used while Only while charging is on, because the mode is already paused on battery | on, 20 % |
 | Only while charging | Pauses the mode on battery power and resumes it when power is connected | off |
 | Turn off after | Ends the mode after the chosen time (30 min to 8 hours), counted from the moment it was switched on | off, 2 hours |
+| Sleep when idle | Ends the mode when nothing has been working on the Mac for the chosen time (10 to 60 min) | off, 20 min |
 
-The timer applies to both modes; the other three protections apply only to Run with Lid Closed.
+The timer applies to both modes; the other four protections apply only to Run with Lid Closed.
 
 In Run with Lid Closed, the protections and the timer run in the privileged helper, not in the app, so they keep working if the app crashes or stops responding. If the battery level, the power source or the thermal state cannot be read while the matching protection is on, the mode turns off.
 
 When a protection ends or pauses the mode, LidAwake shows a notification and the reason in its window. If the app was not running when the mode ended, it shows the reason the next time it starts.
 
 Lock screen when the lid closes (on by default) locks the screen as soon as the lid is closed in Run with Lid Closed. It uses a private macOS function; if a macOS version does not have it, the window says so.
+
+### Sleep when idle
+
+Turn it on when the Mac has a long job to finish with the lid closed: an AI coding agent such as Claude Code or Codex, a build, a video render. When the job is done, the mode ends. With the lid closed, the Mac then goes to sleep; with the lid open, the usual macOS sleep settings apply.
+
+Each minute the helper looks for three signs of work:
+
+- the processor load, averaged over the minute, is above about 1.5 cores;
+- a program asks macOS not to sleep, as the `caffeinate` command does;
+- the keyboard, mouse or trackpad was used.
+
+A minute with none of them is a quiet minute. When the chosen number of quiet minutes is reached, the mode ends. A sleep request or input starts the count over. A short burst of load only holds the count where it is; load that lasts three minutes in a row starts it over.
+
+Not counted: network and disk activity, so a long download does not keep the Mac awake; sleep requests from the services of macOS itself; a program that has stopped and is waiting for your answer.
+
+While the mode is on, the row in Settings shows what is keeping the Mac awake or how many quiet minutes have been counted.
+
+If a tool does not ask macOS to stay awake and uses little processor time, LidAwake cannot tell that it is working. Start it through `caffeinate`, which holds a sleep request until the command exits:
+
+```sh
+caffeinate -i make release
+```
 
 <p align="center">
   <img src="docs/images/settings-blue.png" width="335" alt="The LidAwake window with the settings expanded and the Blue accent">
