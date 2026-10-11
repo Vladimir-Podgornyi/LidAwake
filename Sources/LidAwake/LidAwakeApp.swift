@@ -23,7 +23,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             sessions: XPCHelperConnection(),
             preferences: SafetyPreferences(),
             notifier: UserNotificationNotifier(),
-            activityLog: activityLog
+            activityLog: activityLog,
+            idleEvents: XPCHelperConnection()
         )
         sleepRecorder = SystemSleepRecorder(log: activityLog)
         modeController = controller

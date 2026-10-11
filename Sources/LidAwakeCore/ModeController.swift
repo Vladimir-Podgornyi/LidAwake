@@ -23,6 +23,7 @@ public final class ModeController: ObservableObject {
     private let lidMonitor: LidMonitoring
     private let screenLocker: ScreenLocking
     private let activityLog: ActivityLogging
+    private let idleEvents: IdleEventFetching
     private let leaseSeconds: Int
     private let renewalSleep: () async throws -> Void
     private let timerCheckSleep: () async throws -> Void
@@ -43,6 +44,7 @@ public final class ModeController: ObservableObject {
         lidMonitor: LidMonitoring = IOKitLidMonitor(),
         screenLocker: ScreenLocking = LoginScreenLocker(),
         activityLog: ActivityLogging = NoActivityLog(),
+        idleEvents: IdleEventFetching = NoIdleEvents(),
         leaseSeconds: Int = 120,
         renewalSleep: @escaping () async throws -> Void = { try await Task.sleep(nanoseconds: 30_000_000_000) },
         timerCheckSleep: @escaping () async throws -> Void = { try await Task.sleep(nanoseconds: 5_000_000_000) },
@@ -58,6 +60,7 @@ public final class ModeController: ObservableObject {
         self.lidMonitor = lidMonitor
         self.screenLocker = screenLocker
         self.activityLog = activityLog
+        self.idleEvents = idleEvents
         self.leaseSeconds = leaseSeconds
         self.renewalSleep = renewalSleep
         self.timerCheckSleep = timerCheckSleep
@@ -91,6 +94,11 @@ public final class ModeController: ObservableObject {
         message = nil
         if newMode != .off {
             requestNotificationAuthorization()
+        }
+
+        if mode == .lidClosed {
+            // The session's last events, taken before it ends.
+            await recordIdleEvents()
         }
 
         do {
@@ -151,6 +159,7 @@ public final class ModeController: ObservableObject {
         } catch {
             message = .failed(error.localizedDescription)
         }
+        await recordIdleEvents()
         if await reportStopReason(mode: .lidClosed) {
             return
         }
@@ -164,6 +173,7 @@ public final class ModeController: ObservableObject {
         guard mode == .lidClosed, !isBusy else { return }
         do {
             try await sessions.renewSession(leaseSeconds: leaseSeconds, safety: preferences.helperSettings)
+            await recordIdleEvents()
             await updatePauseState()
         } catch {
             // The user may have left the mode while the renewal was in flight.
@@ -172,8 +182,11 @@ public final class ModeController: ObservableObject {
             defer { isBusy = false }
             await leaveCurrentMode()
             mode = .off
-            if case HelperError.helper(.noSession, _) = error, await reportStopReason(mode: .lidClosed) {
-                return
+            if case HelperError.helper(.noSession, _) = error {
+                await recordIdleEvents()
+                if await reportStopReason(mode: .lidClosed) {
+                    return
+                }
             }
             message = .turnedOffWithError(error.localizedDescription)
             activityLog.record(.modeOff(.lidClosed, .error(error.localizedDescription)))
@@ -229,6 +242,15 @@ public final class ModeController: ObservableObject {
             activityLog.record(.paused)
         } else if !isPaused && wasPaused {
             activityLog.record(.resumed)
+        }
+    }
+
+    /// Writes what the helper saw during the idle count, at the times it saw it. The log only informs,
+    /// so a failed call is dropped.
+    private func recordIdleEvents() async {
+        guard let events = try? await idleEvents.takeIdleEvents() else { return }
+        for event in events {
+            activityLog.record(ActivityEvent(event.cause), at: event.time)
         }
     }
 

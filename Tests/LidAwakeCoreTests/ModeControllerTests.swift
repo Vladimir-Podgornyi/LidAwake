@@ -153,6 +153,25 @@ private final class FakeActivityLog: ActivityLogging {
     }
 }
 
+private final class FakeIdleEvents: IdleEventFetching {
+    var pending: [IdleEvent] = []
+    var error: Error?
+    private let sessions: FakeSessions
+    /// The session calls made before each request, so its place among them can be checked.
+    private(set) var requests: [[String]] = []
+
+    init(sessions: FakeSessions) {
+        self.sessions = sessions
+    }
+
+    func takeIdleEvents() async throws -> [IdleEvent] {
+        requests.append(sessions.calls)
+        if let error { throw error }
+        defer { pending = [] }
+        return pending
+    }
+}
+
 private final class FakeTime {
     var now: TimeInterval = 1000
 }
@@ -176,6 +195,7 @@ final class ModeControllerTests: XCTestCase {
     private let locker = FakeScreenLocker()
     private let time = FakeTime()
     private let log = FakeActivityLog()
+    private lazy var idleEvents = FakeIdleEvents(sessions: sessions)
     private let suiteName = "ModeControllerTests-\(UUID().uuidString)"
     private lazy var preferences = SafetyPreferences(defaults: UserDefaults(suiteName: suiteName)!)
 
@@ -197,6 +217,7 @@ final class ModeControllerTests: XCTestCase {
             lidMonitor: lidMonitor,
             screenLocker: locker,
             activityLog: log,
+            idleEvents: idleEvents,
             leaseSeconds: 120,
             renewalSleep: renewalSleep ?? { try await Task.sleep(nanoseconds: 3_600_000_000_000) },
             timerCheckSleep: { try await Task.sleep(nanoseconds: 3_600_000_000_000) },
@@ -1176,5 +1197,115 @@ final class ModeControllerTests: XCTestCase {
         sessions.renewError = HelperError.timeout
         await controller.renew()
         XCTAssertFalse(log.events.dropFirst(3).contains(.resumed))
+    }
+
+    // MARK: Idle events
+
+    private let eventTime = Date(timeIntervalSince1970: 1_800_000_000)
+
+    func testIdleEventsAreRecordedWithTheirOwnTime() async throws {
+        let controller = makeController()
+        try await controller.select(.lidClosed)
+        idleEvents.pending = [
+            IdleEvent(time: eventTime, cause: .app("Example")),
+            IdleEvent(time: eventTime + 60, cause: .load(busiest: "example-tool")),
+            IdleEvent(time: eventTime + 120, cause: .load(busiest: nil)),
+            IdleEvent(time: eventTime + 180, cause: .input),
+            IdleEvent(time: eventTime + 240, cause: .idle(minutes: 20)),
+        ]
+
+        await controller.renew()
+        XCTAssertEqual(log.events, [
+            .modeOn(.lidClosed),
+            .keptAwakeByApp("Example"),
+            .keptAwakeByLoad(busiest: "example-tool"),
+            .keptAwakeByLoad(busiest: nil),
+            .keptAwakeByInput,
+            .idleStarted(minutes: 20),
+        ])
+        XCTAssertEqual(log.records.dropFirst().map(\.time), [
+            eventTime, eventTime + 60, eventTime + 120, eventTime + 180, eventTime + 240,
+        ])
+    }
+
+    func testIdleEventsAreTakenAfterEachRenewal() async throws {
+        let controller = makeController()
+        try await controller.select(.lidClosed)
+        XCTAssertEqual(idleEvents.requests, [])
+
+        await controller.renew()
+        await controller.renew()
+        XCTAssertEqual(idleEvents.requests, [["start 120", "renew 120"], ["start 120", "renew 120", "renew 120"]])
+    }
+
+    func testIdleEventsAreTakenBeforeTheUserEndsTheSession() async throws {
+        let controller = makeController()
+        try await controller.select(.lidClosed)
+        idleEvents.pending = [IdleEvent(time: eventTime, cause: .idle(minutes: 20))]
+
+        try await controller.select(.off)
+        XCTAssertEqual(idleEvents.requests, [["start 120"]])
+        XCTAssertEqual(log.events, [.modeOn(.lidClosed), .idleStarted(minutes: 20), .modeOff(.lidClosed, .user)])
+
+        try await controller.select(.lidClosed)
+        try await controller.select(.keepScreenOn)
+        XCTAssertEqual(idleEvents.requests.count, 2)
+        XCTAssertEqual(idleEvents.requests.last?.last, "start 120")
+
+        // Leaving another mode has no session to take events from.
+        try await controller.select(.off)
+        XCTAssertEqual(idleEvents.requests.count, 2)
+    }
+
+    func testIdleEventsAreTakenWhenTheHelperStoppedTheSession() async throws {
+        let controller = makeController()
+        try await controller.select(.lidClosed)
+        idleEvents.pending = [IdleEvent(time: eventTime, cause: .idle(minutes: 20))]
+
+        sessions.stopRecord = StopRecord(reason: .idle, time: eventTime + 1200, idleMinutes: 20)
+        sessions.renewError = HelperError.helper(.noSession, "No active session.")
+        await controller.renew()
+        XCTAssertEqual(idleEvents.requests, [["start 120", "renew 120", "end"]])
+        XCTAssertEqual(sessions.calls, ["start 120", "renew 120", "end", "reason", "clear reason"])
+        XCTAssertEqual(log.events, [
+            .modeOn(.lidClosed),
+            .idleStarted(minutes: 20),
+            .modeOff(.lidClosed, .stopped(.idle, idleMinutes: 20)),
+        ])
+    }
+
+    func testIdleEventsAreTakenAtLaunchWithTheReasonOfTheLastRun() async {
+        sessions.session = .ours
+        sessions.stopRecord = StopRecord(reason: .idle, time: eventTime + 600, idleMinutes: 10)
+        idleEvents.pending = [IdleEvent(time: eventTime, cause: .idle(minutes: 10))]
+        let controller = makeController()
+
+        await controller.clearLeftover()
+        XCTAssertEqual(idleEvents.requests, [["end"]])
+        XCTAssertEqual(log.events, [.idleStarted(minutes: 10), .modeOff(.lidClosed, .stopped(.idle, idleMinutes: 10))])
+    }
+
+    func testAFailedIdleEventCallChangesNothing() async throws {
+        idleEvents.error = HelperError.timeout
+        let controller = makeController()
+        try await controller.select(.lidClosed)
+
+        await controller.renew()
+        XCTAssertEqual(controller.mode, .lidClosed)
+        XCTAssertNil(controller.message)
+        XCTAssertEqual(sessions.calls, ["start 120", "renew 120"])
+
+        sessions.paused = true
+        await controller.renew()
+        XCTAssertTrue(controller.isPaused)
+
+        try await controller.select(.off)
+        XCTAssertEqual(sessions.calls, ["start 120", "renew 120", "renew 120", "end"])
+        XCTAssertNil(controller.message)
+        XCTAssertEqual(log.events, [.modeOn(.lidClosed), .paused, .modeOff(.lidClosed, .user)])
+
+        await controller.clearLeftover()
+        XCTAssertNil(controller.message)
+        XCTAssertEqual(idleEvents.requests.count, 4)
     }
 }

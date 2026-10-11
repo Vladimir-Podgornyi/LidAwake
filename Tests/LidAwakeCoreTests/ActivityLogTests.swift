@@ -162,6 +162,48 @@ final class ActivityLogTests: XCTestCase {
         ])
     }
 
+    func testIdleEventsAreStoredAndReadBack() throws {
+        let log = makeLog()
+        let events: [ActivityEvent] = [
+            .keptAwakeByApp("Example"),
+            .keptAwakeByLoad(busiest: "example-tool"),
+            .keptAwakeByLoad(busiest: nil),
+            .keptAwakeByInput,
+            .idleStarted(minutes: 20),
+        ]
+        for (index, event) in events.enumerated() {
+            log.record(event, at: at(TimeInterval(index * 60)))
+        }
+        XCTAssertEqual(ActivityLog.read(from: fileURL).map(\.event), events)
+
+        let object = try JSONSerialization.jsonObject(with: Data(contentsOf: fileURL)) as? [String: Any]
+        XCTAssertEqual(object?["version"] as? Int, 1)
+        let entries = try XCTUnwrap(object?["entries"] as? [[String: Any]])
+        XCTAssertEqual(entries.map { $0["kind"] as? String }, ["busy-app", "busy-cpu", "busy-cpu", "busy-input", "idle-start"])
+        XCTAssertEqual(entries[0]["name"] as? String, "Example")
+        XCTAssertEqual(entries[1]["busiest"] as? String, "example-tool")
+        XCTAssertNil(entries[2]["busiest"])
+        XCTAssertEqual(entries[4]["minutes"] as? Int, 20)
+    }
+
+    func testIdleEntriesNextToAFutureKindAreRead() throws {
+        try writeFile("""
+        {"version": 1, "entries": [
+          {"kind": "busy-app", "time": 1800000000, "name": "Example"},
+          {"kind": "something-later", "time": 1800000010, "detail": "x"},
+          {"kind": "busy-cpu", "time": 1800000020},
+          {"kind": "busy-app", "time": 1800000025},
+          {"kind": "idle-start", "time": 1800000030, "minutes": 10}
+        ]}
+        """)
+
+        XCTAssertEqual(makeLog().entries, [
+            ActivityEntry(time: at(0), event: .keptAwakeByApp("Example")),
+            ActivityEntry(time: at(20), event: .keptAwakeByLoad(busiest: nil)),
+            ActivityEntry(time: at(30), event: .idleStarted(minutes: 10)),
+        ])
+    }
+
     func testClearEmptiesLog() {
         let log = makeLog()
         log.record(.sleep)
@@ -247,6 +289,11 @@ final class ActivityLogTests: XCTestCase {
         XCTAssertEqual(line(.resumed), "\(stamp) resumed")
         XCTAssertEqual(line(.sleep), "\(stamp) sleep")
         XCTAssertEqual(line(.wake), "\(stamp) wake")
+        XCTAssertEqual(line(.keptAwakeByApp("Example")), "\(stamp) busy-app name=\"Example\"")
+        XCTAssertEqual(line(.keptAwakeByLoad(busiest: "example-tool")), "\(stamp) busy-cpu busiest=\"example-tool\"")
+        XCTAssertEqual(line(.keptAwakeByLoad(busiest: nil)), "\(stamp) busy-cpu")
+        XCTAssertEqual(line(.keptAwakeByInput), "\(stamp) busy-input")
+        XCTAssertEqual(line(.idleStarted(minutes: 20)), "\(stamp) idle-start minutes=20")
 
         let reasons: [(StopReason, String)] = [
             (.timer, "timer"), (.battery, "battery"), (.batteryUnreadable, "battery-unreadable"),

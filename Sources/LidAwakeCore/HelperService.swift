@@ -24,6 +24,18 @@ public protocol IdleStatusReading {
     func idleStatus() async throws -> IdleStatus
 }
 
+public protocol IdleEventFetching {
+    /// The events the helper collected since the last call; each one is handed over once.
+    func takeIdleEvents() async throws -> [IdleEvent]
+}
+
+/// Has no events, so a controller made without a helper records none.
+public struct NoIdleEvents: IdleEventFetching {
+    public init() {}
+
+    public func takeIdleEvents() async throws -> [IdleEvent] { [] }
+}
+
 public protocol LidSessionService {
     func startSession(leaseSeconds: Int, safety: SafetySettings) async throws
     func renewSession(leaseSeconds: Int, safety: SafetySettings) async throws
@@ -86,7 +98,7 @@ public struct DaemonHelperService: HelperService {
     }
 }
 
-public struct XPCHelperConnection: HelperConnecting, LidSessionService, IdleStatusReading {
+public struct XPCHelperConnection: HelperConnecting, LidSessionService, IdleStatusReading, IdleEventFetching {
     private let timeout: TimeInterval
     private let sessionTimeout: TimeInterval
 
@@ -206,6 +218,14 @@ public struct XPCHelperConnection: HelperConnecting, LidSessionService, IdleStat
     public func clearStopReason() async throws {
         try await call(timeout: timeout) { helper, done in
             helper.clearStopReason { done(Self.result($0, $1)) }
+        }
+    }
+
+    public func takeIdleEvents() async throws -> [IdleEvent] {
+        try await call(timeout: timeout) { helper, done in
+            helper.takeIdleEvents { code, message, events in
+                done(Self.result(code, message).map { IdleEventWire.decode(events ?? "") })
+            }
         }
     }
 
