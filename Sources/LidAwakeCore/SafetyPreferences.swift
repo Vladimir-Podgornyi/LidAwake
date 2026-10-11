@@ -53,6 +53,7 @@ public final class SafetyPreferences: ObservableObject {
     public let changes = PassthroughSubject<Void, Never>()
 
     private let defaults: UserDefaults
+    private var sendsChanges = true
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -101,6 +102,15 @@ public final class SafetyPreferences: ObservableObject {
         )
     }
 
+    /// Sleep when idle lasts one Run with Lid Closed session. The session has already ended, so there is
+    /// nothing to send to the helper and `changes` does not fire.
+    public func endIdleSleepSession() {
+        guard idleSleepEnabled else { return }
+        sendsChanges = false
+        defer { sendsChanges = true }
+        idleSleepEnabled = false
+    }
+
     /// A stored value the helper would reject is read as the nearest one it accepts.
     static func clamp(_ value: Int, to range: ClosedRange<Int>) -> Int {
         min(max(value, range.lowerBound), range.upperBound)
@@ -108,6 +118,8 @@ public final class SafetyPreferences: ObservableObject {
 
     private func save(_ value: Any, _ key: String) {
         defaults.set(value, forKey: key)
-        changes.send()
+        if sendsChanges {
+            changes.send()
+        }
     }
 }

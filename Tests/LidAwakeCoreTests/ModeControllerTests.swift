@@ -61,8 +61,13 @@ private final class FakeSessions: LidSessionService {
         if let renewError { throw renewError }
     }
 
+    /// Read when the session ends, to see what was true at that moment.
+    var probeAtEnd: (() -> Bool)?
+    private(set) var probedAtEnd: [Bool] = []
+
     func endSession() async throws {
         calls.append("end")
+        if let probeAtEnd { probedAtEnd.append(probeAtEnd()) }
     }
 
     func clearLeftover() async throws {
@@ -1307,5 +1312,264 @@ final class ModeControllerTests: XCTestCase {
         await controller.clearLeftover()
         XCTAssertNil(controller.message)
         XCTAssertEqual(idleEvents.requests.count, 4)
+    }
+
+    // MARK: Sleep when idle lasts one session
+
+    private let noSession = HelperError.helper(.noSession, "No active session.")
+
+    private func turnOnIdleSleep(minutes: Int = 30) {
+        preferences.idleSleepEnabled = true
+        preferences.idleSleepMinutes = minutes
+    }
+
+    private func assertIdleSleepEnded(minutes: Int = 30, file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertFalse(preferences.idleSleepEnabled, file: file, line: line)
+        XCTAssertEqual(preferences.idleSleepMinutes, minutes, file: file, line: line)
+    }
+
+    private func assertIdleSleepKept(minutes: Int = 30, file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertTrue(preferences.idleSleepEnabled, file: file, line: line)
+        XCTAssertEqual(preferences.idleSleepMinutes, minutes, file: file, line: line)
+    }
+
+    func testIdleSleepEndsWhenTheUserTurnsTheModeOff() async throws {
+        let controller = makeController()
+        turnOnIdleSleep()
+        try await controller.select(.lidClosed)
+
+        try await controller.select(.off)
+        assertIdleSleepEnded()
+    }
+
+    func testIdleSleepEndsWhenTheUserSwitchesToKeepScreenOn() async throws {
+        let controller = makeController()
+        turnOnIdleSleep()
+        try await controller.select(.lidClosed)
+
+        try await controller.select(.keepScreenOn)
+        XCTAssertEqual(controller.mode, .keepScreenOn)
+        assertIdleSleepEnded()
+    }
+
+    func testIdleSleepEndsOnEveryHelperStop() async throws {
+        let reasons: [StopReason] = [
+            .idle, .timer, .battery, .batteryUnreadable, .thermal, .thermalUnreadable, .powerUnreadable, .leaseExpired,
+        ]
+        let controller = makeController()
+
+        for reason in reasons {
+            turnOnIdleSleep()
+            sessions.renewError = nil
+            try await controller.select(.lidClosed)
+            sessions.stopRecord = StopRecord(reason: reason, time: Date())
+            sessions.renewError = noSession
+            await controller.renew()
+
+            XCTAssertEqual(controller.mode, .off, "\(reason)")
+            assertIdleSleepEnded()
+        }
+    }
+
+    func testIdleSleepEndsWhenTheLidClosedTimerRunsOut() async throws {
+        preferences.timerEnabled = true
+        preferences.timerSeconds = 3600
+        turnOnIdleSleep()
+        let controller = makeController()
+        try await controller.select(.lidClosed)
+
+        time.now += 3600
+        sessions.stopRecord = StopRecord(reason: .timer, time: Date())
+        sessions.renewError = noSession
+        await controller.checkTimer()
+        XCTAssertEqual(controller.mode, .off)
+        assertIdleSleepEnded()
+    }
+
+    func testIdleSleepEndsWhenRenewalFails() async throws {
+        let controller = makeController()
+        turnOnIdleSleep()
+        try await controller.select(.lidClosed)
+        sessions.renewError = HelperError.timeout
+        await controller.renew()
+        XCTAssertEqual(controller.message, .turnedOffWithError(HelperError.timeout.localizedDescription))
+        assertIdleSleepEnded()
+
+        turnOnIdleSleep()
+        sessions.renewError = nil
+        try await controller.select(.lidClosed)
+        sessions.renewError = noSession
+        await controller.renew()
+        XCTAssertEqual(controller.message, .turnedOffWithError("No active session."))
+        assertIdleSleepEnded()
+    }
+
+    func testIdleSleepEndsWithTheSessionOfAnEarlierRun() async {
+        sessions.session = .ours
+        turnOnIdleSleep()
+        let controller = makeController()
+
+        await controller.clearLeftover()
+        XCTAssertEqual(controller.message, .restarted)
+        assertIdleSleepEnded()
+    }
+
+    func testIdleSleepEndsWithAReasonFoundAtLaunch() async {
+        sessions.stopRecord = StopRecord(reason: .idle, time: Date(), idleMinutes: 30)
+        turnOnIdleSleep()
+        let controller = makeController()
+
+        await controller.clearLeftover()
+        XCTAssertEqual(sessions.calls, ["clear", "reason", "clear reason"])
+        assertIdleSleepEnded()
+
+        sessions.session = .ours
+        sessions.stopRecord = StopRecord(reason: .leaseExpired, time: Date())
+        turnOnIdleSleep()
+        await controller.clearLeftover()
+        assertIdleSleepEnded()
+    }
+
+    func testIdleSleepStaysThroughPauseAndResume() async throws {
+        let controller = makeController()
+        turnOnIdleSleep()
+        try await controller.select(.lidClosed)
+
+        sessions.paused = true
+        await controller.renew()
+        XCTAssertTrue(controller.isPaused)
+        sessions.paused = false
+        await controller.renew()
+        XCTAssertFalse(controller.isPaused)
+        XCTAssertEqual(controller.mode, .lidClosed)
+        assertIdleSleepKept()
+    }
+
+    func testIdleSleepStaysWhenKeepScreenOnEnds() async throws {
+        preferences.timerEnabled = true
+        preferences.timerSeconds = 3600
+        turnOnIdleSleep()
+        let controller = makeController()
+
+        try await controller.select(.keepScreenOn)
+        try await controller.select(.off)
+        assertIdleSleepKept()
+
+        try await controller.select(.keepScreenOn)
+        time.now += 3600
+        await controller.checkTimer()
+        XCTAssertEqual(controller.mode, .off)
+        XCTAssertEqual(controller.message, .turnedOff("The timer ran out."))
+        assertIdleSleepKept()
+    }
+
+    func testIdleSleepStaysWhenTurningOnFails() async throws {
+        turnOnIdleSleep()
+        helper.notReady = .notReady("Install the helper to run with the lid closed.")
+        let controller = makeController()
+        try? await controller.select(.lidClosed)
+        assertIdleSleepKept()
+
+        helper.notReady = nil
+        sessions.startError = HelperError.timeout
+        try? await controller.select(.lidClosed)
+        try await controller.select(.keepScreenOn)
+        try? await controller.select(.lidClosed)
+        XCTAssertEqual(controller.mode, .keepScreenOn)
+        assertIdleSleepKept()
+    }
+
+    func testIdleSleepStaysOnQuietLaunch() async {
+        turnOnIdleSleep()
+        let controller = makeController()
+        await controller.clearLeftover()
+        assertIdleSleepKept()
+
+        sessions.statusError = HelperError.timeout
+        await controller.clearLeftover()
+        assertIdleSleepKept()
+
+        helper.notReady = .notReady("Install the helper to run with the lid closed.")
+        await controller.clearLeftover()
+        assertIdleSleepKept()
+    }
+
+    func testIdleSleepTurnedOnWhileOffLastsUntilTheNextSessionEnds() async throws {
+        let controller = makeController()
+        turnOnIdleSleep()
+        await settle(until: { false })
+        XCTAssertEqual(sessions.calls, [])
+
+        try await controller.select(.lidClosed)
+        XCTAssertEqual(sessions.safety.last?.idleSleepMinutes, 30)
+        await controller.renew()
+        XCTAssertEqual(sessions.safety.last?.idleSleepMinutes, 30)
+        assertIdleSleepKept()
+
+        try await controller.select(.off)
+        assertIdleSleepEnded()
+
+        try await controller.select(.lidClosed)
+        XCTAssertEqual(sessions.safety.last?.idleSleepMinutes, 0)
+    }
+
+    func testIdleSleepTurnedOnDuringASessionLastsUntilItEnds() async throws {
+        let controller = makeController()
+        try await controller.select(.lidClosed)
+        XCTAssertEqual(sessions.safety.last?.idleSleepMinutes, 0)
+
+        turnOnIdleSleep()
+        await settle { sessions.safety.last?.idleSleepMinutes == 30 }
+        XCTAssertEqual(sessions.safety.last?.idleSleepMinutes, 30)
+        assertIdleSleepKept()
+
+        try await controller.select(.off)
+        assertIdleSleepEnded()
+    }
+
+    func testIdleSleepEndsOnlyAfterTheSessionHasEnded() async throws {
+        let suiteName = self.suiteName
+        sessions.probeAtEnd = {
+            UserDefaults(suiteName: suiteName)!.bool(forKey: SafetyPreferences.Key.idleSleepEnabled)
+        }
+        let controller = makeController()
+        turnOnIdleSleep()
+
+        try await controller.select(.lidClosed)
+        await controller.renew()
+        try await controller.select(.off)
+        await settle(until: { false })
+        XCTAssertEqual(sessions.calls, ["start 120", "renew 120", "end"])
+        XCTAssertEqual(sessions.safety.map(\.idleSleepMinutes), [30, 30])
+        XCTAssertEqual(sessions.probedAtEnd, [true])
+        assertIdleSleepEnded()
+
+        turnOnIdleSleep()
+        try await controller.select(.lidClosed)
+        sessions.stopRecord = StopRecord(reason: .idle, time: Date(), idleMinutes: 30)
+        sessions.renewError = noSession
+        await controller.renew()
+        await settle(until: { false })
+        XCTAssertEqual(Array(sessions.calls.dropFirst(3)), ["start 120", "renew 120", "end", "reason", "clear reason"])
+        XCTAssertEqual(sessions.safety.map(\.idleSleepMinutes), [30, 30, 30, 30])
+        XCTAssertEqual(sessions.probedAtEnd, [true, true])
+        assertIdleSleepEnded()
+    }
+
+    func testEndingIdleSleepDoesNotTouchOtherProtections() async throws {
+        preferences.timerEnabled = true
+        preferences.batteryLimitPercent = 40
+        preferences.thermalProtectionEnabled = false
+        preferences.chargingOnlyEnabled = true
+        turnOnIdleSleep()
+        let controller = makeController()
+        try await controller.select(.lidClosed)
+
+        try await controller.select(.off)
+        assertIdleSleepEnded()
+        XCTAssertTrue(preferences.timerEnabled)
+        XCTAssertEqual(preferences.batteryLimitPercent, 40)
+        XCTAssertFalse(preferences.thermalProtectionEnabled)
+        XCTAssertTrue(preferences.chargingOnlyEnabled)
     }
 }

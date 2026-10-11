@@ -131,4 +131,36 @@ final class SafetyPreferencesTests: XCTestCase {
         XCTAssertFalse(preferences.idleSleepEnabled)
         XCTAssertEqual(preferences.idleSleepMinutes, 20)
     }
+
+    func testEndingIdleSleepSessionKeepsMinutesAndSendsNothing() {
+        let preferences = SafetyPreferences(defaults: defaults)
+        preferences.idleSleepEnabled = true
+        preferences.idleSleepMinutes = 30
+        var fired = 0
+        let subscription = preferences.changes.sink { fired += 1 }
+
+        preferences.endIdleSleepSession()
+        subscription.cancel()
+        XCTAssertFalse(preferences.idleSleepEnabled)
+        XCTAssertEqual(preferences.idleSleepMinutes, 30)
+        XCTAssertEqual(preferences.helperSettings.idleSleepMinutes, 0)
+        XCTAssertEqual(fired, 0)
+
+        let reloaded = SafetyPreferences(defaults: defaults)
+        XCTAssertFalse(reloaded.idleSleepEnabled)
+        XCTAssertEqual(reloaded.idleSleepMinutes, 30)
+    }
+
+    func testChangesFireAgainAfterEndingIdleSleepSession() {
+        let preferences = SafetyPreferences(defaults: defaults)
+        preferences.endIdleSleepSession()
+        var fired = 0
+        let subscription = preferences.changes.sink { fired += 1 }
+
+        preferences.idleSleepEnabled = true
+        preferences.endIdleSleepSession()
+        preferences.idleSleepEnabled = true
+        subscription.cancel()
+        XCTAssertEqual(fired, 2)
+    }
 }

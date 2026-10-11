@@ -108,11 +108,13 @@ public final class ModeController: ObservableObject {
                 await leaveCurrentMode()
                 mode = .off
                 recordTurnedOffByUser(previous)
+                modeEnded(previous)
             case .keepScreenOn:
                 let previous = mode
                 await leaveCurrentMode()
                 mode = .off
                 recordTurnedOffByUser(previous)
+                modeEnded(previous)
                 try displayAssertion.acquire()
                 mode = .keepScreenOn
                 activityLog.record(.modeOn(.keepScreenOn))
@@ -166,6 +168,7 @@ public final class ModeController: ObservableObject {
         if endedSession {
             message = .restarted
             activityLog.record(.modeOff(.lidClosed, .previousSession))
+            modeEnded(.lidClosed)
         }
     }
 
@@ -190,6 +193,7 @@ public final class ModeController: ObservableObject {
             }
             message = .turnedOffWithError(error.localizedDescription)
             activityLog.record(.modeOff(.lidClosed, .error(error.localizedDescription)))
+            modeEnded(.lidClosed)
         }
     }
 
@@ -292,11 +296,18 @@ public final class ModeController: ObservableObject {
         )
         // The helper's time, since a stop found after the Mac woke happened before it slept.
         activityLog.record(.modeOff(mode, reason), at: record.time)
+        modeEnded(mode)
     }
 
     private func recordTurnedOffByUser(_ previous: Mode) {
         guard previous != .off else { return }
         activityLog.record(.modeOff(previous, .user))
+    }
+
+    /// Called after the mode is left, so the helper got its last settings with the session still running.
+    private func modeEnded(_ previous: Mode) {
+        guard previous == .lidClosed else { return }
+        preferences.endIdleSleepSession()
     }
 
     private func leaveCurrentMode() async {
