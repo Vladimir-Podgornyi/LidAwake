@@ -192,3 +192,92 @@ public struct SystemBusySignals: BusySignalSource {
         return name.isEmpty ? nil : name
     }
 }
+
+/// Processor time one process has spent since it started.
+public struct ProcessTime: Equatable {
+    public let pid: Int32
+    /// When the process started, so a number reused by a new process is not taken for the old one.
+    public let startTime: UInt64
+    public let name: String
+    /// In the system's own units; only compared with other readings.
+    public let cpuTime: UInt64
+
+    public init(pid: Int32, startTime: UInt64, name: String, cpuTime: UInt64) {
+        self.pid = pid
+        self.startTime = startTime
+        self.name = name
+        self.cpuTime = cpuTime
+    }
+}
+
+public protocol ProcessTimeSource {
+    /// Every process that could be read; nil when the list itself could not be read.
+    func read() -> [ProcessTime]?
+}
+
+/// Reads the processes with documented calls only. Running as root, it sees every process.
+public struct SystemProcessTimes: ProcessTimeSource {
+    public init() {}
+
+    public func read() -> [ProcessTime]? {
+        let capacity = proc_listallpids(nil, 0)
+        guard capacity > 0 else { return nil }
+        // Room for processes started between the two calls.
+        var pids = [pid_t](repeating: 0, count: Int(capacity) + 64)
+        let count = pids.withUnsafeMutableBytes { proc_listallpids($0.baseAddress, Int32($0.count)) }
+        guard count > 0 else { return nil }
+        return pids.prefix(Int(count)).compactMap(Self.time(of:))
+    }
+
+    private static func time(of pid: pid_t) -> ProcessTime? {
+        var usage = rusage_info_v2()
+        let result = withUnsafeMutablePointer(to: &usage) { pointer in
+            pointer.withMemoryRebound(to: rusage_info_t?.self, capacity: 1) {
+                proc_pid_rusage(pid, RUSAGE_INFO_V2, $0)
+            }
+        }
+        guard result == 0 else { return nil }
+        var buffer = [CChar](repeating: 0, count: 256)
+        let name = proc_name(pid, &buffer, UInt32(buffer.count)) > 0 ? String(cString: buffer) : ""
+        return ProcessTime(
+            pid: pid,
+            startTime: usage.ri_proc_start_abstime,
+            name: name,
+            cpuTime: usage.ri_user_time + usage.ri_system_time
+        )
+    }
+}
+
+public enum BusiestProcess {
+    /// The process that spent the most processor time between two readings. A process missing from
+    /// the first reading started in between and counts from zero; one missing from the second has
+    /// ended and does not count. Nil when either reading is missing or nothing spent any time.
+    public static func name(from start: [ProcessTime]?, to end: [ProcessTime]?) -> String? {
+        guard let start, let end else { return nil }
+        var before: [ProcessKey: UInt64] = [:]
+        for process in start {
+            before[ProcessKey(process)] = process.cpuTime
+        }
+        var busiest: (name: String, spent: UInt64)?
+        for process in end where !process.name.isEmpty {
+            let previous = before[ProcessKey(process)] ?? 0
+            guard process.cpuTime > previous else { continue }
+            let spent = process.cpuTime - previous
+            if let current = busiest, current.spent > spent || (current.spent == spent && current.name <= process.name) {
+                continue
+            }
+            busiest = (process.name, spent)
+        }
+        return busiest?.name
+    }
+
+    private struct ProcessKey: Hashable {
+        let pid: Int32
+        let startTime: UInt64
+
+        init(_ process: ProcessTime) {
+            pid = process.pid
+            startTime = process.startTime
+        }
+    }
+}

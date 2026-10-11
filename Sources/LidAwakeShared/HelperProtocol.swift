@@ -36,4 +36,7 @@ import Foundation
     /// and the idle minutes (-1 when not recorded).
     func lastStopReason(reply: @escaping (Int, String?, String?, Double, Int, Int) -> Void)
     func clearStopReason(reply: @escaping (Int, String?) -> Void)
+    /// Replies with a result code, an error message and the idle events collected since the last call,
+    /// written by `IdleEventWire`. The helper keeps no copy of what it hands over.
+    func takeIdleEvents(reply: @escaping (Int, String?, String?) -> Void)
 }

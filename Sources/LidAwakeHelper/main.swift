@@ -7,7 +7,11 @@ private let limitCheckInterval: TimeInterval = 5
 private let maximumLease = 600
 
 // Accessed only on the main queue.
-private let idleWatcher = IdleWatcher(source: SystemBusySignals(), clock: AwakeClock())
+private let idleWatcher = IdleWatcher(
+    source: SystemBusySignals(),
+    clock: AwakeClock(),
+    processes: SystemProcessTimes()
+)
 
 private let session = LidSession(
     flag: PmsetSleepFlag(),
@@ -120,6 +124,12 @@ final class Helper: NSObject, HelperProtocol {
 
     func clearStopReason(reply: @escaping (Int, String?) -> Void) {
         perform(reply: reply) { session.clearStopReason() }
+    }
+
+    func takeIdleEvents(reply: @escaping (Int, String?, String?) -> Void) {
+        DispatchQueue.main.async {
+            reply(HelperResultCode.ok.rawValue, nil, IdleEventWire.encode(idleWatcher.takeEvents()))
+        }
     }
 
     private func withLease(

@@ -29,11 +29,15 @@ public final class IdleWatcher: IdleWatching {
     public static let loadMinutesBeforeReset = 3
     /// The load cannot be averaged over a shorter span than this.
     static let shortestLoadWindow: TimeInterval = 1
+    /// Events kept until the app takes them; older ones make room for newer.
+    public static let eventCapacity = 200
 
     private typealias CPUPoint = (at: TimeInterval, busySeconds: Double)
 
     private let source: BusySignalSource
     private let clock: SessionClock
+    private let processes: ProcessTimeSource
+    private let wallClock: () -> Date
 
     public private(set) var countedMinutes = 0
     private var requiredMinutes = 0
@@ -48,10 +52,24 @@ public final class IdleWatcher: IdleWatching {
     private var lastCores: Double?
     private var lastInputIdleSeconds: Double?
     private var lastHolders: [String]?
+    /// Names of the programs whose requests counted in this minute.
+    private var holderNamesThisMinute: Set<String> = []
+    /// What the last decided minute came down to; nil until a minute is decided after a restart.
+    private var lastCause: IdleCause?
+    /// Process times at the start of the minute; read only while the count runs.
+    private var processesAtMinuteStart: [ProcessTime]?
+    private var events: [IdleEvent] = []
 
-    public init(source: BusySignalSource, clock: SessionClock) {
+    public init(
+        source: BusySignalSource,
+        clock: SessionClock,
+        processes: ProcessTimeSource,
+        wallClock: @escaping () -> Date = Date.init
+    ) {
         self.source = source
         self.clock = clock
+        self.processes = processes
+        self.wallClock = wallClock
     }
 
     public func sample() {
@@ -62,6 +80,7 @@ public final class IdleWatcher: IdleWatching {
         }
         if let holders, !holders.isEmpty {
             sawHolderThisMinute = true
+            holderNamesThisMinute.formUnion(holders)
         }
 
         window.removeAll { now - $0.at > Self.minuteSeconds }
@@ -90,9 +109,18 @@ public final class IdleWatcher: IdleWatching {
         countedMinutes = 0
         loadMinutesInARow = 0
         sawHolderThisMinute = false
+        holderNamesThisMinute = []
+        lastCause = nil
+        processesAtMinuteStart = requiredMinutes > 0 ? processes.read() : nil
         // The counter reading is up to one reading old, so the load of the first minute can come out
         // slightly high. That can only keep the Mac awake, never put it to sleep too early.
         minuteStart = (at: clock.now, busySeconds: window.last?.busySeconds)
+    }
+
+    /// Hands over the events collected since the last call and forgets them.
+    public func takeEvents() -> [IdleEvent] {
+        defer { events = [] }
+        return events
     }
 
     public func status() -> IdleStatus {
@@ -148,9 +176,57 @@ public final class IdleWatcher: IdleWatching {
             loadMinutesInARow = 0
         } else {
             countedMinutes = min(countedMinutes, requiredMinutes)
+            let processesNow = processes.read()
+            note(cause(
+                holder: sawHolderThisMinute,
+                input: busyByInput,
+                load: busyByLoad,
+                processes: processesNow
+            ))
+            processesAtMinuteStart = processesNow
         }
         minuteStart = (at: now, busySeconds: reading.cpuBusySeconds)
         sawHolderThisMinute = false
+        holderNamesThisMinute = []
+    }
+
+    /// What the minute just counted came down to, checked in the order of the count rules above.
+    /// Nil for a minute busy by load that did not clear the count: it changes nothing.
+    private func cause(holder: Bool, input: Bool, load: Bool, processes processesNow: [ProcessTime]?) -> IdleCause? {
+        if holder {
+            let names = holderNamesThisMinute
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { !$0.isEmpty }
+            return .app(names.min() ?? "")
+        }
+        if input {
+            return .input
+        }
+        if load {
+            guard loadMinutesInARow >= Self.loadMinutesBeforeReset else { return nil }
+            return .load(busiest: BusiestProcess.name(from: processesAtMinuteStart, to: processesNow))
+        }
+        return .idle(minutes: requiredMinutes)
+    }
+
+    /// Records a change only: the same cause minute after minute is one event.
+    private func note(_ cause: IdleCause?) {
+        guard let cause, !Self.isSame(cause, as: lastCause) else { return }
+        lastCause = cause
+        events.append(IdleEvent(time: wallClock(), cause: cause))
+        if events.count > Self.eventCapacity {
+            events.removeFirst(events.count - Self.eventCapacity)
+        }
+    }
+
+    // The busiest process may change from minute to minute while the load stays the reason.
+    private static func isSame(_ cause: IdleCause, as previous: IdleCause?) -> Bool {
+        switch (cause, previous) {
+        case (.load, .load?):
+            return true
+        default:
+            return cause == previous
+        }
     }
 
     private static func cores(from start: CPUPoint?, to end: Double?, at now: TimeInterval) -> Double? {
