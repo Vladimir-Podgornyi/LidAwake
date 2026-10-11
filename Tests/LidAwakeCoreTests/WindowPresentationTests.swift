@@ -194,4 +194,31 @@ final class OpeningFocusTests: XCTestCase {
     func testLidClosedFocusesLidClosed() {
         XCTAssertEqual(OpeningFocus.card(selected: .lidClosed), .lidClosed)
     }
+
+    func testFocusOnSelectedCardFollowsNewSelection() {
+        XCTAssertEqual(OpeningFocus.card(focused: .keepScreenOn, previous: .keepScreenOn, selected: .lidClosed), .lidClosed)
+    }
+
+    func testFocusOnOtherCardMovesToNewSelection() {
+        XCTAssertEqual(OpeningFocus.card(focused: .off, previous: .keepScreenOn, selected: .lidClosed), .lidClosed)
+    }
+
+    func testFocusOnCardMovesToOffWhenModeEndsOnItsOwn() {
+        XCTAssertEqual(OpeningFocus.card(focused: .lidClosed, previous: .lidClosed, selected: .off), .off)
+    }
+
+    func testFocusOnCardThatBecomesSelectedStaysOnIt() {
+        XCTAssertEqual(OpeningFocus.card(focused: .lidClosed, previous: .off, selected: .lidClosed), .lidClosed)
+    }
+
+    func testNoFocusOnCardsStaysAsIs() {
+        XCTAssertNil(OpeningFocus.card(focused: nil, previous: .off, selected: .lidClosed))
+        XCTAssertNil(OpeningFocus.card(focused: nil, previous: .lidClosed, selected: .off))
+    }
+
+    func testUnchangedModeKeepsFocus() {
+        XCTAssertEqual(OpeningFocus.card(focused: .off, previous: .keepScreenOn, selected: .keepScreenOn), .off)
+        XCTAssertEqual(OpeningFocus.card(focused: .lidClosed, previous: .lidClosed, selected: .lidClosed), .lidClosed)
+        XCTAssertNil(OpeningFocus.card(focused: nil, previous: .keepScreenOn, selected: .keepScreenOn))
+    }
 }

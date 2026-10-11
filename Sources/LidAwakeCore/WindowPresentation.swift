@@ -22,6 +22,14 @@ public enum OpeningFocus {
     public static func card(selected: Mode) -> Mode {
         selected
     }
+
+    /// The mode card that has keyboard focus after the selected mode went from `previous` to
+    /// `selected`. `focused` is the card that had focus, nil when the focus was elsewhere; a focus
+    /// on a card follows the selection, any other focus stays where it is.
+    public static func card(focused: Mode?, previous: Mode, selected: Mode) -> Mode? {
+        guard focused != nil, previous != selected else { return focused }
+        return selected
+    }
 }
 
 public enum StatusLine {

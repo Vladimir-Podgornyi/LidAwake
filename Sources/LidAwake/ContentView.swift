@@ -22,6 +22,11 @@ struct ContentView: View {
     @State private var fixedHeight: CGFloat = 0
     @State private var scrollingContentHeight: CGFloat = 0
     @FocusState private var focusedCard: Mode?
+    /// The card focus as it was before a mode switch: the cards are disabled while one runs,
+    /// which takes the focus off them.
+    @State private var cardFocus: Mode?
+    /// The selected mode the card focus last followed.
+    @State private var followedMode: Mode = .off
     @State private var isWindowKey = false
     @State private var idleStatus: IdleStatus?
 
@@ -64,17 +69,51 @@ struct ContentView: View {
         .onAppear {
             launchAtLogin.refresh()
             autoLogout.refresh()
+            followedMode = controller.mode
         }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
             launchAtLogin.refresh()
             autoLogout.refresh()
             // After AppKit has given focus to the first card as the window opens.
             DispatchQueue.main.async {
-                focusedCard = OpeningFocus.card(selected: controller.mode)
+                followedMode = controller.mode
+                cardFocus = OpeningFocus.card(selected: controller.mode)
+                focusedCard = cardFocus
             }
         }
-        .onChange(of: controller.mode) { _ in autoLogout.refresh() }
+        .onChange(of: controller.mode) { _ in
+            autoLogout.refresh()
+            followSelection()
+        }
+        .onChange(of: controller.isBusy) { _ in followSelection() }
+        .onChange(of: focusedCard) { focus in
+            if !controller.isBusy {
+                cardFocus = focus
+            }
+        }
         .task(id: idlePoll) { await pollIdleStatus() }
+    }
+
+    /// Once a switch is over, gives a focused card's focus to the selected card, or back to the
+    /// card it was taken from. When the selection changed, the focus is taken off first and given
+    /// on the next turn, after the cards have their new sizes: the system focus ring keeps the
+    /// bounds the card had when it got the focus.
+    private func followSelection() {
+        guard !controller.isBusy else { return }
+        let previous = followedMode
+        followedMode = controller.mode
+        guard let target = OpeningFocus.card(focused: cardFocus, previous: previous, selected: controller.mode) else {
+            return
+        }
+        let selectionChanged = previous != controller.mode
+        guard selectionChanged || focusedCard != target else { return }
+        cardFocus = target
+        if selectionChanged {
+            focusedCard = nil
+        }
+        DispatchQueue.main.async {
+            focusedCard = target
+        }
     }
 
     /// The menu bar window closes when it stops being key, so key means open.
