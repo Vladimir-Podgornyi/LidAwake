@@ -30,6 +30,9 @@ final class ActivityLogWindowController {
             NSApp.activate(ignoringOtherApps: true)
         }
         window.makeKeyAndOrderFront(nil)
+        // With keyboard navigation on, the window puts Clear in focus, and Space would empty the
+        // log right away. The window keeps the keys itself until Tab moves to the button.
+        window.makeFirstResponder(nil)
     }
 
     private func makeWindow() -> NSWindow {
