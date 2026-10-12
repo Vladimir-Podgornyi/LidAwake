@@ -130,6 +130,7 @@
 "On schedule" = "按计划";
 "Run with Lid Closed not turned on" = "未开启“合盖运行”";
 "Not on power" = "未接通电源";
+"Mac was on battery or turned off" = "Mac 使用电池供电或已关机";
 "The timer ended after %@." = "定时器在 %@后结束。";
 "Running on battery" = "使用电池供电";
 "Power connected" = "已接通电源";

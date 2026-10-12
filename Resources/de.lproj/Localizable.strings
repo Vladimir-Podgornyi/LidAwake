@@ -130,6 +130,7 @@
 "On schedule" = "Nach Zeitplan";
 "Run with Lid Closed not turned on" = "„Mit geschlossenem Deckel“ nicht eingeschaltet";
 "Not on power" = "Kein Netzteil angeschlossen";
+"Mac was on battery or turned off" = "Mac lief im Akkubetrieb oder war ausgeschaltet";
 "The timer ended after %@." = "Der Timer ist nach %@ abgelaufen.";
 "Running on battery" = "Akkubetrieb";
 "Power connected" = "Netzteil angeschlossen";

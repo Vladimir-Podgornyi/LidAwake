@@ -133,6 +133,7 @@ public struct ActivityRow: Equatable {
         switch reason {
         case .notOnPower: return String(localized: "Not on power")
         case .error(let message): return errorText(message)
+        case .missed: return String(localized: "Mac was on battery or turned off")
         }
     }
 

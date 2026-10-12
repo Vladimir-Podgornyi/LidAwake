@@ -159,6 +159,13 @@ final class ActivityRowTests: XCTestCase {
         XCTAssertEqual(row(.modeSkipped(.lidClosed, .error(""))).detail, "Something went wrong")
     }
 
+    func testMissedWake() {
+        XCTAssertEqual(
+            row(.modeSkipped(.lidClosed, .missed)),
+            ActivityRow(title: "Run with Lid Closed not turned on", detail: "Mac was on battery or turned off", symbol: .skipped)
+        )
+    }
+
     // MARK: Symbols
 
     func testSymbolOfEveryEvent() {

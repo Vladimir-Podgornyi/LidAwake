@@ -130,6 +130,7 @@
 "On schedule" = "On schedule";
 "Run with Lid Closed not turned on" = "Run with Lid Closed not turned on";
 "Not on power" = "Not on power";
+"Mac was on battery or turned off" = "Mac was on battery or turned off";
 "The timer ended after %@." = "The timer ended after %@.";
 "Running on battery" = "Running on battery";
 "Power connected" = "Power connected";

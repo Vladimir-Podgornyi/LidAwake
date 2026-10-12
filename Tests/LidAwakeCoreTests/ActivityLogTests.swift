@@ -425,6 +425,27 @@ final class ActivityLogTests: XCTestCase {
             "\(stamp) mode-skipped mode=lid-closed reason=error message=\"Say \\\"hi\\\"\""
         )
     }
+
+    func testMissedWakeIsStoredAndPrinted() throws {
+        let log = makeLog()
+        log.record(.modeSkipped(.lidClosed, .missed), at: at(0))
+        XCTAssertEqual(ActivityLog.read(from: fileURL).map(\.event), [.modeSkipped(.lidClosed, .missed)])
+
+        let object = try JSONSerialization.jsonObject(with: Data(contentsOf: fileURL)) as? [String: Any]
+        let entry = try XCTUnwrap((object?["entries"] as? [[String: Any]])?.first)
+        XCTAssertEqual(entry["kind"] as? String, "mode-skipped")
+        XCTAssertEqual(entry["reason"] as? String, "missed")
+        XCTAssertNil(entry["message"])
+
+        let time = ISO8601DateFormatter().date(from: "2026-10-12T12:19:00Z")!
+        XCTAssertEqual(
+            ActivityToken.line(
+                for: ActivityEntry(time: time, event: .modeSkipped(.lidClosed, .missed)),
+                timeZone: TimeZone(secondsFromGMT: 7200)!
+            ),
+            "2026-10-12T14:19:00+02:00 mode-skipped mode=lid-closed reason=missed"
+        )
+    }
 }
 
 private final class FakeSleepMonitor: SystemSleepMonitoring {

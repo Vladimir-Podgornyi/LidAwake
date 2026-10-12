@@ -49,6 +49,8 @@ public enum ModeOffReason: Equatable {
 public enum ModeSkipReason: Equatable {
     case notOnPower
     case error(String)
+    /// The scheduled time passed while the Mac slept or was turned off, and the app never saw the wake.
+    case missed
 }
 
 public struct ActivityEntry: Equatable {
@@ -252,6 +254,8 @@ struct StoredEntry: Codable {
         switch try container.decode(String.self, forKey: .reason) {
         case ActivityToken.notOnPower:
             return .modeSkipped(mode, .notOnPower)
+        case ActivityToken.missed:
+            return .modeSkipped(mode, .missed)
         case ActivityToken.error:
             return .modeSkipped(mode, .error(try container.decodeIfPresent(String.self, forKey: .message) ?? ""))
         default:
@@ -320,6 +324,7 @@ public enum ActivityToken {
     static let error = "error"
     static let previousSession = "previous-session"
     static let notOnPower = "not-on-power"
+    static let missed = "missed"
     static let schedule = "schedule"
 
     private static let stopReasons: [(StopReason, String)] = [
@@ -370,6 +375,7 @@ public enum ActivityToken {
         switch reason {
         case .notOnPower: return notOnPower
         case .error: return error
+        case .missed: return missed
         }
     }
 

@@ -130,6 +130,7 @@
 "On schedule" = "По расписанию";
 "Run with Lid Closed not turned on" = "Режим «С закрытой крышкой» не включён";
 "Not on power" = "Питание не подключено";
+"Mac was on battery or turned off" = "Mac работал от батареи или был выключен";
 "The timer ended after %@." = "Таймер сработал через %@.";
 "Running on battery" = "Mac работает от батареи";
 "Power connected" = "Питание подключено";
