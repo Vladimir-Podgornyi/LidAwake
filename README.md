@@ -140,7 +140,7 @@ LidAwake is developed and tested on a MacBook Air (M1) with macOS 26. Older vers
 
 ## Updates
 
-Once a day LidAwake sends one request to `api.github.com` for the number of the latest release. The request carries no data about you or your Mac; its User-Agent contains only the app version. Only the version number is read from the reply. If a newer version exists, the window shows Update available with a Download button that opens the releases page. A failed check is silent.
+Once a day LidAwake asks `github.com` for the number of the latest release. This is one request; the Intel build sends a second one to see whether that release has an Intel disk image. If `github.com` gives no answer the app can use, it asks `api.github.com` instead. The requests carry no data about you or your Mac; their User-Agent contains only the app version. Only the version number is read from the reply, and nothing is downloaded. If a newer version exists, the window shows Update available with a Download button that opens the releases page. A failed check is silent.
 
 The check is turned off with the Check for updates toggle in Settings; when it is off, no requests are made. Updates are installed by hand: download the new DMG, choose Quit LidAwake, and drag LidAwake over the old copy in Applications. Finder does not replace the app while it is running.
 
