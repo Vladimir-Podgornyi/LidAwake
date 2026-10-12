@@ -98,7 +98,14 @@ public enum HelperPrompt: Equatable {
     }
 
     public var text: String {
+        text(forWake: false)
+    }
+
+    /// For Wake at the approval texts promise nothing about the mode: it does not turn on.
+    public func text(forWake: Bool) -> String {
         switch self {
+        case .approval where forWake, .approvalExpired where forWake:
+            return String(localized: "Allow LidAwake in System Settings > General > Login Items & Extensions.")
         case .approval:
             return String(
                 localized: "Allow LidAwake in System Settings > General > Login Items & Extensions. The mode turns on as soon as you do."
@@ -196,6 +203,7 @@ public struct WindowMessage: Equatable, Identifiable {
     /// empty when there is nothing to say.
     public static func list(
         helper: HelperPrompt?,
+        helperForWake: Bool = false,
         mode: ModeMessage?,
         autoLogout: AutoLogoutNotice? = nil,
         update: UpdateNotice? = nil
@@ -206,7 +214,7 @@ public struct WindowMessage: Equatable, Identifiable {
                 source: .helper,
                 kind: helper.kind,
                 title: helper.title,
-                text: helper.text,
+                text: helper.text(forWake: helperForWake),
                 hint: nil,
                 action: helper.action,
                 actionTitle: helper.actionTitle

@@ -20,6 +20,8 @@ public final class HelperSetup: ObservableObject {
     @Published public private(set) var prompt: HelperPrompt?
     /// True while Run with Lid Closed waits for the helper and will start on its own.
     @Published public private(set) var isWaiting = false
+    /// True when the prompt comes from turning Wake at on rather than from choosing the mode.
+    public var isPromptForWake: Bool { goal == .wake }
     /// True while the helper is being checked or registered.
     @Published public private(set) var isWorking = false
 

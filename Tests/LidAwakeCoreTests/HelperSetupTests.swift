@@ -352,4 +352,62 @@ final class HelperSetupTests: XCTestCase {
         XCTAssertEqual(selected, [.lidClosed])
         XCTAssertEqual(wakeSyncs, 0)
     }
+
+    // MARK: Approval text
+
+    private let wakeApprovalText = "Allow LidAwake in System Settings > General > Login Items & Extensions."
+    private let modeApprovalText =
+        "Allow LidAwake in System Settings > General > Login Items & Extensions. The mode turns on as soon as you do."
+    private let modeExpiredText =
+        "Allow LidAwake in System Settings > General > Login Items & Extensions, then choose Run with Lid Closed again."
+
+    private func helperMessage(_ setup: HelperSetup) -> WindowMessage? {
+        WindowMessage.list(helper: setup.prompt, helperForWake: setup.isPromptForWake, mode: nil).first
+    }
+
+    func testWakeApprovalPromisesNothingAboutTheMode() async {
+        let helper = FakeInstaller(.notInstalled)
+        helper.stateAfterInstall = .requiresApproval
+        let setup = makeSetup(helper)
+        await setup.requestWake()
+        XCTAssertTrue(setup.isPromptForWake)
+        let message = helperMessage(setup)
+        XCTAssertEqual(message?.text, wakeApprovalText)
+        XCTAssertEqual(message?.title, "Permission needed")
+        XCTAssertEqual(message?.actionTitle, "Open System Settings")
+
+        await settle { setup.prompt == .approvalExpired }
+        XCTAssertEqual(setup.prompt, .approvalExpired)
+        let expired = helperMessage(setup)
+        XCTAssertEqual(expired?.text, wakeApprovalText)
+        XCTAssertEqual(expired?.title, "Permission needed")
+        XCTAssertEqual(expired?.action, .openSystemSettings)
+        XCTAssertEqual(expired?.actionTitle, "Open System Settings")
+    }
+
+    func testModeApprovalKeepsItsTexts() async {
+        let (_, setup) = await waitingForApproval()
+        XCTAssertFalse(setup.isPromptForWake)
+        XCTAssertEqual(helperMessage(setup)?.text, modeApprovalText)
+
+        await settle { !setup.isWaiting }
+        XCTAssertEqual(setup.prompt, .approvalExpired)
+        XCTAssertEqual(helperMessage(setup)?.text, modeExpiredText)
+    }
+
+    func testChoosingTheModeAfterTheWakeShowsTheModeText() async {
+        let helper = FakeInstaller(.notInstalled)
+        helper.stateAfterInstall = .requiresApproval
+        let setup = makeSetup(helper)
+        await setup.requestWake()
+        await setup.select(.lidClosed)
+        XCTAssertEqual(setup.prompt, .approval)
+        XCTAssertEqual(helperMessage(setup)?.text, modeApprovalText)
+    }
+
+    func testOtherPromptsReadTheSameOnBothPaths() {
+        for prompt in [HelperPrompt.moveToApplications, .failed("Registration failed.")] {
+            XCTAssertEqual(prompt.text(forWake: true), prompt.text, "\(prompt)")
+        }
+    }
 }

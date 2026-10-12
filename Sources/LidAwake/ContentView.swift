@@ -233,6 +233,7 @@ struct ContentView: View {
     private var messages: [WindowMessage] {
         WindowMessage.list(
             helper: helperSetup.prompt,
+            helperForWake: helperSetup.isPromptForWake,
             mode: controller.message,
             autoLogout: autoLogout.notice(
                 mode: controller.mode,
