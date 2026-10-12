@@ -73,7 +73,13 @@ struct LidAwakeApp: App {
                 updates: appDelegate.updates,
                 autoLogout: appDelegate.autoLogout,
                 idleSource: XPCHelperConnection(),
-                openActivityLog: { appDelegate.activityLogWindow.show() }
+                openActivityLog: {
+                    // The row is in the menu bar window, which is key while it is open.
+                    if let window = NSApp.keyWindow {
+                        MenuBarWindow.close(window)
+                    }
+                    appDelegate.activityLogWindow.show()
+                }
             )
         } label: {
             MenuBarIcon(controller: appDelegate.modeController)
