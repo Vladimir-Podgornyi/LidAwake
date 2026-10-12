@@ -7,6 +7,8 @@ public protocol SystemSleepMonitoring: AnyObject {
 
 @MainActor
 public protocol SystemWakeHandling: AnyObject {
+    /// Called after the sleep is recorded in the log.
+    func macWillSleep()
     /// Records the wake in the log and acts on it.
     func macDidWake()
 }
@@ -38,6 +40,7 @@ public final class SystemSleepRecorder {
     private func changed(asleep: Bool) {
         if asleep {
             log.record(.sleep)
+            wakeHandler?.macWillSleep()
         } else if let wakeHandler {
             wakeHandler.macDidWake()
         } else {

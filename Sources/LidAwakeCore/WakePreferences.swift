@@ -8,6 +8,7 @@ public final class WakePreferences: ObservableObject {
     public enum Key {
         public static let wakeEnabled = "wakeEnabled"
         public static let wakeMinuteOfDay = "wakeMinuteOfDay"
+        public static let scheduledWakeTimes = "scheduledWakeTimes"
     }
 
     public static let defaultMinuteOfDay = 480
@@ -34,6 +35,13 @@ public final class WakePreferences: ObservableObject {
         wakeEnabled = defaults.bool(forKey: Key.wakeEnabled)
         let minute = defaults.integer(forKey: Key.wakeMinuteOfDay)
         wakeMinuteOfDay = ScheduledWake.minutes.contains(minute) ? minute : Self.defaultMinuteOfDay
+    }
+
+    /// The wakes the helper reported last, kept so a wake missed before a restart can still be found.
+    /// Saving them does not fire `changes`.
+    public var scheduledWakeTimes: [Date] {
+        get { defaults.array(forKey: Key.scheduledWakeTimes)?.compactMap { $0 as? Date } ?? [] }
+        set { defaults.set(newValue, forKey: Key.scheduledWakeTimes) }
     }
 
     /// The value for the helper's `setScheduledWake`.

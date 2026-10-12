@@ -39,6 +39,16 @@ public final class SystemClockChangeMonitor: ClockChangeMonitoring {
     }
 }
 
+public enum SystemBoot {
+    /// When the system was started, from `kern.boottime`; nil if it cannot be read.
+    public static func time() -> Date? {
+        var value = timeval()
+        var size = MemoryLayout<timeval>.size
+        guard sysctlbyname("kern.boottime", &value, &size, nil, 0) == 0 else { return nil }
+        return Date(timeIntervalSince1970: TimeInterval(value.tv_sec) + TimeInterval(value.tv_usec) / 1_000_000)
+    }
+}
+
 /// Keeps the helper's wakes in line with the setting and tells a wake on schedule from any other.
 @MainActor
 public final class WakeScheduler: ObservableObject, SystemWakeHandling {
@@ -59,8 +69,11 @@ public final class WakeScheduler: ObservableObject, SystemWakeHandling {
     private let log: ActivityLogging
     private let clockMonitor: ClockChangeMonitoring
     private let now: () -> Date
+    private let bootTime: () -> Date?
     private var preferenceChanges: AnyCancellable?
     private var generation = 0
+    /// When the workspace last reported the Mac going to sleep; the dark wakes in between are not reported.
+    private var lastSleep: Date?
 
     public init(
         preferences: WakePreferences,
@@ -69,7 +82,8 @@ public final class WakeScheduler: ObservableObject, SystemWakeHandling {
         mode: ScheduledModeStarting,
         log: ActivityLogging,
         clockMonitor: ClockChangeMonitoring = SystemClockChangeMonitor(),
-        now: @escaping () -> Date = Date.init
+        now: @escaping () -> Date = Date.init,
+        bootTime: @escaping () -> Date? = SystemBoot.time
     ) {
         self.preferences = preferences
         self.helper = helper
@@ -78,6 +92,8 @@ public final class WakeScheduler: ObservableObject, SystemWakeHandling {
         self.log = log
         self.clockMonitor = clockMonitor
         self.now = now
+        self.bootTime = bootTime
+        scheduledWakes = preferences.scheduledWakeTimes
         preferenceChanges = preferences.changes.sink { [weak self] in
             Task { @MainActor in await self?.sync() }
         }
@@ -85,8 +101,16 @@ public final class WakeScheduler: ObservableObject, SystemWakeHandling {
 
     public func start() {
         clockMonitor.start { [weak self] in
-            Task { @MainActor in await self?.sync() }
+            Task { @MainActor in await self?.syncIfNeeded() }
         }
+    }
+
+    /// Records the wakes missed while the Mac was turned off, then agrees with the helper.
+    public func appDidLaunch() async {
+        if let boot = bootTime() {
+            recordMissedWakes { $0 < boot }
+        }
+        await syncIfNeeded()
     }
 
     /// True when the setting is on and `time` is within the window around a wake the helper reported.
@@ -97,18 +121,55 @@ public final class WakeScheduler: ObservableObject, SystemWakeHandling {
         }
     }
 
+    public func macWillSleep() {
+        lastSleep = now()
+    }
+
     public func macDidWake() {
+        let asleepSince = lastSleep
         guard isScheduledWake(at: now()) else {
             log.record(.wake)
-            Task { await sync() }
+            recordMissedWakes(sleptSince: asleepSince)
+            Task { await syncIfNeeded() }
             return
         }
         log.record(.scheduledWake)
         // The display goes dark about nine seconds after the wake, so the mode comes first.
         Task {
             await mode.turnOnBySchedule()
+            recordMissedWakes(sleptSince: asleepSince)
             await sync()
         }
+    }
+
+    private func recordMissedWakes(sleptSince sleep: Date?) {
+        recordMissedWakes { time in sleep.map { $0 < time } ?? false }
+    }
+
+    /// Records each remembered wake that passed more than `latestAfterWake` ago and that `missed`
+    /// says the Mac slept through or was off for. Every such wake is then forgotten, so none is
+    /// looked at twice, even if the helper cannot be reached to replace the list.
+    private func recordMissedWakes(_ missed: (Date) -> Bool) {
+        let cutoff = now().addingTimeInterval(-Self.latestAfterWake)
+        let past = scheduledWakes.filter { $0 < cutoff }
+        guard !past.isEmpty else { return }
+        if preferences.wakeEnabled {
+            for time in past where missed(time) {
+                log.record(.modeSkipped(.lidClosed, .missed), at: time)
+            }
+        }
+        remember(scheduledWakes.filter { $0 >= cutoff })
+    }
+
+    /// With the setting off and no wakes left there is nothing to schedule or cancel.
+    private func syncIfNeeded() async {
+        guard preferences.wakeEnabled || !scheduledWakes.isEmpty else { return }
+        await sync()
+    }
+
+    private func remember(_ wakes: [Date]) {
+        scheduledWakes = wakes
+        preferences.scheduledWakeTimes = wakes
     }
 
     /// Sends the setting to the helper, if it is ready, and reads back the wakes it keeps.
@@ -122,7 +183,7 @@ public final class WakeScheduler: ObservableObject, SystemWakeHandling {
             let wakes = try await service.scheduledWakes()
             // An answer to an older call must not replace a newer one.
             guard current == generation else { return }
-            scheduledWakes = wakes
+            remember(wakes)
             lastError = nil
         } catch {
             guard current == generation else { return }

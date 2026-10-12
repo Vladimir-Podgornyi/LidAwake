@@ -53,7 +53,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task {
             await helperClient.updateIfOutdated()
             await modeController.clearLeftover()
-            await wakeScheduler.sync()
+            await wakeScheduler.appDidLaunch()
         }
     }
 
