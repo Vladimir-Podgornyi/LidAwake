@@ -37,6 +37,7 @@ private final class FakeHelper: HelperPreparing {
     }
 }
 
+@MainActor
 private final class FakeSessions: LidSessionService {
     var startError: Error?
     var renewError: Error?
@@ -158,6 +159,7 @@ private final class FakeActivityLog: ActivityLogging {
     }
 }
 
+@MainActor
 private final class FakeIdleEvents: IdleEventFetching {
     var pending: [IdleEvent] = []
     var error: Error?

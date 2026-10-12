@@ -27,6 +27,7 @@ private final class FakeInstaller: HelperInstalling {
     }
 }
 
+@MainActor
 private final class FakeClock {
     var now: TimeInterval = 1000
     private(set) var sleeps = 0
