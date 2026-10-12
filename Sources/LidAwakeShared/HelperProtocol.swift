@@ -2,6 +2,9 @@ import Foundation
 
 @objc public protocol HelperProtocol {
     func protocolVersion(reply: @escaping (Int) -> Void)
+    /// Replies with the `HelperBuild` identifier of the executable the running helper was started from
+    /// (nil when it could not be read).
+    func buildIdentifier(reply: @escaping (String?) -> Void)
     func startSession(
         leaseSeconds: Int,
         timerSeconds: Int,

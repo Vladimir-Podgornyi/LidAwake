@@ -5,6 +5,7 @@ import LidAwakeShared
 private let idleTimeout: TimeInterval = 120
 private let limitCheckInterval: TimeInterval = 5
 private let maximumLease = 600
+private let runningBuild = HelperBuild.identifier(ofImage: #dsohandle)
 
 // Accessed only on the main queue.
 private let idleWatcher = IdleWatcher(
@@ -27,6 +28,10 @@ private let session = LidSession(
 final class Helper: NSObject, HelperProtocol {
     func protocolVersion(reply: @escaping (Int) -> Void) {
         reply(HelperConstants.protocolVersion)
+    }
+
+    func buildIdentifier(reply: @escaping (String?) -> Void) {
+        reply(runningBuild)
     }
 
     func startSession(
