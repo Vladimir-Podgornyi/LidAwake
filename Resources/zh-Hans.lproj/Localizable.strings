@@ -127,7 +127,7 @@
 "Mac went to sleep" = "Mac 已进入睡眠";
 "Mac woke up" = "Mac 已唤醒";
 "By you" = "手动";
-"The timer ended after %@." = "定时器在 %@ 后结束。";
+"The timer ended after %@." = "定时器在 %@后结束。";
 "Running on battery" = "使用电池供电";
 "Power connected" = "已接通电源";
 "The app asked macOS not to sleep." = "该应用请求 macOS 不要进入睡眠。";

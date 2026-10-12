@@ -185,7 +185,7 @@ final class LocalizationTests: XCTestCase {
             "Yesterday": ["de": "Gestern", "ru": "Вчера", "zh-Hans": "昨天"],
             "Last 200 events · kept only on this Mac": [
                 "de": "Die letzten 200 Ereignisse · nur auf diesem Mac",
-                "ru": "Последние 200 событий · хранятся только на этом Mac",
+                "ru": "Последние 200 событий · только на этом Mac",
                 "zh-Hans": "最近 200 条记录 · 仅保存在这台 Mac 上",
             ],
             "Clear": ["de": "Löschen", "ru": "Очистить", "zh-Hans": "清除"],
@@ -219,12 +219,12 @@ final class LocalizationTests: XCTestCase {
             "The timer ended after %@.": [
                 "de": "Der Timer ist nach %@ abgelaufen.",
                 "ru": "Таймер сработал через %@.",
-                "zh-Hans": "定时器在 %@ 后结束。",
+                "zh-Hans": "定时器在 %@后结束。",
             ],
             "Running on battery": ["de": "Akkubetrieb", "ru": "Mac работает от батареи", "zh-Hans": "使用电池供电"],
             "Power connected": ["de": "Netzteil angeschlossen", "ru": "Питание подключено", "zh-Hans": "已接通电源"],
             "The app asked macOS not to sleep.": [
-                "de": "Die App hat macOS gebeten, nicht in den Ruhezustand zu gehen.",
+                "de": "Die App bat macOS, wach zu bleiben.",
                 "ru": "Программа попросила macOS не засыпать.",
                 "zh-Hans": "该应用请求 macOS 不要进入睡眠。",
             ],

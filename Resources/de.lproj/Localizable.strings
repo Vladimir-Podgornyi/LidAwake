@@ -130,7 +130,7 @@
 "The timer ended after %@." = "Der Timer ist nach %@ abgelaufen.";
 "Running on battery" = "Akkubetrieb";
 "Power connected" = "Netzteil angeschlossen";
-"The app asked macOS not to sleep." = "Die App hat macOS gebeten, nicht in den Ruhezustand zu gehen.";
+"The app asked macOS not to sleep." = "Die App bat macOS, wach zu bleiben.";
 "Busiest app: %@" = "Aktivste App: %@";
 "No work detected, counting %lld minutes" = "Keine Arbeit erkannt, es werden %lld Minuten gezählt";
 "LidAwake was restarted." = "LidAwake wurde neu gestartet.";
