@@ -17,6 +17,8 @@ public enum WindowBlock: Hashable {
     case checkForUpdates
     case appearance
     case accent
+    /// Opens the activity log window.
+    case activityLog
     /// The divider above the Quit row.
     case closingDivider
 
@@ -32,7 +34,7 @@ public enum WindowBlock: Hashable {
             if showsAppearance {
                 blocks.append(.appearance)
             }
-            blocks.append(.accent)
+            blocks += [.accent, .activityLog]
         }
         blocks.append(.closingDivider)
         return blocks
@@ -90,7 +92,7 @@ public enum WindowBlockGroup: Hashable {
 extension WindowBlock {
     var isGeneralSettingRow: Bool {
         switch self {
-        case .lockScreen, .launchAtLogin, .checkForUpdates, .appearance, .accent: return true
+        case .lockScreen, .launchAtLogin, .checkForUpdates, .appearance, .accent, .activityLog: return true
         case .timer, .settingsToggle, .safety, .dimmedSafety, .settingsDivider, .closingDivider: return false
         }
     }

@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import LidAwakeShared
 
@@ -63,7 +64,7 @@ extension ActivityLogging {
 
 /// Keeps the newest events in a file on this Mac, ordered by when they happened.
 @MainActor
-public final class ActivityLog: ActivityLogging {
+public final class ActivityLog: ActivityLogging, ObservableObject {
     public static let capacity = 200
 
     public nonisolated static var defaultFileURL: URL {
@@ -102,11 +103,13 @@ public final class ActivityLog: ActivityLogging {
         if list.count > Self.capacity {
             list.removeFirst(list.count - Self.capacity)
         }
+        objectWillChange.send()
         loaded = list
         save(list)
     }
 
     public func clear() {
+        objectWillChange.send()
         loaded = []
         save([])
     }

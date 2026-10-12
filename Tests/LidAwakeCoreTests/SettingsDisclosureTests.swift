@@ -70,12 +70,12 @@ final class WindowBlockTests: XCTestCase {
         for mode in [Mode.off, .lidClosed] {
             XCTAssertEqual(
                 WindowBlock.list(mode: mode, isExpanded: true, showsAppearance: true),
-                [.settingsToggle, .safety, .settingsDivider, .lockScreen, .launchAtLogin, .checkForUpdates, .appearance, .accent, .closingDivider],
+                [.settingsToggle, .safety, .settingsDivider, .lockScreen, .launchAtLogin, .checkForUpdates, .appearance, .accent, .activityLog, .closingDivider],
                 "\(mode)"
             )
             XCTAssertEqual(
                 WindowBlock.list(mode: mode, isExpanded: true, showsAppearance: false),
-                [.settingsToggle, .safety, .settingsDivider, .lockScreen, .launchAtLogin, .checkForUpdates, .accent, .closingDivider],
+                [.settingsToggle, .safety, .settingsDivider, .lockScreen, .launchAtLogin, .checkForUpdates, .accent, .activityLog, .closingDivider],
                 "\(mode)"
             )
         }
@@ -93,12 +93,28 @@ final class WindowBlockTests: XCTestCase {
     func testKeepScreenOnExpanded() {
         XCTAssertEqual(
             WindowBlock.list(mode: .keepScreenOn, isExpanded: true, showsAppearance: true),
-            [.timer, .settingsToggle, .dimmedSafety, .settingsDivider, .launchAtLogin, .checkForUpdates, .appearance, .accent, .closingDivider]
+            [.timer, .settingsToggle, .dimmedSafety, .settingsDivider, .launchAtLogin, .checkForUpdates, .appearance, .accent, .activityLog, .closingDivider]
         )
         XCTAssertEqual(
             WindowBlock.list(mode: .keepScreenOn, isExpanded: true, showsAppearance: false),
-            [.timer, .settingsToggle, .dimmedSafety, .settingsDivider, .launchAtLogin, .checkForUpdates, .accent, .closingDivider]
+            [.timer, .settingsToggle, .dimmedSafety, .settingsDivider, .launchAtLogin, .checkForUpdates, .accent, .activityLog, .closingDivider]
         )
+    }
+
+    func testActivityLogIsTheLastGeneralRowInEveryPosition() {
+        for mode in Mode.allCases {
+            for appearance in [false, true] {
+                let blocks = WindowBlock.list(mode: mode, isExpanded: true, showsAppearance: appearance)
+                XCTAssertEqual(blocks.suffix(3), [.accent, .activityLog, .closingDivider], "\(mode)")
+                XCTAssertEqual(blocks.filter(\.isGeneralSettingRow).last, .activityLog, "\(mode)")
+            }
+        }
+    }
+
+    func testActivityLogCollapsesWithTheSettings() {
+        for mode in Mode.allCases {
+            XCTAssertFalse(WindowBlock.list(mode: mode, isExpanded: false, showsAppearance: true).contains(.activityLog))
+        }
     }
 
     func testBlocksAreUnique() {

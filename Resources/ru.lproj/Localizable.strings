@@ -108,3 +108,29 @@
 "Dismiss" = "Скрыть";
 "Privacy & Security > Advanced… > Log out automatically after inactivity" = "«Конфиденциальность и безопасность» > «Дополнительно…» > «Автоматически выходить из системы после бездействия»";
 "Automatic logout after %@ of inactivity is on. The mode ends when macOS logs you out." = "Включён автоматический выход через %@ бездействия. Когда macOS выйдет из учётной записи, режим закончится.";
+
+/* Activity log */
+"Activity log" = "Журнал событий";
+"Activity Log" = "Журнал событий";
+"Today" = "Сегодня";
+"Yesterday" = "Вчера";
+"Last 200 events · kept only on this Mac" = "Последние 200 событий · хранятся только на этом Mac";
+"Clear" = "Очистить";
+"No events yet" = "Событий пока нет";
+"Run with Lid Closed turned on" = "Режим «С закрытой крышкой» включён";
+"Run with Lid Closed turned off" = "Режим «С закрытой крышкой» выключен";
+"Keep Screen On turned on" = "Режим «Не гасить экран» включён";
+"Keep Screen On turned off" = "Режим «Не гасить экран» выключен";
+"Paused" = "Пауза";
+"Resumed" = "Режим продолжен";
+"Idle" = "Простой";
+"Mac went to sleep" = "Mac уснул";
+"Mac woke up" = "Mac проснулся";
+"By you" = "Вручную";
+"The timer ended after %@." = "Таймер сработал через %@.";
+"Running on battery" = "Mac работает от батареи";
+"Power connected" = "Питание подключено";
+"The app asked macOS not to sleep." = "Программа попросила macOS не засыпать.";
+"Busiest app: %@" = "Больше всего грузит: %@";
+"No work detected, counting %lld minutes" = "Работы не видно, отсчёт %lld мин";
+"LidAwake was restarted." = "LidAwake перезапустился.";

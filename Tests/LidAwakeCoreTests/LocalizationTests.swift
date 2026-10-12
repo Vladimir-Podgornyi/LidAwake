@@ -177,6 +177,80 @@ final class LocalizationTests: XCTestCase {
         }
     }
 
+    func testActivityLogStrings() throws {
+        let expected: [String: [String: String]] = [
+            "Activity log": ["de": "Aktivitätsprotokoll", "ru": "Журнал событий", "zh-Hans": "活动日志"],
+            "Activity Log": ["de": "Aktivitätsprotokoll", "ru": "Журнал событий", "zh-Hans": "活动日志"],
+            "Today": ["de": "Heute", "ru": "Сегодня", "zh-Hans": "今天"],
+            "Yesterday": ["de": "Gestern", "ru": "Вчера", "zh-Hans": "昨天"],
+            "Last 200 events · kept only on this Mac": [
+                "de": "Die letzten 200 Ereignisse · nur auf diesem Mac",
+                "ru": "Последние 200 событий · хранятся только на этом Mac",
+                "zh-Hans": "最近 200 条记录 · 仅保存在这台 Mac 上",
+            ],
+            "Clear": ["de": "Löschen", "ru": "Очистить", "zh-Hans": "清除"],
+            "No events yet": ["de": "Noch keine Ereignisse", "ru": "Событий пока нет", "zh-Hans": "暂无记录"],
+            "Run with Lid Closed turned on": [
+                "de": "„Mit geschlossenem Deckel“ eingeschaltet",
+                "ru": "Режим «С закрытой крышкой» включён",
+                "zh-Hans": "已开启“合盖运行”",
+            ],
+            "Run with Lid Closed turned off": [
+                "de": "„Mit geschlossenem Deckel“ ausgeschaltet",
+                "ru": "Режим «С закрытой крышкой» выключен",
+                "zh-Hans": "已关闭“合盖运行”",
+            ],
+            "Keep Screen On turned on": [
+                "de": "„Bildschirm anlassen“ eingeschaltet",
+                "ru": "Режим «Не гасить экран» включён",
+                "zh-Hans": "已开启“保持屏幕常亮”",
+            ],
+            "Keep Screen On turned off": [
+                "de": "„Bildschirm anlassen“ ausgeschaltet",
+                "ru": "Режим «Не гасить экран» выключен",
+                "zh-Hans": "已关闭“保持屏幕常亮”",
+            ],
+            "Paused": ["de": "Pausiert", "ru": "Пауза", "zh-Hans": "已暂停"],
+            "Resumed": ["de": "Fortgesetzt", "ru": "Режим продолжен", "zh-Hans": "已恢复"],
+            "Idle": ["de": "Leerlauf", "ru": "Простой", "zh-Hans": "空闲"],
+            "Mac went to sleep": ["de": "Mac im Ruhezustand", "ru": "Mac уснул", "zh-Hans": "Mac 已进入睡眠"],
+            "Mac woke up": ["de": "Mac aufgewacht", "ru": "Mac проснулся", "zh-Hans": "Mac 已唤醒"],
+            "By you": ["de": "Manuell", "ru": "Вручную", "zh-Hans": "手动"],
+            "The timer ended after %@.": [
+                "de": "Der Timer ist nach %@ abgelaufen.",
+                "ru": "Таймер сработал через %@.",
+                "zh-Hans": "定时器在 %@ 后结束。",
+            ],
+            "Running on battery": ["de": "Akkubetrieb", "ru": "Mac работает от батареи", "zh-Hans": "使用电池供电"],
+            "Power connected": ["de": "Netzteil angeschlossen", "ru": "Питание подключено", "zh-Hans": "已接通电源"],
+            "The app asked macOS not to sleep.": [
+                "de": "Die App hat macOS gebeten, nicht in den Ruhezustand zu gehen.",
+                "ru": "Программа попросила macOS не засыпать.",
+                "zh-Hans": "该应用请求 macOS 不要进入睡眠。",
+            ],
+            "Busiest app: %@": ["de": "Aktivste App: %@", "ru": "Больше всего грузит: %@", "zh-Hans": "占用最高：%@"],
+            "No work detected, counting %lld minutes": [
+                "de": "Keine Arbeit erkannt, es werden %lld\u{00A0}Minuten gezählt",
+                "ru": "Работы не видно, отсчёт %lld\u{00A0}мин",
+                "zh-Hans": "未检测到任务，开始计时 %lld 分钟",
+            ],
+            "LidAwake was restarted.": [
+                "de": "LidAwake wurde neu gestartet.",
+                "ru": "LidAwake перезапустился.",
+                "zh-Hans": "LidAwake 已重新启动。",
+            ],
+        ]
+        XCTAssertEqual(expected.count, 24)
+        let english = try table("en")
+        for (key, translations) in expected {
+            XCTAssertEqual(english[key], key)
+            XCTAssertEqual(Set(translations.keys), ["de", "ru", "zh-Hans"], key)
+            for (language, value) in translations {
+                XCTAssertEqual(try table(language)[key], value, "\(language): \(key)")
+            }
+        }
+    }
+
     func testBatteryLimitNoticeWithOnlyWhileCharging() throws {
         let key = "Not used with Only while charging"
         let expected = [

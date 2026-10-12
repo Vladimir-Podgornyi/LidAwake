@@ -108,3 +108,29 @@
 "Dismiss" = "Dismiss";
 "Privacy & Security > Advanced… > Log out automatically after inactivity" = "Privacy & Security > Advanced… > Log out automatically after inactivity";
 "Automatic logout after %@ of inactivity is on. The mode ends when macOS logs you out." = "Automatic logout after %@ of inactivity is on. The mode ends when macOS logs you out.";
+
+/* Activity log */
+"Activity log" = "Activity log";
+"Activity Log" = "Activity Log";
+"Today" = "Today";
+"Yesterday" = "Yesterday";
+"Last 200 events · kept only on this Mac" = "Last 200 events · kept only on this Mac";
+"Clear" = "Clear";
+"No events yet" = "No events yet";
+"Run with Lid Closed turned on" = "Run with Lid Closed turned on";
+"Run with Lid Closed turned off" = "Run with Lid Closed turned off";
+"Keep Screen On turned on" = "Keep Screen On turned on";
+"Keep Screen On turned off" = "Keep Screen On turned off";
+"Paused" = "Paused";
+"Resumed" = "Resumed";
+"Idle" = "Idle";
+"Mac went to sleep" = "Mac went to sleep";
+"Mac woke up" = "Mac woke up";
+"By you" = "By you";
+"The timer ended after %@." = "The timer ended after %@.";
+"Running on battery" = "Running on battery";
+"Power connected" = "Power connected";
+"The app asked macOS not to sleep." = "The app asked macOS not to sleep.";
+"Busiest app: %@" = "Busiest app: %@";
+"No work detected, counting %lld minutes" = "No work detected, counting %lld minutes";
+"LidAwake was restarted." = "LidAwake was restarted.";

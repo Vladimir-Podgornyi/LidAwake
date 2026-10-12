@@ -14,6 +14,7 @@ struct ContentView: View {
     @ObservedObject var updates: UpdateChecker
     @ObservedObject var autoLogout: AutoLogoutMonitor
     let idleSource: IdleStatusReading
+    let openActivityLog: () -> Void
     var heightLimit: HeightLimit = .screen
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
@@ -294,6 +295,7 @@ struct ContentView: View {
         case .checkForUpdates: updatesRow
         case .appearance: appearanceRow
         case .accent: accentRow
+        case .activityLog: ActivityLogOpenRow(action: openActivityLog)
         }
     }
 
@@ -725,6 +727,29 @@ private struct SettingsToggleRow: View {
         .buttonStyle(.plain)
         .accessibilityLabel(Text("Settings"))
         .accessibilityValue(Text(isExpanded ? "Expanded" : "Collapsed"))
+    }
+}
+
+private struct ActivityLogOpenRow: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack {
+                Text("Activity log")
+                    .font(.system(size: 13))
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 14)
+                    .accessibilityHidden(true)
+            }
+            .frame(minHeight: 36)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text("Activity log"))
     }
 }
 

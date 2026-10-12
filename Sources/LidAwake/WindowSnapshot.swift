@@ -9,6 +9,7 @@ import SwiftUI
 /// to 600 points, Keep Screen On expanded with both banners, Run with Lid Closed expanded with
 /// Only while charging on, and Run with Lid Closed expanded with Sleep when idle on and a made-up
 /// idle state, without touching the helper, the login item, the display, the network or the saved settings.
+/// It also draws the activity log window from made-up entries, with the log file left alone.
 enum WindowSnapshot {
     static let flag = "--render-window"
 
@@ -35,6 +36,11 @@ enum WindowSnapshot {
         do {
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
             for shot in Shot.all {
+                let file = folder.appendingPathComponent(shot.fileName)
+                try render(shot).write(to: file)
+                print(file.path)
+            }
+            for shot in LogShot.all {
                 let file = folder.appendingPathComponent(shot.fileName)
                 try render(shot).write(to: file)
                 print(file.path)
@@ -191,6 +197,7 @@ enum WindowSnapshot {
                 defaults: defaults
             ),
             idleSource: FixedIdleStatus(status: shot.idle),
+            openActivityLog: {},
             // The offscreen window has no screen, so the limit is set here or not at all.
             heightLimit: .fixed(shot.maxHeight)
         )
@@ -215,7 +222,38 @@ enum WindowSnapshot {
         RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.3))
         host.layoutSubtreeIfNeeded()
         defer { window.close() }
+        return try png(of: host, appearance: appearance)
+    }
 
+    @MainActor
+    private static func render(_ shot: LogShot) throws -> Data {
+        let content = ActivityLogContent(
+            entries: shot.isEmpty ? [] : LogShot.entries,
+            now: LogShot.now,
+            accent: Palette.accent(.blue),
+            clear: {}
+        )
+        let host = NSHostingView(rootView: content)
+        host.sizingOptions = []
+        let window = SnapshotWindow(
+            contentRect: NSRect(x: -10_000, y: -10_000, width: ActivityLogWindowController.width, height: shot.height),
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        window.isReleasedWhenClosed = false
+        window.appearance = shot.appearance
+        window.contentView = host
+        window.setFrameOrigin(NSPoint(x: -10_000, y: -10_000))
+        window.makeKeyAndOrderFront(nil)
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.5))
+        host.layoutSubtreeIfNeeded()
+        defer { window.close() }
+        return try png(of: host, appearance: shot.appearance)
+    }
+
+    @MainActor
+    private static func png(of host: NSView, appearance: NSAppearance) throws -> Data {
         let size = host.bounds.size
         let scale: CGFloat = 2
         guard let bitmap = NSBitmapImageRep(
@@ -246,6 +284,63 @@ enum WindowSnapshot {
             throw CocoaError(.fileWriteUnknown)
         }
         return png
+    }
+}
+
+/// The log window with entries of every kind over three days, or with none. The shots are drawn
+/// in the window's content only, without the title bar.
+private struct LogShot {
+    let isDark: Bool
+    let isEmpty: Bool
+
+    static let all = [
+        LogShot(isDark: false, isEmpty: false),
+        LogShot(isDark: true, isEmpty: false),
+        LogShot(isDark: false, isEmpty: true),
+    ]
+
+    var fileName: String {
+        "log-\(isEmpty ? "empty-" : "")\(isDark ? "dark" : "light").png"
+    }
+
+    /// Taller than the window opens, so every entry is in the picture; the empty log keeps the
+    /// opening height.
+    var height: CGFloat {
+        isEmpty ? ActivityLogWindowController.initialHeight : 780
+    }
+
+    var appearance: NSAppearance {
+        NSAppearance(named: isDark ? .darkAqua : .aqua)!
+    }
+
+    static let now = time(day: 12, hour: 15, minute: 40)
+
+    static let entries: [ActivityEntry] = [
+        ActivityEntry(time: time(day: 10, hour: 9, minute: 12), event: .modeOn(.keepScreenOn)),
+        ActivityEntry(
+            time: time(day: 10, hour: 10, minute: 12),
+            event: .modeOff(.keepScreenOn, .stopped(.timer, timerSeconds: 3600))
+        ),
+        ActivityEntry(time: time(day: 10, hour: 21, minute: 30), event: .modeOn(.lidClosed)),
+        ActivityEntry(time: time(day: 10, hour: 22, minute: 5), event: .paused),
+        ActivityEntry(time: time(day: 10, hour: 22, minute: 20), event: .resumed),
+        ActivityEntry(time: time(day: 11, hour: 8, minute: 30), event: .keptAwakeByApp("Example App")),
+        ActivityEntry(time: time(day: 11, hour: 9, minute: 45), event: .keptAwakeByLoad(busiest: "example-tool")),
+        ActivityEntry(time: time(day: 11, hour: 10, minute: 2), event: .keptAwakeByInput),
+        ActivityEntry(time: time(day: 11, hour: 10, minute: 3), event: .idleStarted(minutes: 20)),
+        ActivityEntry(
+            time: time(day: 11, hour: 10, minute: 23),
+            event: .modeOff(.lidClosed, .stopped(.idle, idleMinutes: 20))
+        ),
+        ActivityEntry(time: time(day: 11, hour: 10, minute: 24), event: .sleep),
+        ActivityEntry(time: time(day: 12, hour: 7, minute: 58), event: .wake),
+        ActivityEntry(time: time(day: 12, hour: 8, minute: 5), event: .modeOn(.lidClosed)),
+        ActivityEntry(time: time(day: 12, hour: 9, minute: 40), event: .modeOff(.lidClosed, .user)),
+    ]
+
+    /// October 2026 in the time zone of this Mac, so the times read the same everywhere.
+    private static func time(day: Int, hour: Int, minute: Int) -> Date {
+        Calendar.autoupdatingCurrent.date(from: DateComponents(year: 2026, month: 10, day: day, hour: hour, minute: minute))!
     }
 }
 

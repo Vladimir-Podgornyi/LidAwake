@@ -152,7 +152,7 @@ final class WindowBlockGroupTests: XCTestCase {
         XCTAssertEqual(WindowBlockGroup.groups(blocks), [
             .block(.settingsToggle),
             .block(.safety),
-            .compactRows([.settingsDivider, .lockScreen, .launchAtLogin, .checkForUpdates, .appearance, .accent, .closingDivider]),
+            .compactRows([.settingsDivider, .lockScreen, .launchAtLogin, .checkForUpdates, .appearance, .accent, .activityLog, .closingDivider]),
         ])
     }
 
@@ -162,7 +162,7 @@ final class WindowBlockGroupTests: XCTestCase {
             .block(.timer),
             .block(.settingsToggle),
             .block(.dimmedSafety),
-            .compactRows([.settingsDivider, .launchAtLogin, .checkForUpdates, .accent, .closingDivider]),
+            .compactRows([.settingsDivider, .launchAtLogin, .checkForUpdates, .accent, .activityLog, .closingDivider]),
         ])
     }
 

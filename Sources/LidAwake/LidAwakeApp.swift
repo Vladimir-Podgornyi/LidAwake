@@ -15,6 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let autoLogout = AutoLogoutMonitor()
     let activityLog = ActivityLog()
     let sleepRecorder: SystemSleepRecorder
+    private(set) lazy var activityLogWindow = ActivityLogWindowController(log: activityLog, accent: accent)
 
     override init() {
         helperClient = HelperClient()
@@ -71,7 +72,8 @@ struct LidAwakeApp: App {
                 disclosure: appDelegate.settingsDisclosure,
                 updates: appDelegate.updates,
                 autoLogout: appDelegate.autoLogout,
-                idleSource: XPCHelperConnection()
+                idleSource: XPCHelperConnection(),
+                openActivityLog: { appDelegate.activityLogWindow.show() }
             )
         } label: {
             MenuBarIcon(controller: appDelegate.modeController)

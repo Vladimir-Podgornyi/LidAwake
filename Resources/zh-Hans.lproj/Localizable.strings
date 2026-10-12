@@ -108,3 +108,29 @@
 "Dismiss" = "忽略";
 "Privacy & Security > Advanced… > Log out automatically after inactivity" = "隐私与安全性 > 高级… > 闲置后自动退出登录";
 "Automatic logout after %@ of inactivity is on. The mode ends when macOS logs you out." = "已开启闲置 %@后自动退出登录。macOS 退出登录时，当前模式也会结束。";
+
+/* Activity log */
+"Activity log" = "活动日志";
+"Activity Log" = "活动日志";
+"Today" = "今天";
+"Yesterday" = "昨天";
+"Last 200 events · kept only on this Mac" = "最近 200 条记录 · 仅保存在这台 Mac 上";
+"Clear" = "清除";
+"No events yet" = "暂无记录";
+"Run with Lid Closed turned on" = "已开启“合盖运行”";
+"Run with Lid Closed turned off" = "已关闭“合盖运行”";
+"Keep Screen On turned on" = "已开启“保持屏幕常亮”";
+"Keep Screen On turned off" = "已关闭“保持屏幕常亮”";
+"Paused" = "已暂停";
+"Resumed" = "已恢复";
+"Idle" = "空闲";
+"Mac went to sleep" = "Mac 已进入睡眠";
+"Mac woke up" = "Mac 已唤醒";
+"By you" = "手动";
+"The timer ended after %@." = "定时器在 %@ 后结束。";
+"Running on battery" = "使用电池供电";
+"Power connected" = "已接通电源";
+"The app asked macOS not to sleep." = "该应用请求 macOS 不要进入睡眠。";
+"Busiest app: %@" = "占用最高：%@";
+"No work detected, counting %lld minutes" = "未检测到任务，开始计时 %lld 分钟";
+"LidAwake was restarted." = "LidAwake 已重新启动。";

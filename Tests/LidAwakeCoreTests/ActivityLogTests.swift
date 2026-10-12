@@ -1,3 +1,4 @@
+import Combine
 import LidAwakeShared
 import XCTest
 @testable import LidAwakeCore
@@ -215,6 +216,44 @@ final class ActivityLogTests: XCTestCase {
 
         log.record(.sleep)
         XCTAssertEqual(makeLog().entries.count, 1)
+    }
+
+    func testObserverSeesAddedEntries() {
+        let log = makeLog()
+        var seen: [[ActivityEvent]] = []
+        let subscription = log.objectWillChange.sink { [unowned log] in
+            // Sent before the change, so the new list is read on the next turn, as a view does.
+            DispatchQueue.main.async { seen.append(log.entries.map(\.event)) }
+        }
+        log.record(.sleep)
+        log.record(.wake)
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+
+        XCTAssertEqual(seen, [[.sleep, .wake], [.sleep, .wake]])
+        subscription.cancel()
+    }
+
+    func testObserverSeesClear() {
+        let log = makeLog()
+        log.record(.sleep)
+        var changes = 0
+        let subscription = log.objectWillChange.sink { changes += 1 }
+        log.clear()
+
+        XCTAssertEqual(changes, 1)
+        XCTAssertEqual(log.entries, [])
+        subscription.cancel()
+    }
+
+    func testRepeatedEntryDoesNotNotify() {
+        let log = makeLog()
+        log.record(.sleep, at: at(0))
+        var changes = 0
+        let subscription = log.objectWillChange.sink { changes += 1 }
+        log.record(.sleep, at: at(0))
+
+        XCTAssertEqual(changes, 0)
+        subscription.cancel()
     }
 
     func testFileIsPrivate() throws {

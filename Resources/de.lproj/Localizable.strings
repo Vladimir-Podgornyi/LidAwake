@@ -108,3 +108,29 @@
 "Dismiss" = "Ausblenden";
 "Privacy & Security > Advanced… > Log out automatically after inactivity" = "Datenschutz & Sicherheit > Weitere Optionen … > Nach Inaktivität automatisch abmelden";
 "Automatic logout after %@ of inactivity is on. The mode ends when macOS logs you out." = "Die automatische Abmeldung nach %@ Inaktivität ist aktiviert. Der Modus endet, sobald macOS dich abmeldet.";
+
+/* Activity log */
+"Activity log" = "Aktivitätsprotokoll";
+"Activity Log" = "Aktivitätsprotokoll";
+"Today" = "Heute";
+"Yesterday" = "Gestern";
+"Last 200 events · kept only on this Mac" = "Die letzten 200 Ereignisse · nur auf diesem Mac";
+"Clear" = "Löschen";
+"No events yet" = "Noch keine Ereignisse";
+"Run with Lid Closed turned on" = "„Mit geschlossenem Deckel“ eingeschaltet";
+"Run with Lid Closed turned off" = "„Mit geschlossenem Deckel“ ausgeschaltet";
+"Keep Screen On turned on" = "„Bildschirm anlassen“ eingeschaltet";
+"Keep Screen On turned off" = "„Bildschirm anlassen“ ausgeschaltet";
+"Paused" = "Pausiert";
+"Resumed" = "Fortgesetzt";
+"Idle" = "Leerlauf";
+"Mac went to sleep" = "Mac im Ruhezustand";
+"Mac woke up" = "Mac aufgewacht";
+"By you" = "Manuell";
+"The timer ended after %@." = "Der Timer ist nach %@ abgelaufen.";
+"Running on battery" = "Akkubetrieb";
+"Power connected" = "Netzteil angeschlossen";
+"The app asked macOS not to sleep." = "Die App hat macOS gebeten, nicht in den Ruhezustand zu gehen.";
+"Busiest app: %@" = "Aktivste App: %@";
+"No work detected, counting %lld minutes" = "Keine Arbeit erkannt, es werden %lld Minuten gezählt";
+"LidAwake was restarted." = "LidAwake wurde neu gestartet.";
