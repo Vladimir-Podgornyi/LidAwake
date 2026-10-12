@@ -28,19 +28,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             activityLog: activityLog,
             idleEvents: XPCHelperConnection()
         )
-        wakeScheduler = WakeScheduler(
+        let scheduler = WakeScheduler(
             preferences: WakePreferences(),
             helper: helperClient,
             service: XPCHelperConnection(),
             mode: controller,
             log: activityLog
         )
-        sleepRecorder = SystemSleepRecorder(log: activityLog, wakeHandler: wakeScheduler)
+        wakeScheduler = scheduler
+        sleepRecorder = SystemSleepRecorder(log: activityLog, wakeHandler: scheduler)
         modeController = controller
         helperSetup = HelperSetup(
             helper: helperClient,
             dismissModeMessage: { controller.dismissMessage() },
-            selectMode: { try await controller.select($0) }
+            selectMode: { try await controller.select($0) },
+            syncWake: { await scheduler.sync() }
         )
         super.init()
     }
@@ -65,6 +67,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         return .terminateLater
     }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        wakeScheduler.appWillTerminate()
+    }
 }
 
 struct LidAwakeApp: App {
@@ -82,6 +88,8 @@ struct LidAwakeApp: App {
                 disclosure: appDelegate.settingsDisclosure,
                 updates: appDelegate.updates,
                 autoLogout: appDelegate.autoLogout,
+                wake: appDelegate.wakeScheduler,
+                wakePreferences: appDelegate.wakeScheduler.preferences,
                 idleSource: XPCHelperConnection(),
                 openActivityLog: {
                     // The row is in the menu bar window, which is key while it is open.

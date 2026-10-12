@@ -11,7 +11,11 @@ public enum WindowBlock: Hashable {
     case safety
     /// Keep Screen On: the dimmed SAFETY · LID CLOSED ONLY section.
     case dimmedSafety
+    /// The SLEEP AND WAKE section: Wake at, then Sleep when idle, dimmed in Keep Screen On.
+    case sleepAndWake
     case settingsDivider
+    /// The GENERAL section header above the general setting rows.
+    case generalHeader
     case lockScreen
     case launchAtLogin
     case checkForUpdates
@@ -27,8 +31,8 @@ public enum WindowBlock: Hashable {
         var blocks: [WindowBlock] = layout == .timerOnly ? [.timer, .settingsToggle] : [.settingsToggle]
         if isExpanded {
             switch layout {
-            case .all: blocks += [.safety, .settingsDivider, .lockScreen]
-            case .timerOnly: blocks += [.dimmedSafety, .settingsDivider]
+            case .all: blocks += [.safety, .sleepAndWake, .settingsDivider, .generalHeader, .lockScreen]
+            case .timerOnly: blocks += [.dimmedSafety, .sleepAndWake, .settingsDivider, .generalHeader]
             }
             blocks += [.launchAtLogin, .checkForUpdates]
             if showsAppearance {
@@ -58,11 +62,11 @@ public final class SettingsDisclosurePreference: ObservableObject {
     }
 }
 
-/// Blocks drawn together. The general setting rows sit closer to each other and to the
-/// dividers around them than the other blocks do.
+/// Blocks drawn together. The general setting rows sit closer to each other, to their header
+/// and to the dividers around them than the other blocks do.
 public enum WindowBlockGroup: Hashable {
     case block(WindowBlock)
-    /// Dividers and general setting rows, at least one row among them.
+    /// Dividers, the general header and general setting rows, at least one row among them.
     case compactRows([WindowBlock])
 
     public static func groups(_ blocks: [WindowBlock]) -> [WindowBlockGroup] {
@@ -77,7 +81,7 @@ public enum WindowBlockGroup: Hashable {
             run = []
         }
         for block in blocks {
-            if block.isGeneralSettingRow || block == .settingsDivider || block == .closingDivider {
+            if block.isGeneralSettingRow || [.settingsDivider, .generalHeader, .closingDivider].contains(block) {
                 run.append(block)
             } else {
                 flush()
@@ -93,7 +97,9 @@ extension WindowBlock {
     var isGeneralSettingRow: Bool {
         switch self {
         case .lockScreen, .launchAtLogin, .checkForUpdates, .appearance, .accent, .activityLog: return true
-        case .timer, .settingsToggle, .safety, .dimmedSafety, .settingsDivider, .closingDivider: return false
+        case .timer, .settingsToggle, .safety, .dimmedSafety, .sleepAndWake, .settingsDivider, .generalHeader,
+             .closingDivider:
+            return false
         }
     }
 }

@@ -113,6 +113,13 @@ public final class WakeScheduler: ObservableObject, SystemWakeHandling {
         await syncIfNeeded()
     }
 
+    /// Forgets the remembered wakes that have passed. Shutting down or restarting quits the app
+    /// first, so at the next launch only the wakes that passed while it was not running are missed.
+    public func appWillTerminate() {
+        let current = now()
+        remember(scheduledWakes.filter { $0 >= current })
+    }
+
     /// True when the setting is on and `time` is within the window around a wake the helper reported.
     public func isScheduledWake(at time: Date) -> Bool {
         guard preferences.wakeEnabled else { return false }

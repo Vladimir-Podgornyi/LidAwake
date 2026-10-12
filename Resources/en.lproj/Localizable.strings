@@ -28,6 +28,8 @@
 "Safety" = "Safety";
 "Timer" = "Timer";
 "Safety · lid closed only" = "Safety · lid closed only";
+"Sleep and wake" = "Sleep and wake";
+"General" = "General";
 "Stop when the Mac gets hot" = "Stop when the Mac gets hot";
 "Ends the session under thermal pressure" = "Ends the session under thermal pressure";
 "Stop on low battery" = "Stop on low battery";
@@ -44,6 +46,9 @@
 "Kept awake by CPU load" = "Kept awake by CPU load";
 "Kept awake by keyboard or mouse" = "Kept awake by keyboard or mouse";
 "Idle for %lld of %lld min" = "Idle for %lld of %lld min";
+"Wake at" = "Wake at";
+"Every day, on power only" = "Every day, on power only";
+"Could not set the wake" = "Could not set the wake";
 "Lock screen when the lid closes" = "Lock screen when the lid closes";
 "Screen lock is not available on this macOS version." = "Screen lock is not available on this macOS version.";
 "Launch at login" = "Launch at login";

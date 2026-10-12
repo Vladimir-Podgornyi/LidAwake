@@ -28,6 +28,8 @@
 "Safety" = "Schutz";
 "Timer" = "Timer";
 "Safety · lid closed only" = "Schutz · nur bei geschlossenem Deckel";
+"Sleep and wake" = "Ruhezustand und Aufwachen";
+"General" = "Allgemein";
 "Stop when the Mac gets hot" = "Bei Überhitzung beenden";
 "Ends the session under thermal pressure" = "Wenn der Mac zu heiß wird";
 "Stop on low battery" = "Bei schwachem Akku beenden";
@@ -44,6 +46,9 @@
 "Kept awake by CPU load" = "Wach gehalten durch CPU-Last";
 "Kept awake by keyboard or mouse" = "Wach gehalten durch Tastatur oder Maus";
 "Idle for %lld of %lld min" = "Leerlauf: %lld von %lld Min.";
+"Wake at" = "Aufwachen um";
+"Every day, on power only" = "Täglich, nur am Netzteil";
+"Could not set the wake" = "Aufwachen konnte nicht eingestellt werden";
 "Lock screen when the lid closes" = "Beim Zuklappen sperren";
 "Screen lock is not available on this macOS version." = "Die Bildschirmsperre ist in dieser macOS-Version nicht verfügbar.";
 "Launch at login" = "Bei der Anmeldung öffnen";

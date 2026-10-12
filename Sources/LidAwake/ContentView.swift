@@ -13,6 +13,8 @@ struct ContentView: View {
     @ObservedObject var disclosure: SettingsDisclosurePreference
     @ObservedObject var updates: UpdateChecker
     @ObservedObject var autoLogout: AutoLogoutMonitor
+    @ObservedObject var wake: WakeScheduler
+    @ObservedObject var wakePreferences: WakePreferences
     let idleSource: IdleStatusReading
     let openActivityLog: () -> Void
     var heightLimit: HeightLimit = .screen
@@ -287,8 +289,10 @@ struct ContentView: View {
         case .settingsToggle: SettingsToggleRow(isExpanded: $disclosure.isExpanded)
         case .safety: safetySection
         case .dimmedSafety: dimmedSafetySection
-        // Among compact rows the stack has no spacing, so the dividers keep their own gap.
+        case .sleepAndWake: sleepAndWakeSection
+        // Among compact rows the stack has no spacing, so the dividers and the header keep their own gap.
         case .settingsDivider: Divider().padding(.bottom, isCompact ? 8 : 0)
+        case .generalHeader: SectionHeader(title: "General").padding(.bottom, isCompact ? 4 : 0)
         case .closingDivider: Divider().padding(.top, isCompact ? 8 : 0)
         case .lockScreen: lockRow(minHeight: 36)
         case .launchAtLogin: launchRow
@@ -321,7 +325,6 @@ struct ContentView: View {
                 chargingToggle
             }
             timerRow
-            idleRow
         }
     }
 
@@ -346,14 +349,55 @@ struct ContentView: View {
             SettingRow(title: "Only while charging", minHeight: 40) {
                 chargingToggle
             }
-            SettingRow(title: "Sleep when idle", minHeight: 40) {
-                idleValue
-                idleToggle
-            }
             lockRow(minHeight: 40)
         }
         .opacity(0.45)
         .disabled(true)
+    }
+
+    // Wake at works in every position; Sleep when idle only with Run with Lid Closed.
+    private var sleepAndWakeSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            SectionHeader(title: "Sleep and wake")
+            wakeRow
+            switch SafetyLayout(mode: controller.mode) {
+            case .all:
+                idleRow
+            case .timerOnly:
+                SettingRow(title: "Sleep when idle", minHeight: 40) {
+                    idleValue
+                    idleToggle
+                }
+                .opacity(0.45)
+                .disabled(true)
+            }
+        }
+    }
+
+    private var wakeRow: some View {
+        SettingRow(title: "Wake at", detail: wakeDetail) {
+            WakeTimePill(minuteOfDay: $wakePreferences.wakeMinuteOfDay)
+            SwitchToggle(
+                title: "Wake at",
+                isOn: Binding(get: { wakePreferences.wakeEnabled }, set: setWakeEnabled)
+            )
+        }
+    }
+
+    private var wakeDetail: LocalizedStringKey {
+        switch WakeRow.detail(lastError: wake.lastError) {
+        case .everyDay: return "Every day, on power only"
+        case .couldNotSet: return "Could not set the wake"
+        }
+    }
+
+    private func setWakeEnabled(_ isOn: Bool) {
+        wakePreferences.wakeEnabled = isOn
+        if isOn {
+            Task { await helperSetup.requestWake() }
+        } else {
+            helperSetup.cancelWake()
+        }
     }
 
     private var timerRow: some View {
@@ -891,6 +935,52 @@ private struct ValueMenu: View {
         .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Palette.valueBackground))
         .accessibilityLabel(Text(label))
         .accessibilityValue(Text(title(selection)))
+    }
+}
+
+/// The wake time in a pill that opens the system picker for hours and minutes.
+private struct WakeTimePill: View {
+    @Binding var minuteOfDay: Int
+    @State private var isPicking = false
+
+    var body: some View {
+        let time = WakeRow.time(minuteOfDay: minuteOfDay)
+        Button {
+            isPicking = true
+        } label: {
+            Text(verbatim: time)
+                .font(.system(size: 12))
+                .padding(.vertical, 4)
+                .padding(.horizontal, 8)
+                .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Palette.valueBackground))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .fixedSize()
+        .popover(isPresented: $isPicking, arrowEdge: .bottom) {
+            WakeTimePicker(minuteOfDay: $minuteOfDay)
+        }
+        .accessibilityLabel(Text("Wake at"))
+        .accessibilityValue(Text(verbatim: time))
+    }
+}
+
+/// The content of the wake time popover; every change is saved at once.
+struct WakeTimePicker: View {
+    @Binding var minuteOfDay: Int
+
+    var body: some View {
+        DatePicker(
+            "Wake at",
+            selection: Binding(
+                get: { WakeRow.date(minuteOfDay: minuteOfDay) },
+                set: { minuteOfDay = WakeRow.minuteOfDay(of: $0) }
+            ),
+            displayedComponents: .hourAndMinute
+        )
+        .datePickerStyle(.stepperField)
+        .labelsHidden()
+        .padding(12)
     }
 }
 

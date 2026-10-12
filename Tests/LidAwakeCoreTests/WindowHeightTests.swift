@@ -152,7 +152,8 @@ final class WindowBlockGroupTests: XCTestCase {
         XCTAssertEqual(WindowBlockGroup.groups(blocks), [
             .block(.settingsToggle),
             .block(.safety),
-            .compactRows([.settingsDivider, .lockScreen, .launchAtLogin, .checkForUpdates, .appearance, .accent, .activityLog, .closingDivider]),
+            .block(.sleepAndWake),
+            .compactRows([.settingsDivider, .generalHeader, .lockScreen, .launchAtLogin, .checkForUpdates, .appearance, .accent, .activityLog, .closingDivider]),
         ])
     }
 
@@ -162,8 +163,33 @@ final class WindowBlockGroupTests: XCTestCase {
             .block(.timer),
             .block(.settingsToggle),
             .block(.dimmedSafety),
-            .compactRows([.settingsDivider, .launchAtLogin, .checkForUpdates, .accent, .activityLog, .closingDivider]),
+            .block(.sleepAndWake),
+            .compactRows([.settingsDivider, .generalHeader, .launchAtLogin, .checkForUpdates, .accent, .activityLog, .closingDivider]),
         ])
+    }
+
+    func testEveryHeaderIsDrawnInTheMeasuredContent() {
+        for mode in Mode.allCases {
+            for appearance in [false, true] {
+                let blocks = WindowBlock.list(mode: mode, isExpanded: true, showsAppearance: appearance)
+                let groups = WindowBlockGroup.groups(blocks)
+                XCTAssertTrue(groups.contains(.block(.sleepAndWake)), "\(mode)")
+                let compact = groups.compactMap { group -> [WindowBlock]? in
+                    if case .compactRows(let rows) = group { return rows }
+                    return nil
+                }
+                XCTAssertEqual(compact.count, 1, "\(mode)")
+                XCTAssertEqual(compact.first?.prefix(2), [.settingsDivider, .generalHeader], "\(mode)")
+                XCTAssertEqual(compact.first?.last, .closingDivider, "\(mode)")
+            }
+        }
+    }
+
+    /// The headers make the expanded window taller; it scrolls only when that no longer fits.
+    func testTallerContentWithHeadersScrollsOnlyPastTheLimit() {
+        XCTAssertNil(WindowHeightLimit.scrollHeight(fixedHeight: 280, contentHeight: 700, maxHeight: 980))
+        XCTAssertNil(WindowHeightLimit.scrollHeight(fixedHeight: 280, contentHeight: 700, maxHeight: nil))
+        XCTAssertEqual(WindowHeightLimit.scrollHeight(fixedHeight: 280, contentHeight: 700, maxHeight: 900), 620)
     }
 
     func testGroupsKeepEveryBlockInOrder() {

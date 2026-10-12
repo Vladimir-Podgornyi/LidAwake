@@ -70,12 +70,12 @@ final class WindowBlockTests: XCTestCase {
         for mode in [Mode.off, .lidClosed] {
             XCTAssertEqual(
                 WindowBlock.list(mode: mode, isExpanded: true, showsAppearance: true),
-                [.settingsToggle, .safety, .settingsDivider, .lockScreen, .launchAtLogin, .checkForUpdates, .appearance, .accent, .activityLog, .closingDivider],
+                [.settingsToggle, .safety, .sleepAndWake, .settingsDivider, .generalHeader, .lockScreen, .launchAtLogin, .checkForUpdates, .appearance, .accent, .activityLog, .closingDivider],
                 "\(mode)"
             )
             XCTAssertEqual(
                 WindowBlock.list(mode: mode, isExpanded: true, showsAppearance: false),
-                [.settingsToggle, .safety, .settingsDivider, .lockScreen, .launchAtLogin, .checkForUpdates, .accent, .activityLog, .closingDivider],
+                [.settingsToggle, .safety, .sleepAndWake, .settingsDivider, .generalHeader, .lockScreen, .launchAtLogin, .checkForUpdates, .accent, .activityLog, .closingDivider],
                 "\(mode)"
             )
         }
@@ -93,11 +93,11 @@ final class WindowBlockTests: XCTestCase {
     func testKeepScreenOnExpanded() {
         XCTAssertEqual(
             WindowBlock.list(mode: .keepScreenOn, isExpanded: true, showsAppearance: true),
-            [.timer, .settingsToggle, .dimmedSafety, .settingsDivider, .launchAtLogin, .checkForUpdates, .appearance, .accent, .activityLog, .closingDivider]
+            [.timer, .settingsToggle, .dimmedSafety, .sleepAndWake, .settingsDivider, .generalHeader, .launchAtLogin, .checkForUpdates, .appearance, .accent, .activityLog, .closingDivider]
         )
         XCTAssertEqual(
             WindowBlock.list(mode: .keepScreenOn, isExpanded: true, showsAppearance: false),
-            [.timer, .settingsToggle, .dimmedSafety, .settingsDivider, .launchAtLogin, .checkForUpdates, .accent, .activityLog, .closingDivider]
+            [.timer, .settingsToggle, .dimmedSafety, .sleepAndWake, .settingsDivider, .generalHeader, .launchAtLogin, .checkForUpdates, .accent, .activityLog, .closingDivider]
         )
     }
 
@@ -114,6 +114,34 @@ final class WindowBlockTests: XCTestCase {
     func testActivityLogCollapsesWithTheSettings() {
         for mode in Mode.allCases {
             XCTAssertFalse(WindowBlock.list(mode: mode, isExpanded: false, showsAppearance: true).contains(.activityLog))
+        }
+    }
+
+    func testSleepAndWakeSitsBetweenSafetyAndGeneralInEveryPosition() {
+        for mode in Mode.allCases {
+            let blocks = WindowBlock.list(mode: mode, isExpanded: true, showsAppearance: true)
+            let safety = SafetyLayout(mode: mode) == .all ? WindowBlock.safety : .dimmedSafety
+            let order = [safety, .sleepAndWake, .settingsDivider, .generalHeader]
+            XCTAssertEqual(blocks.filter(order.contains), order, "\(mode)")
+            XCTAssertEqual(blocks.firstIndex(of: .generalHeader).map { $0 + 1 }, blocks.firstIndex(where: \.isGeneralSettingRow), "\(mode)")
+        }
+    }
+
+    func testLockScreenIsTheFirstGeneralRowOnlyWhereTheLidMatters() {
+        for mode in [Mode.off, .lidClosed] {
+            let blocks = WindowBlock.list(mode: mode, isExpanded: true, showsAppearance: true)
+            XCTAssertEqual(blocks.filter(\.isGeneralSettingRow).first, .lockScreen, "\(mode)")
+        }
+        let screen = WindowBlock.list(mode: .keepScreenOn, isExpanded: true, showsAppearance: true)
+        XCTAssertEqual(screen.filter(\.isGeneralSettingRow).first, .launchAtLogin)
+        XCTAssertFalse(screen.contains(.lockScreen), "the lock stays in the dimmed section")
+    }
+
+    func testNewSectionsCollapseWithTheSettings() {
+        for mode in Mode.allCases {
+            let blocks = WindowBlock.list(mode: mode, isExpanded: false, showsAppearance: true)
+            XCTAssertFalse(blocks.contains(.sleepAndWake), "\(mode)")
+            XCTAssertFalse(blocks.contains(.generalHeader), "\(mode)")
         }
     }
 

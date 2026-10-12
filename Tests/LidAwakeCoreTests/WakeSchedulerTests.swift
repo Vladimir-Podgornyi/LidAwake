@@ -526,4 +526,97 @@ final class WakeSchedulerTests: XCTestCase {
         await wake(scheduler, after: 30 * 60)
         XCTAssertEqual(log.events, [.wake])
     }
+
+    // MARK: Quitting
+
+    func testQuittingForgetsPassedTimesAndKeepsFutureOnes() {
+        let next = wakeTime.addingTimeInterval(86_400)
+        remembered([wakeTime, next])
+        now = at(minutes: 30)
+        let scheduler = makeScheduler()
+        scheduler.appWillTerminate()
+        XCTAssertEqual(scheduler.scheduledWakes, [next])
+        XCTAssertEqual(preferences.scheduledWakeTimes, [next])
+        XCTAssertEqual(log.events, [])
+        XCTAssertEqual(journal.calls, [], "quitting does not call the helper")
+    }
+
+    func testLaunchAfterRestartRecordsNoMissForATimePassedBeforeTheQuit() async {
+        let next = wakeTime.addingTimeInterval(86_400)
+        remembered([wakeTime, next])
+        now = at(minutes: 30)
+        makeScheduler().appWillTerminate()
+
+        boot = at(minutes: 35)
+        now = at(minutes: 40)
+        service.wakes = [next]
+        let relaunched = WakeScheduler(
+            preferences: WakePreferences(defaults: defaults),
+            helper: helper,
+            service: service,
+            mode: mode,
+            log: log,
+            clockMonitor: clock,
+            now: { [unowned self] in now },
+            bootTime: { [unowned self] in boot }
+        )
+        await relaunched.appDidLaunch()
+        XCTAssertEqual(log.events, [], "the Mac was awake at the scheduled time")
+        XCTAssertEqual(relaunched.scheduledWakes, [next])
+    }
+
+    func testLaunchAfterRestartStillRecordsATimePassedWhileTheAppWasNotRunning() async {
+        let next = wakeTime.addingTimeInterval(86_400)
+        remembered([wakeTime, next])
+        now = at(minutes: -30)
+        makeScheduler().appWillTerminate()
+        XCTAssertEqual(preferences.scheduledWakeTimes, [wakeTime, next])
+
+        boot = at(minutes: 35)
+        now = at(minutes: 40)
+        let relaunched = makeScheduler()
+        await relaunched.appDidLaunch()
+        XCTAssertEqual(log.events, [missed])
+        XCTAssertEqual(log.times, [wakeTime])
+    }
+
+    // MARK: Row
+
+    func testRowDetailFollowsTheLastError() async {
+        XCTAssertEqual(WakeRow.detail(lastError: nil), .everyDay)
+        XCTAssertEqual(WakeRow.detail(lastError: "The helper did not respond."), .couldNotSet)
+
+        preferences.wakeEnabled = true
+        service.setError = HelperError.timeout
+        let scheduler = makeScheduler()
+        await scheduler.sync()
+        XCTAssertEqual(WakeRow.detail(lastError: scheduler.lastError), .couldNotSet)
+        service.setError = nil
+        await scheduler.sync()
+        XCTAssertEqual(WakeRow.detail(lastError: scheduler.lastError), .everyDay)
+    }
+
+    func testRowTimeIn12And24HourForm() {
+        let twelve = Locale(identifier: "en_US")
+        XCTAssertEqual(WakeRow.time(minuteOfDay: 480, locale: twelve), "8:00\u{202F}AM")
+        XCTAssertEqual(WakeRow.time(minuteOfDay: 1305, locale: twelve), "9:45\u{202F}PM")
+        XCTAssertEqual(WakeRow.time(minuteOfDay: 0, locale: twelve), "12:00\u{202F}AM")
+        for id in ["en_GB", "de_DE", "en_US@hours=h23"] {
+            let locale = Locale(identifier: id)
+            XCTAssertEqual(WakeRow.time(minuteOfDay: 480, locale: locale), "08:00", id)
+            XCTAssertEqual(WakeRow.time(minuteOfDay: 1305, locale: locale), "21:45", id)
+        }
+        XCTAssertEqual(WakeRow.time(minuteOfDay: 480, locale: Locale(identifier: "de_DE@hours=h12")), "8:00\u{202F}AM")
+    }
+
+    func testPickerDateKeepsTheMinute() {
+        for zone in ["Europe/Berlin", "America/Sao_Paulo", "Asia/Shanghai"] {
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.timeZone = TimeZone(identifier: zone)!
+            for minute in [0, 59, 120, 150, 480, 1439] {
+                let date = WakeRow.date(minuteOfDay: minute, calendar: calendar)
+                XCTAssertEqual(WakeRow.minuteOfDay(of: date, calendar: calendar), minute, "\(zone) \(minute)")
+            }
+        }
+    }
 }

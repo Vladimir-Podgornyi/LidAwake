@@ -28,6 +28,8 @@
 "Safety" = "Защита";
 "Timer" = "Таймер";
 "Safety · lid closed only" = "Защита · только с закрытой крышкой";
+"Sleep and wake" = "Сон и пробуждение";
+"General" = "Общие";
 "Stop when the Mac gets hot" = "Стоп при перегреве";
 "Ends the session under thermal pressure" = "Если Mac перегрелся";
 "Stop on low battery" = "Стоп при низком заряде";
@@ -44,6 +46,9 @@
 "Kept awake by CPU load" = "Не даёт уснуть: нагрузка процессора";
 "Kept awake by keyboard or mouse" = "Не даёт уснуть: клавиатура или мышь";
 "Idle for %lld of %lld min" = "Простой: %lld из %lld мин";
+"Wake at" = "Проснуться в";
+"Every day, on power only" = "Каждый день, только от сети";
+"Could not set the wake" = "Не удалось назначить пробуждение";
 "Lock screen when the lid closes" = "Блокировать при закрытии крышки";
 "Screen lock is not available on this macOS version." = "Блокировка экрана недоступна в этой версии macOS.";
 "Launch at login" = "Запускать при входе";

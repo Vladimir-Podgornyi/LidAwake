@@ -28,6 +28,8 @@
 "Safety" = "安全保护";
 "Timer" = "定时器";
 "Safety · lid closed only" = "安全保护 · 仅用于合盖运行";
+"Sleep and wake" = "睡眠与唤醒";
+"General" = "通用";
 "Stop when the Mac gets hot" = "过热时停止";
 "Ends the session under thermal pressure" = "Mac 温度过高时结束运行";
 "Stop on low battery" = "低电量时停止";
@@ -44,6 +46,9 @@
 "Kept awake by CPU load" = "CPU 负载正在阻止睡眠";
 "Kept awake by keyboard or mouse" = "键盘或鼠标操作正在阻止睡眠";
 "Idle for %lld of %lld min" = "已空闲 %lld / %lld 分钟";
+"Wake at" = "唤醒时间";
+"Every day, on power only" = "每天，仅在接通电源时";
+"Could not set the wake" = "无法设置唤醒";
 "Lock screen when the lid closes" = "合盖时锁定屏幕";
 "Screen lock is not available on this macOS version." = "当前 macOS 版本不支持此锁屏功能。";
 "Launch at login" = "登录时启动";

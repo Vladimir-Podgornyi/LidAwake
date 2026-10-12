@@ -7,9 +7,10 @@ import SwiftUI
 /// Keep Screen On positions, with the settings collapsed and expanded, Off with the update
 /// banner, Keep Screen On with the automatic logout warning, Off expanded in a window limited
 /// to 600 points, Keep Screen On expanded with both banners, Run with Lid Closed expanded with
-/// Only while charging on, and Run with Lid Closed expanded with Sleep when idle on and a made-up
-/// idle state, without touching the helper, the login item, the display, the network or the saved settings.
-/// It also draws the activity log window from made-up entries, with the log file left alone.
+/// Only while charging on, Run with Lid Closed expanded with Sleep when idle on and a made-up
+/// idle state, and Run with Lid Closed expanded with Wake at on as well, without touching the helper, the login item, the display, the network or the saved settings.
+/// It also draws the content of the wake time popover, and the activity log window from made-up
+/// entries, with the log file left alone.
 enum WindowSnapshot {
     static let flag = "--render-window"
 
@@ -40,6 +41,11 @@ enum WindowSnapshot {
                 try render(shot).write(to: file)
                 print(file.path)
             }
+            for isDark in [false, true] {
+                let file = folder.appendingPathComponent("wake-time-picker-\(isDark ? "dark" : "light").png")
+                try renderWakeTimePicker(isDark: isDark).write(to: file)
+                print(file.path)
+            }
             for shot in LogShot.all {
                 let file = folder.appendingPathComponent(shot.fileName)
                 try render(shot).write(to: file)
@@ -59,6 +65,7 @@ enum WindowSnapshot {
         var showsUpdate = false
         var showsAutoLogout = false
         var chargingOnly = false
+        var wakeOn = false
         /// Turns Sleep when idle on and stands in for the helper's answer.
         var idle: IdleStatus?
         var maxHeight: CGFloat?
@@ -109,6 +116,14 @@ enum WindowSnapshot {
                 idle: idleStatus(.counting, counted: 7),
                 name: "lid-expanded-idle-counting-dark.png"
             ),
+            Shot(
+                mode: .lidClosed,
+                isExpanded: true,
+                isDark: false,
+                wakeOn: true,
+                idle: idleStatus(.counting, counted: 7),
+                name: "lid-expanded-wake-idle-light.png"
+            ),
         ]
 
         private static func idleStatus(_ state: IdleState, counted: Int = 0, holders: [String] = []) -> IdleStatus {
@@ -158,6 +173,8 @@ enum WindowSnapshot {
         shotArguments[SafetyPreferences.Key.chargingOnlyEnabled] = shot.chargingOnly
         shotArguments[SafetyPreferences.Key.idleSleepEnabled] = shot.idle != nil
         shotArguments[SafetyPreferences.Key.idleSleepMinutes] = 20
+        shotArguments[WakePreferences.Key.wakeEnabled] = shot.wakeOn
+        shotArguments[WakePreferences.Key.wakeMinuteOfDay] = WakePreferences.defaultMinuteOfDay
         UserDefaults.standard.setVolatileDomain(shotArguments, forName: UserDefaults.argumentDomain)
         defer { UserDefaults.standard.setVolatileDomain(arguments, forName: UserDefaults.argumentDomain) }
         let inert = Inert()
@@ -178,6 +195,15 @@ enum WindowSnapshot {
             RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.01))
         }
         guard controller.mode == shot.mode else { throw CocoaError(.fileWriteUnknown) }
+        // The helper is never ready here, so the scheduler makes no call.
+        let wake = WakeScheduler(
+            preferences: WakePreferences(defaults: defaults),
+            helper: inert,
+            service: inert,
+            mode: controller,
+            log: inert,
+            clockMonitor: inert
+        )
         let content = ContentView(
             controller: controller,
             preferences: controller.preferences,
@@ -196,6 +222,8 @@ enum WindowSnapshot {
                 source: FixedAutoLogout(delay: shot.showsAutoLogout ? 3600 : nil),
                 defaults: defaults
             ),
+            wake: wake,
+            wakePreferences: wake.preferences,
             idleSource: FixedIdleStatus(status: shot.idle),
             openActivityLog: {},
             // The offscreen window has no screen, so the limit is set here or not at all.
@@ -220,6 +248,29 @@ enum WindowSnapshot {
         // The measured heights decide whether the lower part scrolls, so fit the window again.
         window.setContentSize(host.fittingSize)
         RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.3))
+        host.layoutSubtreeIfNeeded()
+        defer { window.close() }
+        return try png(of: host, appearance: appearance)
+    }
+
+    /// The popover's own frame is drawn by the system and is not in the picture.
+    @MainActor
+    private static func renderWakeTimePicker(isDark: Bool) throws -> Data {
+        let appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)!
+        let host = NSHostingView(rootView: WakeTimePicker(minuteOfDay: .constant(WakePreferences.defaultMinuteOfDay)))
+        let window = SnapshotWindow(
+            contentRect: NSRect(x: -10_000, y: -10_000, width: 100, height: 40),
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        window.isReleasedWhenClosed = false
+        window.appearance = appearance
+        window.contentView = host
+        window.setContentSize(host.fittingSize)
+        window.setFrameOrigin(NSPoint(x: -10_000, y: -10_000))
+        window.makeKeyAndOrderFront(nil)
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.5))
         host.layoutSubtreeIfNeeded()
         defer { window.close() }
         return try png(of: host, appearance: appearance)
@@ -372,7 +423,8 @@ private final class SnapshotWindow: NSWindow {
 /// Stands in for everything outside the window, so drawing it has no effect.
 @MainActor
 private final class Inert: PowerAssertion, HelperPreparing, HelperInstalling, LidSessionService, StopNotifying,
-    ActivityHolding, PowerSourceMonitoring, LidMonitoring, LoginItemService, LaunchAtLoginStore, ReleaseSource {
+    ActivityHolding, PowerSourceMonitoring, LidMonitoring, LoginItemService, LaunchAtLoginStore, ReleaseSource,
+    ScheduledWakeService, ActivityLogging, ClockChangeMonitoring {
     nonisolated var isHeld: Bool { false }
     nonisolated func acquire() throws {}
     nonisolated func release() {}
@@ -406,6 +458,11 @@ private final class Inert: PowerAssertion, HelperPreparing, HelperInstalling, Li
     nonisolated var status: LoginItemStatus { .enabled }
     nonisolated func register() throws {}
     nonisolated func unregister() throws {}
+
+    nonisolated func setScheduledWake(minuteOfDay: Int) async throws {}
+    nonisolated func scheduledWakes() async throws -> [Date] { [] }
+
+    func record(_ event: ActivityEvent, at time: Date?) {}
 
     nonisolated func latestRelease() async throws -> ReleaseLookup { throw CancellationError() }
 

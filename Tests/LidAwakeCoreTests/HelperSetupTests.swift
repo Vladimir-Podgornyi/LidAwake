@@ -44,6 +44,7 @@ final class HelperSetupTests: XCTestCase {
     private let clock = FakeClock()
     private var selected: [Mode] = []
     private var dismissals = 0
+    private var wakeSyncs = 0
 
     private func makeSetup(_ helper: FakeInstaller) -> HelperSetup {
         let clock = self.clock
@@ -51,6 +52,7 @@ final class HelperSetupTests: XCTestCase {
             helper: helper,
             dismissModeMessage: { [unowned self] in self.dismissals += 1 },
             selectMode: { [unowned self] in self.selected.append($0) },
+            syncWake: { [unowned self] in self.wakeSyncs += 1 },
             pollSleep: { await clock.sleep() },
             approvalTimeout: 300,
             now: { clock.now }
@@ -244,5 +246,110 @@ final class HelperSetupTests: XCTestCase {
         await setup.select(.lidClosed)
         XCTAssertEqual(selected, [.lidClosed])
         XCTAssertNil(setup.prompt)
+    }
+
+    // MARK: Wake at
+
+    func testWakeWithReadyHelperAgreesAtOnceAndLeavesTheMode() async {
+        let helper = FakeInstaller(.ready)
+        let setup = makeSetup(helper)
+        await setup.requestWake()
+        XCTAssertEqual(helper.calls, ["refresh"])
+        XCTAssertEqual(wakeSyncs, 1)
+        XCTAssertEqual(selected, [])
+        XCTAssertNil(setup.prompt)
+    }
+
+    func testWakeTakesTheApprovalPathWithoutTurningTheModeOn() async {
+        let helper = FakeInstaller(.notInstalled)
+        helper.stateAfterInstall = .requiresApproval
+        let setup = makeSetup(helper)
+        await setup.requestWake()
+        XCTAssertEqual(helper.calls, ["refresh", "install"])
+        XCTAssertEqual(setup.prompt, .approval, "the same message as for Run with Lid Closed")
+        XCTAssertEqual(setup.prompt?.action, .openSystemSettings)
+        XCTAssertFalse(setup.isWaiting, "no mode waits for the helper")
+        XCTAssertEqual(wakeSyncs, 0)
+
+        await setup.performPromptAction()
+        XCTAssertEqual(helper.calls.last, "settings")
+
+        helper.state = .ready
+        await settle { wakeSyncs > 0 }
+        XCTAssertEqual(wakeSyncs, 1, "the wake is agreed after the approval")
+        XCTAssertEqual(selected, [], "the mode is not turned on")
+        XCTAssertNil(setup.prompt)
+    }
+
+    func testWakeOutsideApplicationsShowsTheSameMessage() async {
+        let helper = FakeInstaller(.notInstalled)
+        helper.isInApplications = false
+        let setup = makeSetup(helper)
+        await setup.requestWake()
+        XCTAssertEqual(setup.prompt, .moveToApplications)
+        XCTAssertEqual(wakeSyncs, 0)
+    }
+
+    func testWakeTryAgainRetriesTheWake() async {
+        let helper = FakeInstaller(.notInstalled)
+        helper.stateAfterInstall = .error("Registration failed.")
+        let setup = makeSetup(helper)
+        await setup.requestWake()
+        XCTAssertEqual(setup.prompt, .failed("Registration failed."))
+
+        helper.stateAfterInstall = .ready
+        await setup.performPromptAction()
+        XCTAssertEqual(wakeSyncs, 1)
+        XCTAssertEqual(selected, [])
+        XCTAssertNil(setup.prompt)
+    }
+
+    func testChoosingAnotherModeKeepsTheWakeWaiting() async {
+        let helper = FakeInstaller(.notInstalled)
+        helper.stateAfterInstall = .requiresApproval
+        let setup = makeSetup(helper)
+        await setup.requestWake()
+        await setup.select(.keepScreenOn)
+        XCTAssertEqual(selected, [.keepScreenOn])
+        XCTAssertEqual(setup.prompt, .approval)
+
+        helper.state = .ready
+        await settle { wakeSyncs > 0 }
+        XCTAssertEqual(wakeSyncs, 1)
+        XCTAssertEqual(selected, [.keepScreenOn])
+    }
+
+    func testTurningWakeOffDropsTheWait() async {
+        let helper = FakeInstaller(.notInstalled)
+        helper.stateAfterInstall = .requiresApproval
+        let setup = makeSetup(helper)
+        await setup.requestWake()
+        setup.cancelWake()
+        XCTAssertNil(setup.prompt)
+
+        helper.state = .ready
+        let sleeps = clock.sleeps
+        await settle { clock.sleeps > sleeps + 3 }
+        XCTAssertEqual(wakeSyncs, 0)
+    }
+
+    func testWakeDuringTheModeWaitIsAgreedWhenTheModeStarts() async {
+        let (helper, setup) = await waitingForApproval()
+        await setup.requestWake()
+        XCTAssertTrue(setup.isWaiting, "the mode keeps waiting")
+        XCTAssertEqual(helper.calls.filter { $0 == "install" }.count, 1)
+
+        helper.state = .ready
+        await settle { wakeSyncs > 0 }
+        XCTAssertEqual(selected, [.lidClosed])
+        XCTAssertEqual(wakeSyncs, 1)
+    }
+
+    func testModeAloneDoesNotAgreeTheWake() async {
+        let helper = FakeInstaller(.ready)
+        let setup = makeSetup(helper)
+        await setup.select(.lidClosed)
+        XCTAssertEqual(selected, [.lidClosed])
+        XCTAssertEqual(wakeSyncs, 0)
     }
 }
