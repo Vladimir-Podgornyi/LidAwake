@@ -139,6 +139,26 @@ final class ActivityRowTests: XCTestCase {
         XCTAssertEqual(offDetail(.previousSession), "LidAwake was restarted.")
     }
 
+    func testScheduleEvents() {
+        XCTAssertEqual(
+            row(.scheduledWake),
+            ActivityRow(title: "Mac woke up", detail: "On schedule", symbol: .wake)
+        )
+        XCTAssertEqual(
+            row(.modeOnBySchedule(.lidClosed)),
+            ActivityRow(title: "Run with Lid Closed turned on", detail: "On schedule", symbol: .modeOn)
+        )
+        XCTAssertEqual(
+            row(.modeSkipped(.lidClosed, .notOnPower)),
+            ActivityRow(title: "Run with Lid Closed not turned on", detail: "Not on power", symbol: .skipped)
+        )
+        XCTAssertEqual(
+            row(.modeSkipped(.lidClosed, .error(" The helper did not respond.\n"))),
+            ActivityRow(title: "Run with Lid Closed not turned on", detail: "The helper did not respond.", symbol: .skipped)
+        )
+        XCTAssertEqual(row(.modeSkipped(.lidClosed, .error(""))).detail, "Something went wrong")
+    }
+
     // MARK: Symbols
 
     func testSymbolOfEveryEvent() {
@@ -165,6 +185,7 @@ final class ActivityRowTests: XCTestCase {
         let expected: [ActivitySymbol: (String, Bool)] = [
             .modeOn: ("circle.fill", true),
             .modeOff: ("circle", false),
+            .skipped: ("circle.slash", false),
             .paused: ("pause.fill", false),
             .resumed: ("play.fill", true),
             .busy: ("bolt.fill", true),

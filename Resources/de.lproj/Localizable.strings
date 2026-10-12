@@ -127,6 +127,9 @@
 "Mac went to sleep" = "Mac im Ruhezustand";
 "Mac woke up" = "Mac aufgewacht";
 "By you" = "Manuell";
+"On schedule" = "Nach Zeitplan";
+"Run with Lid Closed not turned on" = "„Mit geschlossenem Deckel“ nicht eingeschaltet";
+"Not on power" = "Kein Netzteil angeschlossen";
 "The timer ended after %@." = "Der Timer ist nach %@ abgelaufen.";
 "Running on battery" = "Akkubetrieb";
 "Power connected" = "Netzteil angeschlossen";

@@ -127,6 +127,9 @@
 "Mac went to sleep" = "Mac went to sleep";
 "Mac woke up" = "Mac woke up";
 "By you" = "By you";
+"On schedule" = "On schedule";
+"Run with Lid Closed not turned on" = "Run with Lid Closed not turned on";
+"Not on power" = "Not on power";
 "The timer ended after %@." = "The timer ended after %@.";
 "Running on battery" = "Running on battery";
 "Power connected" = "Power connected";

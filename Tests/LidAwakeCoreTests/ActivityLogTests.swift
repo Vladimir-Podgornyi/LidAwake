@@ -343,6 +343,88 @@ final class ActivityLogTests: XCTestCase {
             XCTAssertEqual(line(.modeOff(.lidClosed, .stopped(reason))), "\(stamp) mode-off mode=lid-closed reason=\(word)")
         }
     }
+
+    // MARK: Wake on schedule
+
+    func testScheduleEventsAreStoredAndReadBack() throws {
+        let log = makeLog()
+        let events: [ActivityEvent] = [
+            .scheduledWake,
+            .modeOnBySchedule(.lidClosed),
+            .modeSkipped(.lidClosed, .notOnPower),
+            .modeSkipped(.lidClosed, .error("The helper did not respond.")),
+        ]
+        for (index, event) in events.enumerated() {
+            log.record(event, at: at(TimeInterval(index)))
+        }
+        XCTAssertEqual(ActivityLog.read(from: fileURL).map(\.event), events)
+
+        let object = try JSONSerialization.jsonObject(with: Data(contentsOf: fileURL)) as? [String: Any]
+        XCTAssertEqual(object?["version"] as? Int, 1)
+        let entries = try XCTUnwrap(object?["entries"] as? [[String: Any]])
+        XCTAssertEqual(entries.map { $0["kind"] as? String }, ["wake", "mode-on", "mode-skipped", "mode-skipped"])
+        XCTAssertEqual(entries[0]["by"] as? String, "schedule")
+        XCTAssertEqual(entries[1]["by"] as? String, "schedule")
+        XCTAssertEqual(entries[1]["mode"] as? String, "lid-closed")
+        XCTAssertEqual(entries[2]["reason"] as? String, "not-on-power")
+        XCTAssertNil(entries[2]["message"])
+        XCTAssertEqual(entries[3]["reason"] as? String, "error")
+        XCTAssertEqual(entries[3]["message"] as? String, "The helper did not respond.")
+    }
+
+    func testOldFileWithoutScheduleFieldsReadsAsBefore() throws {
+        try writeFile("""
+        {"version": 1, "entries": [
+          {"kind": "sleep", "time": 1800000000},
+          {"kind": "wake", "time": 1800000010},
+          {"kind": "mode-on", "time": 1800000020, "mode": "lid-closed"},
+          {"kind": "mode-off", "time": 1800000030, "mode": "lid-closed", "reason": "user"}
+        ]}
+        """)
+
+        XCTAssertEqual(makeLog().entries, [
+            ActivityEntry(time: at(0), event: .sleep),
+            ActivityEntry(time: at(10), event: .wake),
+            ActivityEntry(time: at(20), event: .modeOn(.lidClosed)),
+            ActivityEntry(time: at(30), event: .modeOff(.lidClosed, .user)),
+        ])
+    }
+
+    func testDamagedScheduleEntriesAreSkipped() throws {
+        try writeFile("""
+        {"version": 1, "entries": [
+          {"kind": "mode-skipped", "time": 1800000000, "mode": "lid-closed", "reason": "later-reason"},
+          {"kind": "mode-skipped", "time": 1800000010, "mode": "lid-closed"},
+          {"kind": "mode-skipped", "time": 1800000020, "mode": "lid-closed", "reason": "error"},
+          {"kind": "wake", "time": 1800000030, "by": "someone-later"}
+        ]}
+        """)
+
+        XCTAssertEqual(makeLog().entries, [
+            ActivityEntry(time: at(20), event: .modeSkipped(.lidClosed, .error(""))),
+            ActivityEntry(time: at(30), event: .wake),
+        ])
+    }
+
+    func testPrintedScheduleLines() {
+        let zone = TimeZone(secondsFromGMT: 7200)!
+        let time = ISO8601DateFormatter().date(from: "2026-10-11T22:10:03Z")!
+        func line(_ event: ActivityEvent) -> String {
+            ActivityToken.line(for: ActivityEntry(time: time, event: event), timeZone: zone)
+        }
+
+        let stamp = "2026-10-12T00:10:03+02:00"
+        XCTAssertEqual(line(.scheduledWake), "\(stamp) wake by=schedule")
+        XCTAssertEqual(line(.modeOnBySchedule(.lidClosed)), "\(stamp) mode-on mode=lid-closed by=schedule")
+        XCTAssertEqual(
+            line(.modeSkipped(.lidClosed, .notOnPower)),
+            "\(stamp) mode-skipped mode=lid-closed reason=not-on-power"
+        )
+        XCTAssertEqual(
+            line(.modeSkipped(.lidClosed, .error("Say \"hi\""))),
+            "\(stamp) mode-skipped mode=lid-closed reason=error message=\"Say \\\"hi\\\"\""
+        )
+    }
 }
 
 private final class FakeSleepMonitor: SystemSleepMonitoring {

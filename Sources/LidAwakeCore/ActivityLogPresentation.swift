@@ -5,6 +5,8 @@ import LidAwakeShared
 public enum ActivitySymbol: Equatable, CaseIterable {
     case modeOn
     case modeOff
+    /// The mode was not turned on.
+    case skipped
     case paused
     case resumed
     case busy
@@ -16,6 +18,7 @@ public enum ActivitySymbol: Equatable, CaseIterable {
         switch self {
         case .modeOn: return "circle.fill"
         case .modeOff: return "circle"
+        case .skipped: return "circle.slash"
         case .paused: return "pause.fill"
         case .resumed: return "play.fill"
         case .busy: return "bolt.fill"
@@ -29,7 +32,7 @@ public enum ActivitySymbol: Equatable, CaseIterable {
     public var usesAccent: Bool {
         switch self {
         case .modeOn, .resumed, .busy: return true
-        case .modeOff, .paused, .idle, .sleep, .wake: return false
+        case .modeOff, .skipped, .paused, .idle, .sleep, .wake: return false
         }
     }
 }
@@ -50,6 +53,15 @@ public struct ActivityRow: Equatable {
         switch entry.event {
         case .modeOn(let mode):
             self.init(title: Self.modeOnTitle(mode), detail: String(localized: "By you"), symbol: .modeOn)
+        case .modeOnBySchedule(let mode):
+            self.init(title: Self.modeOnTitle(mode), detail: String(localized: "On schedule"), symbol: .modeOn)
+        case .modeSkipped(_, let reason):
+            // Only Run with Lid Closed is ever turned on by schedule.
+            self.init(
+                title: String(localized: "Run with Lid Closed not turned on"),
+                detail: Self.text(for: reason),
+                symbol: .skipped
+            )
         case .modeOff(let mode, let reason):
             self.init(title: Self.modeOffTitle(mode), detail: Self.text(for: reason, at: entry.time), symbol: .modeOff)
         case .paused:
@@ -81,6 +93,8 @@ public struct ActivityRow: Equatable {
             self.init(title: String(localized: "Mac went to sleep"), detail: nil, symbol: .sleep)
         case .wake:
             self.init(title: String(localized: "Mac woke up"), detail: nil, symbol: .wake)
+        case .scheduledWake:
+            self.init(title: String(localized: "Mac woke up"), detail: String(localized: "On schedule"), symbol: .wake)
         }
     }
 
@@ -109,11 +123,22 @@ public struct ActivityRow: Equatable {
         case .stopped(let stop, let battery, let idle, _):
             return StopNotice.body(for: StopRecord(reason: stop, time: time, batteryPercent: battery, idleMinutes: idle))
         case .error(let message):
-            let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
-            return trimmed.isEmpty ? String(localized: "Something went wrong") : trimmed
+            return errorText(message)
         case .previousSession:
             return String(localized: "LidAwake was restarted.")
         }
+    }
+
+    static func text(for reason: ModeSkipReason) -> String {
+        switch reason {
+        case .notOnPower: return String(localized: "Not on power")
+        case .error(let message): return errorText(message)
+        }
+    }
+
+    private static func errorText(_ message: String) -> String {
+        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? String(localized: "Something went wrong") : trimmed
     }
 }
 

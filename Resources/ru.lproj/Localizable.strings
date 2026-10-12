@@ -127,6 +127,9 @@
 "Mac went to sleep" = "Mac уснул";
 "Mac woke up" = "Mac проснулся";
 "By you" = "Вручную";
+"On schedule" = "По расписанию";
+"Run with Lid Closed not turned on" = "Режим «С закрытой крышкой» не включён";
+"Not on power" = "Питание не подключено";
 "The timer ended after %@." = "Таймер сработал через %@.";
 "Running on battery" = "Mac работает от батареи";
 "Power connected" = "Питание подключено";

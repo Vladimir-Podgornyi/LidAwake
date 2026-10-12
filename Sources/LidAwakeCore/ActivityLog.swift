@@ -5,11 +5,17 @@ import LidAwakeShared
 /// What happened, without any text: the log window words it in the language of the interface.
 public enum ActivityEvent: Equatable {
     case modeOn(Mode)
+    /// Turned on after the Mac woke on schedule.
+    case modeOnBySchedule(Mode)
+    /// Not turned on after the Mac woke on schedule.
+    case modeSkipped(Mode, ModeSkipReason)
     case modeOff(Mode, ModeOffReason)
     case paused
     case resumed
     case sleep
     case wake
+    /// The Mac woke at a time the helper scheduled.
+    case scheduledWake
     /// A program asked macOS not to sleep.
     case keptAwakeByApp(String)
     /// `busiest` is the process that spent the most processor time in that minute.
@@ -38,6 +44,11 @@ public enum ModeOffReason: Equatable {
     case error(String)
     /// A session of an earlier run, ended when the app started.
     case previousSession
+}
+
+public enum ModeSkipReason: Equatable {
+    case notOnPower
+    case error(String)
 }
 
 public struct ActivityEntry: Equatable {
@@ -167,7 +178,7 @@ struct StoredEntry: Codable {
     }
 
     private enum Key: String, CodingKey {
-        case kind, time, mode, reason, battery, idle, timer, message, name, busiest, minutes
+        case kind, time, mode, reason, battery, idle, timer, message, name, busiest, minutes, by
     }
 
     // A damaged entry is skipped like an unknown one, so it does not cost the rest of the log.
@@ -181,9 +192,13 @@ struct StoredEntry: Codable {
         let event: ActivityEvent?
         switch kind {
         case ActivityToken.modeOn:
-            event = try container.decode(String.self, forKey: .mode).modeFromToken.map { .modeOn($0) }
+            let bySchedule = try container.decodeIfPresent(String.self, forKey: .by) == ActivityToken.schedule
+            event = try container.decode(String.self, forKey: .mode).modeFromToken
+                .map { bySchedule ? .modeOnBySchedule($0) : .modeOn($0) }
         case ActivityToken.modeOff:
             event = try modeOff(from: container)
+        case ActivityToken.modeSkipped:
+            event = try modeSkipped(from: container)
         case ActivityToken.paused:
             event = .paused
         case ActivityToken.resumed:
@@ -191,7 +206,8 @@ struct StoredEntry: Codable {
         case ActivityToken.sleep:
             event = .sleep
         case ActivityToken.wake:
-            event = .wake
+            let bySchedule = try container.decodeIfPresent(String.self, forKey: .by) == ActivityToken.schedule
+            event = bySchedule ? .scheduledWake : .wake
         case ActivityToken.busyApp:
             event = .keptAwakeByApp(try container.decode(String.self, forKey: .name))
         case ActivityToken.busyCPU:
@@ -231,6 +247,18 @@ struct StoredEntry: Codable {
         return .modeOff(mode, reason)
     }
 
+    private static func modeSkipped(from container: KeyedDecodingContainer<Key>) throws -> ActivityEvent? {
+        guard let mode = try container.decode(String.self, forKey: .mode).modeFromToken else { return nil }
+        switch try container.decode(String.self, forKey: .reason) {
+        case ActivityToken.notOnPower:
+            return .modeSkipped(mode, .notOnPower)
+        case ActivityToken.error:
+            return .modeSkipped(mode, .error(try container.decodeIfPresent(String.self, forKey: .message) ?? ""))
+        default:
+            return nil
+        }
+    }
+
     func encode(to encoder: Encoder) throws {
         guard let entry else { return }
         var container = encoder.container(keyedBy: Key.self)
@@ -239,6 +267,17 @@ struct StoredEntry: Codable {
         switch entry.event {
         case .modeOn(let mode):
             try container.encode(ActivityToken.mode(mode), forKey: .mode)
+        case .modeOnBySchedule(let mode):
+            try container.encode(ActivityToken.mode(mode), forKey: .mode)
+            try container.encode(ActivityToken.schedule, forKey: .by)
+        case .modeSkipped(let mode, let reason):
+            try container.encode(ActivityToken.mode(mode), forKey: .mode)
+            try container.encode(ActivityToken.reason(reason), forKey: .reason)
+            if case .error(let message) = reason {
+                try container.encode(message, forKey: .message)
+            }
+        case .scheduledWake:
+            try container.encode(ActivityToken.schedule, forKey: .by)
         case .modeOff(let mode, let reason):
             try container.encode(ActivityToken.mode(mode), forKey: .mode)
             try container.encode(ActivityToken.reason(reason), forKey: .reason)
@@ -268,6 +307,7 @@ struct StoredEntry: Codable {
 public enum ActivityToken {
     static let modeOn = "mode-on"
     static let modeOff = "mode-off"
+    static let modeSkipped = "mode-skipped"
     static let paused = "paused"
     static let resumed = "resumed"
     static let sleep = "sleep"
@@ -279,6 +319,8 @@ public enum ActivityToken {
     static let user = "user"
     static let error = "error"
     static let previousSession = "previous-session"
+    static let notOnPower = "not-on-power"
+    static let schedule = "schedule"
 
     private static let stopReasons: [(StopReason, String)] = [
         (.timer, "timer"),
@@ -293,12 +335,13 @@ public enum ActivityToken {
 
     static func kind(of event: ActivityEvent) -> String {
         switch event {
-        case .modeOn: return modeOn
+        case .modeOn, .modeOnBySchedule: return modeOn
         case .modeOff: return modeOff
+        case .modeSkipped: return modeSkipped
         case .paused: return paused
         case .resumed: return resumed
         case .sleep: return sleep
-        case .wake: return wake
+        case .wake, .scheduledWake: return wake
         case .keptAwakeByApp: return busyApp
         case .keptAwakeByLoad: return busyCPU
         case .keptAwakeByInput: return busyInput
@@ -323,6 +366,13 @@ public enum ActivityToken {
         }
     }
 
+    static func reason(_ reason: ModeSkipReason) -> String {
+        switch reason {
+        case .notOnPower: return notOnPower
+        case .error: return error
+        }
+    }
+
     static func stopReason(_ reason: StopReason) -> String {
         stopReasons.first { $0.0 == reason }!.1
     }
@@ -339,6 +389,17 @@ public enum ActivityToken {
         switch entry.event {
         case .modeOn(let mode):
             parts.append("mode=\(self.mode(mode))")
+        case .modeOnBySchedule(let mode):
+            parts.append("mode=\(self.mode(mode))")
+            parts.append("by=\(schedule)")
+        case .modeSkipped(let mode, let reason):
+            parts.append("mode=\(self.mode(mode))")
+            parts.append("reason=\(self.reason(reason))")
+            if case .error(let message) = reason {
+                parts.append("message=\(quoted(message))")
+            }
+        case .scheduledWake:
+            parts.append("by=\(schedule)")
         case .modeOff(let mode, let reason):
             parts.append("mode=\(self.mode(mode))")
             parts.append("reason=\(self.reason(reason))")
