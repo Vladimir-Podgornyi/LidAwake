@@ -55,11 +55,19 @@ public enum UpdateLinks {
     public static let releaseList = URL(string: "https://api.github.com/repos/Vladimir-Podgornyi/LidAwake/releases")!
     /// Opened when the Intel build has no release page to show.
     public static let releasesPage = URL(string: "https://github.com/Vladimir-Podgornyi/LidAwake/releases")!
+    /// Answers with a redirect to the page of the latest release; only the redirect is read.
+    public static let latestReleaseRedirect = URL(string: "https://github.com/Vladimir-Podgornyi/LidAwake/releases/latest")!
 
     /// The page of one release, built only from a tag that is a valid version.
     public static func releasePage(tag: String) -> URL? {
         guard AppVersion(tag) != nil else { return nil }
         return URL(string: "https://github.com/Vladimir-Podgornyi/LidAwake/releases/tag/\(tag)")
+    }
+
+    /// The Intel disk image of one release, built only from a tag that is "v" and a valid version.
+    public static func intelDiskImage(tag: String) -> URL? {
+        guard tag.hasPrefix("v"), let version = AppVersion(tag) else { return nil }
+        return URL(string: "https://github.com/Vladimir-Podgornyi/LidAwake/releases/download/v\(version.description)/\(IntelRelease.diskImageName(version: version))")
     }
 }
 
@@ -119,11 +127,25 @@ struct GitHubRequest: Sendable {
     func get(_ url: URL) async throws -> (status: Int, body: Data) {
         var request = URLRequest(url: url)
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        let reply = try await send(request, delegate: nil)
+        return (reply.response.statusCode, reply.data)
+    }
+
+    /// A HEAD request that stops at the first redirect, so the address it points to is only read.
+    func head(_ url: URL) async throws -> (status: Int, location: String?) {
+        var request = URLRequest(url: url)
+        request.httpMethod = "HEAD"
+        let reply = try await send(request, delegate: RedirectRefusal())
+        return (reply.response.statusCode, reply.response.value(forHTTPHeaderField: "Location"))
+    }
+
+    private func send(_ request: URLRequest, delegate: URLSessionTaskDelegate?) async throws -> (data: Data, response: HTTPURLResponse) {
+        var request = request
         request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
         let data: Data
         let response: URLResponse
         do {
-            (data, response) = try await session.data(for: request)
+            (data, response) = try await session.data(for: request, delegate: delegate)
         } catch let error as URLError {
             switch error.code {
             case .timedOut: throw ReleaseLookupError.timeout
@@ -134,9 +156,24 @@ struct GitHubRequest: Sendable {
             throw ReleaseLookupError.network
         }
         guard let http = response as? HTTPURLResponse else { throw ReleaseLookupError.badResponse }
-        return (http.statusCode, data)
+        return (data, http)
     }
 }
+
+/// Hands the redirect response itself back to the caller instead of following it.
+private final class RedirectRefusal: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        willPerformHTTPRedirection response: HTTPURLResponse,
+        newRequest request: URLRequest,
+        completionHandler: @escaping (URLRequest?) -> Void
+    ) {
+        completionHandler(nil)
+    }
+}
+
+extension GitHubRequest: RedirectRequest {}
 
 /// Asks GitHub for the latest release. Reads only tag_name from the reply.
 public struct GitHubReleaseSource: ReleaseSource {
@@ -259,12 +296,113 @@ public struct GitHubIntelReleaseSource: ReleaseSource {
     }
 }
 
+/// A HEAD request that does not follow redirects. Throws only `ReleaseLookupError`.
+protocol RedirectRequest: Sendable {
+    func head(_ url: URL) async throws -> (status: Int, location: String?)
+}
+
+/// Which way a release lookup got its answer.
+public enum ReleaseOrigin: String, Sendable {
+    /// The redirect of the github.com release page.
+    case web
+    /// api.github.com.
+    case api
+}
+
+/// Reads the latest release from the redirect of the github.com release page, which has no
+/// per-address request limit like api.github.com. Falls back to `fallback` when that redirect
+/// gives no usable answer; a connection failure is reported as it is, since a second request
+/// would fail the same way.
+public struct WebFirstReleaseSource: ReleaseSource {
+    private let request: RedirectRequest
+    private let fallback: ReleaseSource
+    private let intel: Bool
+
+    /// `intel` also asks whether the latest release carries an Intel disk image, and falls back
+    /// to the releases list when it does not.
+    public init(intel: Bool, appVersion: String = AppVersion.installedText) {
+        request = GitHubRequest(appVersion: appVersion)
+        fallback = intel ? GitHubIntelReleaseSource(appVersion: appVersion) : GitHubReleaseSource(appVersion: appVersion)
+        self.intel = intel
+    }
+
+    init(request: RedirectRequest, fallback: ReleaseSource, intel: Bool) {
+        self.request = request
+        self.fallback = fallback
+        self.intel = intel
+    }
+
+    public func latestRelease() async throws -> ReleaseLookup {
+        try await check().result.get()
+    }
+
+    public func check() async -> (result: Result<ReleaseLookup, Error>, origin: ReleaseOrigin) {
+        do {
+            if let lookup = try await webLookup() {
+                return (.success(lookup), .web)
+            }
+        } catch {
+            return (.failure(error), .web)
+        }
+        do {
+            return (.success(try await fallback.latestRelease()), .api)
+        } catch {
+            return (.failure(error), .api)
+        }
+    }
+
+    /// nil when the replies give no usable answer.
+    private func webLookup() async throws -> ReleaseLookup? {
+        do {
+            let reply = try await request.head(UpdateLinks.latestReleaseRedirect)
+            guard let lookup = Self.lookup(status: reply.status, location: reply.location) else { return nil }
+            guard intel, case .tag(let tag) = lookup else { return lookup }
+            guard let file = UpdateLinks.intelDiskImage(tag: tag) else { return nil }
+            return Self.isRedirect(try await request.head(file).status) ? lookup : nil
+        } catch ReleaseLookupError.badResponse {
+            return nil
+        }
+    }
+
+    static func lookup(status: Int, location: String?) -> ReleaseLookup? {
+        guard isRedirect(status), let location else { return nil }
+        return lookup(location: location)
+    }
+
+    /// Accepts only https://github.com/Vladimir-Podgornyi/LidAwake/releases/tag/<tag>, or the
+    /// releases list, which GitHub redirects to when there is no release.
+    static func lookup(location: String) -> ReleaseLookup? {
+        guard let parts = URLComponents(string: location), parts.scheme == "https", parts.host == "github.com",
+              parts.port == nil, parts.user == nil, parts.password == nil,
+              parts.query == nil, parts.fragment == nil else { return nil }
+        let list = "/Vladimir-Podgornyi/LidAwake/releases"
+        let path = parts.percentEncodedPath
+        if path == list { return .noReleases }
+        guard path.hasPrefix(list + "/tag/") else { return nil }
+        let tag = String(path.dropFirst(list.count + "/tag/".count))
+        guard !tag.isEmpty, !tag.contains("/"), !tag.contains("%") else { return nil }
+        return .tag(tag)
+    }
+
+    private static func isRedirect(_ status: Int) -> Bool {
+        [301, 302, 303, 307, 308].contains(status)
+    }
+}
+
 /// The outcome of one --check-update run.
 public enum UpdateCheckReport {
-    /// `intel` adds "files=intel", so the output shows that only Intel disk images were looked at.
-    public static func line(result: Result<ReleaseLookup, Error>, current: String, intel: Bool = false) -> (text: String, exitCode: Int32) {
+    /// `intel` adds "files=intel", so the output shows that only Intel disk images were looked at;
+    /// `origin` adds "source=", the way that gave the answer.
+    public static func line(
+        result: Result<ReleaseLookup, Error>,
+        current: String,
+        intel: Bool = false,
+        origin: ReleaseOrigin? = nil
+    ) -> (text: String, exitCode: Int32) {
         let report = plainLine(result: result, current: current)
-        return (intel ? report.text + " files=intel" : report.text, report.exitCode)
+        var text = intel ? report.text + " files=intel" : report.text
+        if let origin { text += " source=\(origin.rawValue)" }
+        return (text, report.exitCode)
     }
 
     private static func plainLine(result: Result<ReleaseLookup, Error>, current: String) -> (text: String, exitCode: Int32) {

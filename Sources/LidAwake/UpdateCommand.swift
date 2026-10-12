@@ -1,20 +1,15 @@
 import Foundation
 import LidAwakeCore
 
-/// `--check-update`: asks GitHub once, right away, ignoring the setting and the daily limit,
+/// `--check-update`: checks GitHub right away, ignoring the setting and the daily limit,
 /// and saves nothing.
 enum UpdateCommand {
     static let flag = "--check-update"
 
     static func run() async -> Int32 {
         let current = AppVersion.installedText
-        let result: Result<ReleaseLookup, Error>
-        do {
-            result = .success(try await UpdateBuild.source(appVersion: current).latestRelease())
-        } catch {
-            result = .failure(error)
-        }
-        let report = UpdateCheckReport.line(result: result, current: current, intel: UpdateBuild.isIntel)
+        let check = await UpdateBuild.source(appVersion: current).check()
+        let report = UpdateCheckReport.line(result: check.result, current: current, intel: UpdateBuild.isIntel, origin: check.origin)
         print(report.text)
         return report.exitCode
     }

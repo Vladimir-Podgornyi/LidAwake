@@ -199,6 +199,283 @@ final class GitHubIntelReleaseSourceTests: XCTestCase {
     }
 }
 
+final class WebLocationTests: XCTestCase {
+    func testAcceptsTheTagPageOfThisRepository() {
+        XCTAssertEqual(
+            WebFirstReleaseSource.lookup(location: "https://github.com/Vladimir-Podgornyi/LidAwake/releases/tag/v1.0.1"),
+            .tag("v1.0.1")
+        )
+    }
+
+    func testReleasesListMeansNoReleases() {
+        XCTAssertEqual(
+            WebFirstReleaseSource.lookup(location: "https://github.com/Vladimir-Podgornyi/LidAwake/releases"),
+            .noReleases
+        )
+    }
+
+    func testOtherHostsAreRejected() {
+        for location in [
+            "https://example.com/Vladimir-Podgornyi/LidAwake/releases/tag/v1.0.1",
+            "https://api.github.com/Vladimir-Podgornyi/LidAwake/releases/tag/v1.0.1",
+            "https://github.com.example.com/Vladimir-Podgornyi/LidAwake/releases/tag/v1.0.1",
+            "http://github.com/Vladimir-Podgornyi/LidAwake/releases/tag/v1.0.1",
+            "https://github.com:8443/Vladimir-Podgornyi/LidAwake/releases/tag/v1.0.1",
+            "https://user@github.com/Vladimir-Podgornyi/LidAwake/releases/tag/v1.0.1",
+            "/Vladimir-Podgornyi/LidAwake/releases/tag/v1.0.1",
+        ] {
+            XCTAssertNil(WebFirstReleaseSource.lookup(location: location), location)
+        }
+    }
+
+    func testOtherRepositoriesAreRejected() {
+        for location in [
+            "https://github.com/someone/LidAwake/releases/tag/v1.0.1",
+            "https://github.com/Vladimir-Podgornyi/Other/releases/tag/v1.0.1",
+            "https://github.com/vladimir-podgornyi/lidawake/releases/tag/v1.0.1",
+            "https://github.com/someone/Other/releases",
+        ] {
+            XCTAssertNil(WebFirstReleaseSource.lookup(location: location), location)
+        }
+    }
+
+    func testAddressWithoutTagIsRejected() {
+        for location in [
+            "https://github.com/Vladimir-Podgornyi/LidAwake/releases/v1.0.1",
+            "https://github.com/Vladimir-Podgornyi/LidAwake/releases/latest",
+            "https://github.com/Vladimir-Podgornyi/LidAwake",
+            "https://github.com/",
+        ] {
+            XCTAssertNil(WebFirstReleaseSource.lookup(location: location), location)
+        }
+    }
+
+    func testEmptyTagIsRejected() {
+        XCTAssertNil(WebFirstReleaseSource.lookup(location: "https://github.com/Vladimir-Podgornyi/LidAwake/releases/tag/"))
+    }
+
+    func testExtraPartsAreRejected() {
+        for location in [
+            "https://github.com/Vladimir-Podgornyi/LidAwake/releases/tag/v1.0.1/extra",
+            "https://github.com/Vladimir-Podgornyi/LidAwake/releases/tag/v1.0.1/",
+            "https://github.com/Vladimir-Podgornyi/LidAwake/releases/tag/v1.0.1?x=1",
+            "https://github.com/Vladimir-Podgornyi/LidAwake/releases/tag/v1.0.1#x",
+            "https://github.com/Vladimir-Podgornyi/LidAwake/releases/tag/v1.0.1%2F..",
+            "https://github.com/Vladimir-Podgornyi/LidAwake/releases/",
+            "https://github.com/x/Vladimir-Podgornyi/LidAwake/releases/tag/v1.0.1",
+        ] {
+            XCTAssertNil(WebFirstReleaseSource.lookup(location: location), location)
+        }
+    }
+
+    func testIntelDiskImageAddressIsBuiltFromTheVersion() {
+        XCTAssertEqual(
+            UpdateLinks.intelDiskImage(tag: "v1.0.2")?.absoluteString,
+            "https://github.com/Vladimir-Podgornyi/LidAwake/releases/download/v1.0.2/LidAwake-1.0.2-intel.dmg"
+        )
+        for tag in ["1.0.2", "nightly", "v1.0.2-rc.1", "v", ""] {
+            XCTAssertNil(UpdateLinks.intelDiskImage(tag: tag), tag)
+        }
+    }
+
+    func testRedirectAddressIsFixed() {
+        XCTAssertEqual(
+            UpdateLinks.latestReleaseRedirect.absoluteString,
+            "https://github.com/Vladimir-Podgornyi/LidAwake/releases/latest"
+        )
+    }
+}
+
+private final class FakeRedirectRequest: RedirectRequest, @unchecked Sendable {
+    private let replies: [URL: Result<(status: Int, location: String?), ReleaseLookupError>]
+    private(set) var asked: [URL] = []
+
+    init(_ replies: [URL: Result<(status: Int, location: String?), ReleaseLookupError>]) {
+        self.replies = replies
+    }
+
+    func head(_ url: URL) async throws -> (status: Int, location: String?) {
+        asked.append(url)
+        guard let reply = replies[url] else { throw ReleaseLookupError.network }
+        return try reply.get()
+    }
+}
+
+final class WebFirstReleaseSourceTests: XCTestCase {
+    private let latest = UpdateLinks.latestReleaseRedirect
+    private let tagPage = "https://github.com/Vladimir-Podgornyi/LidAwake/releases/tag/v1.0.3"
+    private let intelFile = URL(string: "https://github.com/Vladimir-Podgornyi/LidAwake/releases/download/v1.0.3/LidAwake-1.0.3-intel.dmg")!
+
+    private func check(
+        _ replies: [URL: Result<(status: Int, location: String?), ReleaseLookupError>],
+        fallback: FakeReleaseSource = FakeReleaseSource(.success(.tag("v1.0.2"))),
+        intel: Bool = false
+    ) async -> (result: Result<ReleaseLookup, Error>, origin: ReleaseOrigin, request: FakeRedirectRequest) {
+        let request = FakeRedirectRequest(replies)
+        let source = WebFirstReleaseSource(request: request, fallback: fallback, intel: intel)
+        let check = await source.check()
+        return (check.result, check.origin, request)
+    }
+
+    private func lookup(_ result: Result<ReleaseLookup, Error>) -> ReleaseLookup? {
+        try? result.get()
+    }
+
+    private func error(_ result: Result<ReleaseLookup, Error>) -> ReleaseLookupError? {
+        guard case .failure(let failure) = result else { return nil }
+        return failure as? ReleaseLookupError
+    }
+
+    func testRedirectToATagAnswersFromTheWeb() async {
+        let fallback = FakeReleaseSource(.success(.tag("v1.0.2")))
+        let check = await check([latest: .success((302, tagPage))], fallback: fallback)
+        XCTAssertEqual(lookup(check.result), .tag("v1.0.3"))
+        XCTAssertEqual(check.origin, .web)
+        XCTAssertEqual(check.request.asked, [latest])
+        XCTAssertEqual(fallback.calls, 0)
+    }
+
+    func testRedirectToTheListMeansNoReleases() async {
+        let fallback = FakeReleaseSource(.success(.tag("v1.0.2")))
+        let check = await check([latest: .success((302, "https://github.com/Vladimir-Podgornyi/LidAwake/releases"))], fallback: fallback)
+        XCTAssertEqual(lookup(check.result), .noReleases)
+        XCTAssertEqual(check.origin, .web)
+        XCTAssertEqual(fallback.calls, 0)
+    }
+
+    func testUnusableRepliesFallBackToTheApi() async {
+        let replies: [(Int, String?)] = [
+            (200, nil), (200, tagPage), (403, nil), (404, nil), (429, nil), (302, nil), (301, nil),
+            (302, "https://example.com/Vladimir-Podgornyi/LidAwake/releases/tag/v1.0.3"),
+        ]
+        for reply in replies {
+            let fallback = FakeReleaseSource(.success(.tag("v1.0.2")))
+            let check = await check([latest: .success(reply)], fallback: fallback)
+            XCTAssertEqual(lookup(check.result), .tag("v1.0.2"), "\(reply)")
+            XCTAssertEqual(check.origin, .api, "\(reply)")
+            XCTAssertEqual(fallback.calls, 1, "\(reply)")
+        }
+    }
+
+    func testReplyThatIsNotHttpFallsBackToTheApi() async {
+        let fallback = FakeReleaseSource(.success(.tag("v1.0.2")))
+        let check = await check([latest: .failure(.badResponse)], fallback: fallback)
+        XCTAssertEqual(check.origin, .api)
+        XCTAssertEqual(fallback.calls, 1)
+    }
+
+    func testConnectionFailuresDoNotFallBack() async {
+        for failure: ReleaseLookupError in [.timeout, .offline, .network] {
+            let fallback = FakeReleaseSource(.success(.tag("v1.0.2")))
+            let check = await check([latest: .failure(failure)], fallback: fallback)
+            XCTAssertEqual(error(check.result), failure)
+            XCTAssertEqual(check.origin, .web)
+            XCTAssertEqual(fallback.calls, 0)
+            XCTAssertEqual(
+                UpdateCheckReport.line(result: check.result, current: "1.0.2", origin: check.origin).text,
+                "update=error reason=\(failure.reason) current=1.0.2 source=web"
+            )
+        }
+    }
+
+    func testBothWaysFailingReportsTheApiError() async {
+        let fallback = FakeReleaseSource(.failure(ReleaseLookupError.status(403)))
+        let check = await check([latest: .success((403, nil))], fallback: fallback)
+        XCTAssertEqual(error(check.result), .status(403))
+        XCTAssertEqual(check.origin, .api)
+        XCTAssertEqual(fallback.calls, 1)
+    }
+
+    func testLatestReleaseReturnsTheSameAnswer() async throws {
+        let source = WebFirstReleaseSource(
+            request: FakeRedirectRequest([latest: .success((302, tagPage))]),
+            fallback: FakeReleaseSource(.success(.tag("v1.0.2"))),
+            intel: false
+        )
+        let answer = try await source.latestRelease()
+        XCTAssertEqual(answer, .tag("v1.0.3"))
+    }
+
+    func testIntelFilePresentAnswersFromTheWeb() async {
+        for status in [302, 301, 307] {
+            let fallback = FakeReleaseSource(.success(.tag("v1.0.2")))
+            let check = await check(
+                [latest: .success((302, tagPage)), intelFile: .success((status, "https://example.com/file"))],
+                fallback: fallback,
+                intel: true
+            )
+            XCTAssertEqual(lookup(check.result), .tag("v1.0.3"))
+            XCTAssertEqual(check.origin, .web)
+            XCTAssertEqual(check.request.asked, [latest, intelFile])
+            XCTAssertEqual(fallback.calls, 0)
+        }
+    }
+
+    func testIntelFileMissingFallsBackToTheApi() async {
+        let fallback = FakeReleaseSource(.success(.tag("v1.0.2")))
+        let check = await check(
+            [latest: .success((302, tagPage)), intelFile: .success((404, nil))],
+            fallback: fallback,
+            intel: true
+        )
+        XCTAssertEqual(lookup(check.result), .tag("v1.0.2"))
+        XCTAssertEqual(check.origin, .api)
+        XCTAssertEqual(fallback.calls, 1)
+    }
+
+    func testUnexpectedIntelFileReplyFallsBackToTheApi() async {
+        for reply: Result<(status: Int, location: String?), ReleaseLookupError> in [
+            .success((200, nil)), .success((403, nil)), .success((429, nil)), .success((500, nil)), .failure(.badResponse),
+        ] {
+            let fallback = FakeReleaseSource(.success(.noIntelRelease))
+            let check = await check(
+                [latest: .success((302, tagPage)), intelFile: reply],
+                fallback: fallback,
+                intel: true
+            )
+            XCTAssertEqual(lookup(check.result), .noIntelRelease)
+            XCTAssertEqual(check.origin, .api)
+            XCTAssertEqual(fallback.calls, 1)
+        }
+    }
+
+    func testIntelTagWithoutVFallsBackToTheApi() async {
+        for tag in ["1.0.3", "nightly"] {
+            let fallback = FakeReleaseSource(.success(.tag("v1.0.2")))
+            let check = await check(
+                [latest: .success((302, "https://github.com/Vladimir-Podgornyi/LidAwake/releases/tag/\(tag)"))],
+                fallback: fallback,
+                intel: true
+            )
+            XCTAssertEqual(check.origin, .api, tag)
+            XCTAssertEqual(check.request.asked, [latest], tag)
+            XCTAssertEqual(fallback.calls, 1, tag)
+        }
+    }
+
+    func testIntelFileConnectionFailureDoesNotFallBack() async {
+        let fallback = FakeReleaseSource(.success(.tag("v1.0.2")))
+        let check = await check(
+            [latest: .success((302, tagPage)), intelFile: .failure(.timeout)],
+            fallback: fallback,
+            intel: true
+        )
+        XCTAssertEqual(error(check.result), .timeout)
+        XCTAssertEqual(check.origin, .web)
+        XCTAssertEqual(fallback.calls, 0)
+    }
+
+    func testIntelWithoutReleasesAsksNothingMore() async {
+        let check = await check(
+            [latest: .success((302, "https://github.com/Vladimir-Podgornyi/LidAwake/releases"))],
+            intel: true
+        )
+        XCTAssertEqual(lookup(check.result), .noReleases)
+        XCTAssertEqual(check.origin, .web)
+        XCTAssertEqual(check.request.asked, [latest])
+    }
+}
+
 final class UpdateCheckReportTests: XCTestCase {
     func testLines() {
         XCTAssertEqual(
@@ -241,6 +518,21 @@ final class UpdateCheckReportTests: XCTestCase {
             "update=error reason=offline current=1.0.2 files=intel"
         )
         XCTAssertEqual(UpdateCheckReport.line(result: .success(.noIntelRelease), current: "1.0.2").exitCode, 0)
+    }
+
+    func testSourceLines() {
+        XCTAssertEqual(
+            UpdateCheckReport.line(result: .success(.tag("v1.0.1")), current: "1.0.2", origin: .web).text,
+            "update=none latest=1.0.1 current=1.0.2 source=web"
+        )
+        XCTAssertEqual(
+            UpdateCheckReport.line(result: .success(.tag("v1.0.3")), current: "1.0.2", intel: true, origin: .api).text,
+            "update=available latest=1.0.3 current=1.0.2 files=intel source=api"
+        )
+        XCTAssertEqual(
+            UpdateCheckReport.line(result: .failure(ReleaseLookupError.status(403)), current: "1.0.2", origin: .api).text,
+            "update=error reason=http-403 current=1.0.2 source=api"
+        )
     }
 
     func testExitCodeIsOneOnlyForErrors() {
