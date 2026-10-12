@@ -3,7 +3,7 @@ import Foundation
 import LidAwakeShared
 
 @MainActor
-public final class ModeController: ObservableObject {
+public final class ModeController: ObservableObject, ScheduledModeStarting {
     @Published public private(set) var mode: Mode = .off
     @Published public private(set) var message: ModeMessage?
     @Published public private(set) var isBusy = false
@@ -19,6 +19,7 @@ public final class ModeController: ObservableObject {
     private let sessions: LidSessionService
     private let activity: ActivityHolding
     private let powerSourceMonitor: PowerSourceMonitoring
+    private let powerSource: PowerSourceReading
     private let notifier: StopNotifying
     private let lidMonitor: LidMonitoring
     private let screenLocker: ScreenLocking
@@ -41,6 +42,7 @@ public final class ModeController: ObservableObject {
         notifier: StopNotifying,
         activity: ActivityHolding = AppNapActivity(),
         powerSourceMonitor: PowerSourceMonitoring = IOKitPowerSourceMonitor(),
+        powerSource: PowerSourceReading = IOKitPowerSource(),
         lidMonitor: LidMonitoring = IOKitLidMonitor(),
         screenLocker: ScreenLocking = LoginScreenLocker(),
         activityLog: ActivityLogging = NoActivityLog(),
@@ -57,6 +59,7 @@ public final class ModeController: ObservableObject {
         self.notifier = notifier
         self.activity = activity
         self.powerSourceMonitor = powerSourceMonitor
+        self.powerSource = powerSource
         self.lidMonitor = lidMonitor
         self.screenLocker = screenLocker
         self.activityLog = activityLog
@@ -88,6 +91,30 @@ public final class ModeController: ObservableObject {
     }
 
     public func select(_ newMode: Mode) async throws {
+        try await select(newMode, bySchedule: false)
+    }
+
+    /// Run with Lid Closed with Sleep when idle for this session, only from Off and only on power.
+    /// Called after the Mac woke on schedule.
+    public func turnOnBySchedule() async {
+        guard mode == .off, !isBusy else { return }
+        guard powerSource.read().source == .ac else {
+            activityLog.record(.modeSkipped(.lidClosed, .notOnPower))
+            return
+        }
+        let idleSleepWasOn = preferences.idleSleepEnabled
+        preferences.beginIdleSleepSession()
+        do {
+            try await select(.lidClosed, bySchedule: true)
+        } catch {
+            activityLog.record(.modeSkipped(.lidClosed, .error(error.localizedDescription)))
+            if !idleSleepWasOn {
+                preferences.endIdleSleepSession()
+            }
+        }
+    }
+
+    private func select(_ newMode: Mode, bySchedule: Bool) async throws {
         guard newMode != mode, !isBusy else { return }
         isBusy = true
         defer { isBusy = false }
@@ -126,7 +153,7 @@ public final class ModeController: ObservableObject {
                 activity.begin()
                 recordTurnedOffByUser(mode)
                 mode = .lidClosed
-                activityLog.record(.modeOn(.lidClosed))
+                activityLog.record(bySchedule ? .modeOnBySchedule(.lidClosed) : .modeOn(.lidClosed))
                 startRenewals()
                 startTimer()
                 await updatePauseState()

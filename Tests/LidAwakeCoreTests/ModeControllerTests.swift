@@ -125,6 +125,40 @@ private final class FakePowerSourceMonitor: PowerSourceMonitoring {
     }
 }
 
+private final class FakePowerSource: PowerSourceReading {
+    var source: PowerSource = .ac
+    private(set) var reads = 0
+
+    func read() -> PowerReading {
+        reads += 1
+        return PowerReading(battery: .percent(80), source: source)
+    }
+}
+
+@MainActor
+private final class FakeWakeService: ScheduledWakeService {
+    var wakes: [Date] = []
+    private let sessions: FakeSessions
+    /// The minute of each call and the session calls made before it.
+    private(set) var requests: [(minute: Int, sessionCalls: [String])] = []
+
+    init(sessions: FakeSessions) {
+        self.sessions = sessions
+    }
+
+    func setScheduledWake(minuteOfDay: Int) async throws {
+        requests.append((minuteOfDay, sessions.calls))
+    }
+
+    func scheduledWakes() async throws -> [Date] {
+        wakes
+    }
+}
+
+private final class FakeClockMonitor: ClockChangeMonitoring {
+    func start(_ handler: @escaping () -> Void) {}
+}
+
 private final class FakeLidMonitor: LidMonitoring {
     private var handler: ((Bool) -> Void)?
 
@@ -199,6 +233,7 @@ final class ModeControllerTests: XCTestCase {
     private let notifier = FakeNotifier()
     private let powerMonitor = FakePowerSourceMonitor()
     private let lidMonitor = FakeLidMonitor()
+    private let power = FakePowerSource()
     private let locker = FakeScreenLocker()
     private let time = FakeTime()
     private let log = FakeActivityLog()
@@ -221,6 +256,7 @@ final class ModeControllerTests: XCTestCase {
             notifier: notifier,
             activity: activity,
             powerSourceMonitor: powerMonitor,
+            powerSource: power,
             lidMonitor: lidMonitor,
             screenLocker: locker,
             activityLog: log,
@@ -1573,5 +1609,158 @@ final class ModeControllerTests: XCTestCase {
         XCTAssertEqual(preferences.batteryLimitPercent, 40)
         XCTAssertFalse(preferences.thermalProtectionEnabled)
         XCTAssertTrue(preferences.chargingOnlyEnabled)
+    }
+
+    // MARK: Wake on schedule
+
+    private let wakeSuiteName = "ModeControllerTests-wake-\(UUID().uuidString)"
+    private let wakeTime = Date(timeIntervalSince1970: 1_800_000_000)
+
+    /// A scheduler that remembers `wakeTime` with the setting on, for a controller made by the test.
+    private func makeScheduler(_ controller: ModeController, wakeService: FakeWakeService) async -> WakeScheduler {
+        let wakePreferences = WakePreferences(defaults: UserDefaults(suiteName: wakeSuiteName)!)
+        wakePreferences.wakeEnabled = true
+        wakeService.wakes = [wakeTime]
+        let scheduler = WakeScheduler(
+            preferences: wakePreferences,
+            helper: helper,
+            service: wakeService,
+            mode: controller,
+            log: log,
+            clockMonitor: FakeClockMonitor(),
+            now: { [wakeTime] in wakeTime.addingTimeInterval(1) }
+        )
+        await scheduler.sync()
+        await settle { wakeService.requests.count >= 2 }
+        UserDefaults().removePersistentDomain(forName: wakeSuiteName)
+        return scheduler
+    }
+
+    func testWakeOnScheduleOnPowerTurnsOnRunWithLidClosedWithSleepWhenIdle() async {
+        preferences.idleSleepMinutes = 30
+        let controller = makeController()
+        let wakeService = FakeWakeService(sessions: sessions)
+        let scheduler = await makeScheduler(controller, wakeService: wakeService)
+        let requestsBefore = wakeService.requests.count
+
+        scheduler.macDidWake()
+        await settle { wakeService.requests.count > requestsBefore }
+
+        XCTAssertEqual(controller.mode, .lidClosed)
+        XCTAssertTrue(preferences.idleSleepEnabled, "Sleep when idle is on for this session")
+        XCTAssertEqual(preferences.idleSleepMinutes, 30, "the saved minutes do not change")
+        XCTAssertEqual(sessions.safety.first?.idleSleepMinutes, 30, "the session starts with Sleep when idle")
+        XCTAssertEqual(helper.prepareCount, 1)
+        XCTAssertEqual(log.events.prefix(2), [.scheduledWake, .modeOnBySchedule(.lidClosed)])
+        XCTAssertFalse(log.events.contains(.modeOn(.lidClosed)))
+        XCTAssertFalse(log.events.contains(.wake))
+        let request = wakeService.requests.last!
+        XCTAssertEqual(request.minute, 480)
+        XCTAssertEqual(request.sessionCalls.first, "start 120", "the helper is asked after the mode is on")
+    }
+
+    func testAfterTheScheduledSessionEndsSleepWhenIdleIsOff() async throws {
+        let controller = makeController()
+        await controller.turnOnBySchedule()
+        XCTAssertEqual(controller.mode, .lidClosed)
+        XCTAssertTrue(preferences.idleSleepEnabled)
+
+        try await controller.select(.off)
+        XCTAssertFalse(preferences.idleSleepEnabled)
+        XCTAssertEqual(preferences.idleSleepMinutes, 20)
+        XCTAssertEqual(log.events, [
+            .modeOnBySchedule(.lidClosed),
+            .modeOff(.lidClosed, .user),
+        ])
+    }
+
+    func testScheduledTurnOnDoesNotSendTheSettingTwice() async {
+        let controller = makeController()
+        await controller.turnOnBySchedule()
+        await settle { false }
+        XCTAssertEqual(sessions.calls, ["start 120"])
+    }
+
+    func testScheduledWakeOnBatteryOrUnknownPowerLeavesTheModeOff() async {
+        for source in [PowerSource.battery, .unknown] {
+            power.source = source
+            let controller = makeController()
+            let wakeService = FakeWakeService(sessions: sessions)
+            let scheduler = await makeScheduler(controller, wakeService: wakeService)
+            let requestsBefore = wakeService.requests.count
+            let eventsBefore = log.events.count
+
+            scheduler.macDidWake()
+            await settle { wakeService.requests.count > requestsBefore }
+
+            XCTAssertEqual(controller.mode, .off, "\(source)")
+            XCTAssertFalse(preferences.idleSleepEnabled, "\(source)")
+            XCTAssertEqual(helper.prepareCount, 0, "\(source)")
+            XCTAssertEqual(sessions.calls, [], "\(source)")
+            XCTAssertEqual(Array(log.events.dropFirst(eventsBefore)), [
+                .scheduledWake,
+                .modeSkipped(.lidClosed, .notOnPower),
+            ], "\(source)")
+        }
+    }
+
+    func testScheduledTurnOnFailureIsRecordedAndSleepWhenIdleGoesBackOff() async {
+        helper.notReady = .notReady("The helper is not ready.")
+        let controller = makeController()
+        await controller.turnOnBySchedule()
+        XCTAssertEqual(controller.mode, .off)
+        XCTAssertFalse(preferences.idleSleepEnabled)
+        XCTAssertEqual(log.events, [.modeSkipped(.lidClosed, .error("The helper is not ready."))])
+
+        helper.notReady = nil
+        sessions.startError = HelperError.helper(.flagWriteFailed, "The sleep setting could not be changed.")
+        await controller.turnOnBySchedule()
+        XCTAssertEqual(controller.mode, .off)
+        XCTAssertFalse(preferences.idleSleepEnabled)
+        XCTAssertEqual(log.events.last, .modeSkipped(.lidClosed, .error("The sleep setting could not be changed.")))
+    }
+
+    func testScheduledTurnOnFailureKeepsSleepWhenIdleThatWasAlreadyOn() async {
+        preferences.idleSleepEnabled = true
+        helper.notReady = .notReady("The helper is not ready.")
+        let controller = makeController()
+        await controller.turnOnBySchedule()
+        XCTAssertTrue(preferences.idleSleepEnabled)
+    }
+
+    func testScheduledWakeLeavesKeepScreenOnAlone() async throws {
+        let controller = makeController()
+        try await controller.select(.keepScreenOn)
+        let wakeService = FakeWakeService(sessions: sessions)
+        let scheduler = await makeScheduler(controller, wakeService: wakeService)
+        let requestsBefore = wakeService.requests.count
+        let eventsBefore = log.events.count
+
+        scheduler.macDidWake()
+        await settle { wakeService.requests.count > requestsBefore }
+
+        XCTAssertEqual(controller.mode, .keepScreenOn)
+        XCTAssertFalse(preferences.idleSleepEnabled)
+        XCTAssertEqual(power.reads, 0)
+        XCTAssertEqual(Array(log.events.dropFirst(eventsBefore)), [.scheduledWake])
+    }
+
+    func testScheduledWakeLeavesARunningSessionAlone() async throws {
+        let controller = makeController()
+        try await controller.select(.lidClosed)
+        let wakeService = FakeWakeService(sessions: sessions)
+        let scheduler = await makeScheduler(controller, wakeService: wakeService)
+        let requestsBefore = wakeService.requests.count
+        let eventsBefore = log.events.count
+        let callsBefore = sessions.calls
+
+        scheduler.macDidWake()
+        await settle { wakeService.requests.count > requestsBefore }
+
+        XCTAssertEqual(controller.mode, .lidClosed)
+        XCTAssertFalse(preferences.idleSleepEnabled)
+        XCTAssertEqual(helper.prepareCount, 1)
+        XCTAssertEqual(sessions.calls, callsBefore)
+        XCTAssertEqual(Array(log.events.dropFirst(eventsBefore)), [.scheduledWake])
     }
 }

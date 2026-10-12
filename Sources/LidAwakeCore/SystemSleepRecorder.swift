@@ -5,20 +5,43 @@ public protocol SystemSleepMonitoring: AnyObject {
     func start(_ handler: @escaping (_ asleep: Bool) -> Void)
 }
 
+@MainActor
+public protocol SystemWakeHandling: AnyObject {
+    /// Records the wake in the log and acts on it.
+    func macDidWake()
+}
+
 /// Writes the Mac going to sleep and waking up to the log, whatever mode is selected.
 @MainActor
 public final class SystemSleepRecorder {
     private let monitor: SystemSleepMonitoring
     private let log: ActivityLogging
+    private weak var wakeHandler: SystemWakeHandling?
 
-    public init(monitor: SystemSleepMonitoring = WorkspaceSleepMonitor(), log: ActivityLogging) {
+    /// With a `wakeHandler`, the handler records the wake instead.
+    public init(
+        monitor: SystemSleepMonitoring = WorkspaceSleepMonitor(),
+        log: ActivityLogging,
+        wakeHandler: SystemWakeHandling? = nil
+    ) {
         self.monitor = monitor
         self.log = log
+        self.wakeHandler = wakeHandler
     }
 
     public func start() {
         monitor.start { [weak self] asleep in
-            MainActor.assumeIsolated { self?.log.record(asleep ? .sleep : .wake) }
+            MainActor.assumeIsolated { self?.changed(asleep: asleep) }
+        }
+    }
+
+    private func changed(asleep: Bool) {
+        if asleep {
+            log.record(.sleep)
+        } else if let wakeHandler {
+            wakeHandler.macDidWake()
+        } else {
+            log.record(.wake)
         }
     }
 }

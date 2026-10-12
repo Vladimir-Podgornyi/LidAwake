@@ -102,6 +102,15 @@ public final class SafetyPreferences: ObservableObject {
         )
     }
 
+    /// Turns Sleep when idle on for a session about to start, which reads the setting itself,
+    /// so `changes` does not fire.
+    public func beginIdleSleepSession() {
+        guard !idleSleepEnabled else { return }
+        sendsChanges = false
+        defer { sendsChanges = true }
+        idleSleepEnabled = true
+    }
+
     /// Sleep when idle lasts one Run with Lid Closed session. The session has already ended, so there is
     /// nothing to send to the helper and `changes` does not fire.
     public func endIdleSleepSession() {

@@ -15,6 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let autoLogout = AutoLogoutMonitor()
     let activityLog = ActivityLog()
     let sleepRecorder: SystemSleepRecorder
+    let wakeScheduler: WakeScheduler
     private(set) lazy var activityLogWindow = ActivityLogWindowController(log: activityLog, accent: accent)
 
     override init() {
@@ -27,7 +28,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             activityLog: activityLog,
             idleEvents: XPCHelperConnection()
         )
-        sleepRecorder = SystemSleepRecorder(log: activityLog)
+        wakeScheduler = WakeScheduler(
+            preferences: WakePreferences(),
+            helper: helperClient,
+            service: XPCHelperConnection(),
+            mode: controller,
+            log: activityLog
+        )
+        sleepRecorder = SystemSleepRecorder(log: activityLog, wakeHandler: wakeScheduler)
         modeController = controller
         helperSetup = HelperSetup(
             helper: helperClient,
@@ -40,10 +48,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         launchAtLogin.enableOnFirstLaunch()
         sleepRecorder.start()
+        wakeScheduler.start()
         updates.start()
         Task {
             await helperClient.updateIfOutdated()
             await modeController.clearLeftover()
+            await wakeScheduler.sync()
         }
     }
 
