@@ -18,6 +18,7 @@ public protocol HelperService {
 
 public protocol HelperConnecting {
     func protocolVersion() async throws -> Int
+    func buildIdentifier() async throws -> String?
 }
 
 public protocol IdleStatusReading {
@@ -111,6 +112,12 @@ public struct XPCHelperConnection: HelperConnecting, LidSessionService, IdleStat
     public func protocolVersion() async throws -> Int {
         try await call(timeout: timeout) { helper, done in
             helper.protocolVersion { done(.success($0)) }
+        }
+    }
+
+    public func buildIdentifier() async throws -> String? {
+        try await call(timeout: timeout) { helper, done in
+            helper.buildIdentifier { done(.success($0)) }
         }
     }
 

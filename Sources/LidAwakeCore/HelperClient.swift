@@ -10,6 +10,23 @@ public enum HelperState: Equatable {
     case outdated(Int)
 }
 
+/// Whether the running helper was started from the same executable as the one in this bundle.
+public enum HelperBuildStatus: Equatable {
+    case current
+    case stale
+    /// Either identifier could not be read.
+    case unknown
+
+    /// The field `--helper-status` prints.
+    public var statusField: String {
+        switch self {
+        case .current: return "build=current"
+        case .stale: return "build=stale"
+        case .unknown: return "build=unknown"
+        }
+    }
+}
+
 @MainActor
 public protocol HelperPreparing: AnyObject {
     /// Reinstalls an outdated helper; throws when the helper still cannot serve a session.
@@ -30,6 +47,7 @@ public final class HelperClient: ObservableObject, HelperPreparing {
     private let registrationStore: HelperRegistrationStore
     private let bundledPlist: () -> Data?
     private let digest: (Data) -> String
+    private let bundledBuild: () -> String?
 
     public init(
         service: HelperService = DaemonHelperService(),
@@ -39,7 +57,8 @@ public final class HelperClient: ObservableObject, HelperPreparing {
         reinstallDelay: @escaping () async -> Void = { try? await Task.sleep(nanoseconds: 2_000_000_000) },
         registrationStore: HelperRegistrationStore = DefaultsRegistrationStore(),
         bundledPlist: (() -> Data?)? = nil,
-        digest: @escaping (Data) -> String = HelperPlist.sha256
+        digest: @escaping (Data) -> String = HelperPlist.sha256,
+        bundledBuild: (() -> String?)? = nil
     ) {
         self.service = service
         self.connection = connection
@@ -49,6 +68,9 @@ public final class HelperClient: ObservableObject, HelperPreparing {
         self.registrationStore = registrationStore
         self.bundledPlist = bundledPlist ?? { HelperPlist.read(inBundle: bundleURL) }
         self.digest = digest
+        self.bundledBuild = bundledBuild ?? {
+            HelperBuild.identifier(ofFile: HelperBuild.executableURL(inBundle: bundleURL))
+        }
     }
 
     public var isInApplications: Bool {
@@ -66,11 +88,18 @@ public final class HelperClient: ObservableObject, HelperPreparing {
         bundledPlist().map(digest)
     }
 
+    /// A helper keeps running its old code after the app is replaced, until it exits on its own.
+    public func buildStatus() async -> HelperBuildStatus {
+        guard let bundled = bundledBuild(),
+              let running = try? await connection.buildIdentifier() else { return .unknown }
+        return running == bundled ? .current : .stale
+    }
+
     public func refresh() async {
         state = await currentState()
     }
 
-    /// Reregisters a registered helper whose protocol version or plist is out of date.
+    /// Reregisters a registered helper whose protocol version, plist or build is out of date.
     public func updateIfOutdated() async {
         await refresh()
         if case .outdated = state {
@@ -150,7 +179,9 @@ public final class HelperClient: ObservableObject, HelperPreparing {
         case .enabled:
             do {
                 let version = try await connection.protocolVersion()
-                return version == expectedVersion && isRegistrationCurrent ? .ready : .outdated(version)
+                guard version == expectedVersion, isRegistrationCurrent else { return .outdated(version) }
+                // An unreadable build counts as current, so a failed read never blocks a session.
+                return await buildStatus() == .stale ? .outdated(version) : .ready
             } catch {
                 return .error(error.localizedDescription)
             }

@@ -35,6 +35,9 @@ private final class FakeService: HelperService {
 
 private final class FakeConnection: HelperConnecting {
     var version: Int?
+    var build: String? = "build-b"
+    var buildFails = false
+    private(set) var buildReads = 0
 
     init(_ version: Int?) {
         self.version = version
@@ -43,6 +46,14 @@ private final class FakeConnection: HelperConnecting {
     func protocolVersion() async throws -> Int {
         guard let version else { throw HelperError.timeout }
         return version
+    }
+
+    func buildIdentifier() async throws -> String? {
+        buildReads += 1
+        if buildFails {
+            throw HelperError.timeout
+        }
+        return build
     }
 }
 
@@ -60,6 +71,7 @@ final class HelperClientTests: XCTestCase {
     private let elsewhere = URL(fileURLWithPath: "/Users/someone/Downloads/LidAwake.app")
 
     private var bundledPlist = "plist-v2"
+    private var bundledBuild: String? = "build-b"
 
     private func client(
         _ service: FakeService,
@@ -75,7 +87,8 @@ final class HelperClientTests: XCTestCase {
             reinstallDelay: {},
             registrationStore: store,
             bundledPlist: { Data(self.bundledPlist.utf8) },
-            digest: { "digest:" + String(decoding: $0, as: UTF8.self) }
+            digest: { "digest:" + String(decoding: $0, as: UTF8.self) },
+            bundledBuild: { self.bundledBuild }
         )
     }
 
@@ -290,6 +303,109 @@ final class HelperClientTests: XCTestCase {
         try await sut.prepareForSession()
         XCTAssertEqual(service.calls, ["unregister", "register"])
         XCTAssertEqual(store.registrationDigest, "digest:plist-v2")
+    }
+
+    func testMatchingBuildIsReady() async {
+        let service = FakeService(.enabled)
+        let sut = client(service, FakeConnection(1))
+        await sut.updateIfOutdated()
+        XCTAssertEqual(service.calls, [])
+        XCTAssertEqual(sut.state, .ready)
+    }
+
+    func testDifferentBuildIsOutdated() async {
+        let connection = FakeConnection(1)
+        connection.build = "build-a"
+        let sut = client(FakeService(.enabled), connection)
+        await sut.refresh()
+        XCTAssertEqual(sut.state, .outdated(1))
+    }
+
+    func testLaunchReregistersHelperOfAnotherBuild() async {
+        let service = FakeService(.enabled)
+        service.registerResult = .enabled
+        let connection = FakeConnection(1)
+        connection.build = "build-a"
+        service.onRegister = { connection.build = "build-b" }
+        let sut = client(service, connection)
+        await sut.updateIfOutdated()
+        XCTAssertEqual(service.calls, ["unregister", "register"])
+        XCTAssertEqual(sut.state, .ready)
+    }
+
+    func testStillDifferentBuildIsReregisteredOnceAtLaunchAndOnceBeforeSession() async {
+        let service = FakeService(.enabled)
+        service.registerResult = .enabled
+        let connection = FakeConnection(1)
+        connection.build = "build-a"
+        let sut = client(service, connection)
+        await sut.updateIfOutdated()
+        XCTAssertEqual(service.calls, ["unregister", "register"])
+        XCTAssertEqual(sut.state, .outdated(1))
+
+        do {
+            try await sut.prepareForSession()
+            XCTFail("expected an error")
+        } catch {
+            XCTAssertEqual(
+                error as? HelperError,
+                .notReady(String(localized: "The helper could not be updated."))
+            )
+        }
+        XCTAssertEqual(service.calls, ["unregister", "register", "unregister", "register"])
+        XCTAssertEqual(sut.state, .outdated(1))
+    }
+
+    func testUnreadableRunningBuildIsNotOutdated() async {
+        let service = FakeService(.enabled)
+        let failing = FakeConnection(1)
+        failing.buildFails = true
+        let silent = FakeConnection(1)
+        silent.build = nil
+        for connection in [failing, silent] {
+            let sut = client(service, connection)
+            await sut.updateIfOutdated()
+            XCTAssertEqual(sut.state, .ready)
+        }
+        XCTAssertEqual(service.calls, [])
+    }
+
+    func testUnreadableBundledBuildIsNotOutdated() async throws {
+        bundledBuild = nil
+        let service = FakeService(.enabled)
+        let connection = FakeConnection(1)
+        connection.build = "build-a"
+        let sut = client(service, connection)
+        try await sut.prepareForSession()
+        XCTAssertEqual(service.calls, [])
+        XCTAssertEqual(sut.state, .ready)
+    }
+
+    func testProtocolVersionIsCheckedBeforeBuild() async {
+        let connection = FakeConnection(2)
+        let sut = client(FakeService(.enabled), connection)
+        await sut.refresh()
+        XCTAssertEqual(sut.state, .outdated(2))
+        XCTAssertEqual(connection.buildReads, 0)
+    }
+
+    func testBuildStatus() async {
+        let connection = FakeConnection(1)
+        let sut = client(FakeService(.enabled), connection)
+        let current = await sut.buildStatus()
+        XCTAssertEqual(current, .current)
+        connection.build = "build-a"
+        let stale = await sut.buildStatus()
+        XCTAssertEqual(stale, .stale)
+        connection.buildFails = true
+        let unknown = await sut.buildStatus()
+        XCTAssertEqual(unknown, .unknown)
+    }
+
+    func testBuildStatusField() {
+        XCTAssertEqual(HelperBuildStatus.current.statusField, "build=current")
+        XCTAssertEqual(HelperBuildStatus.stale.statusField, "build=stale")
+        XCTAssertEqual(HelperBuildStatus.unknown.statusField, "build=unknown")
     }
 
     func testDigestIsSHA256OfPlist() {

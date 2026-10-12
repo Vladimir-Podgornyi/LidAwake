@@ -48,10 +48,12 @@ enum HelperCommand {
 
         let registration = service.registration
         var line = Self.token(for: registration)
+        var build = HelperBuildStatus.unknown
         do {
             let version = try await connection.protocolVersion()
             line += " protocol=\(version)"
             if version == HelperConstants.protocolVersion {
+                build = await client.buildStatus()
                 let status = try await connection.sessionStatus()
                 line += " sleep-disabled=\(status.flag.token) session=\(status.session.token)"
                 line += " paused=\(status.paused ? "yes" : "no")"
@@ -66,6 +68,7 @@ enum HelperCommand {
             printError("helper: \(error.localizedDescription)")
         }
         if registration == .enabled || registration == .requiresApproval {
+            line += " \(build.statusField)"
             line += " registration=\(client.isRegistrationCurrent ? "current" : "stale")"
         }
         print(line)
