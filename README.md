@@ -16,6 +16,7 @@
 
 - Keeps the Mac running with the lid closed; no external display is needed.
 - Stops by itself when the Mac gets hot, when the battery runs low, when the timer ends or when the work is done, and can run only while charging.
+- Can wake the Mac at a set time every day, keep it running while the work goes on and let it sleep when the work is done.
 - If the app quits unexpectedly or stops responding, normal sleep returns by itself within two minutes.
 - Open source (MIT), no account and no analytics. The only network request is a daily update check, and it can be turned off.
 - The interface is in English, German, Russian and Simplified Chinese.
@@ -93,9 +94,18 @@ caffeinate -i make release
 
 A closed laptop in a bag cools poorly. The protections reduce the risk; they do not remove it. The thermal protection reacts only to what macOS itself reports as overheating: in tests on a MacBook Air (M1) under full CPU load, the system reported a nominal thermal state throughout, so this protection has never been seen to trip.
 
+## Wake at
+
+Closed the Mac for the night, but need it in the morning for a scheduled job? Turn on Wake at in Settings and choose the time. Every day at that time the Mac wakes up, and if it is on power, LidAwake turns on Run with Lid Closed with Sleep when idle for that session: the Mac keeps running while the work goes on and goes back to sleep when it is done.
+
+- On battery, the mode is not turned on and the Mac goes back to sleep. With the lid closed, macOS wakes a Mac on battery only briefly and does not tell apps about it, so the activity log shows the missed wake the next time the Mac wakes up.
+- The mode is turned on only after a wake at the chosen time, and only when Off is selected. If the Mac is already awake at that time, nothing changes.
+- LidAwake must be running. If it is not, the Mac wakes up and goes back to sleep.
+- The helper schedules the next two wakes with macOS; `pmset -g sched` lists them under `com.vladimirpodgornyi.LidAwake.helper`. Turning Wake at off, or unregistering the helper, removes them.
+
 ## Activity log
 
-Activity log in Settings opens a window with what happened and when: a mode was turned on or off and why, the session was paused on battery and resumed, the Mac went to sleep and woke up. With Sleep when idle on, it also shows what kept the Mac awake (a program, processor load with the busiest process, or the keyboard and mouse) and when the quiet minutes started to count.
+Activity log in Settings opens a window with what happened and when: a mode was turned on or off and why, the session was paused on battery and resumed, the Mac went to sleep and woke up, the Mac woke up on schedule or missed a scheduled wake. With Sleep when idle on, it also shows what kept the Mac awake (a program, processor load with the busiest process, or the keyboard and mouse) and when the quiet minutes started to count.
 
 The log keeps the last 200 events in a file on this Mac, `~/Library/Application Support/com.vladimirpodgornyi.LidAwake/activity-log.json`, readable only by your user account. It is never sent anywhere. Clear in the log window empties it.
 
@@ -191,7 +201,7 @@ If LidAwake was installed with Homebrew, first turn off Launch at login in Setti
 brew uninstall --cask lidawake
 ```
 
-This quits LidAwake, which turns the mode off, runs `LidAwake --uninstall-helper` to unregister the helper, and removes LidAwake from Applications. With `--zap` it also moves the settings file `~/Library/Preferences/com.vladimirpodgornyi.LidAwake.plist` to the Trash. The activity log in `~/Library/Application Support/com.vladimirpodgornyi.LidAwake` and the helper's folder in `/Library/Application Support` are left in place; remove them with the commands in step 5 below.
+This quits LidAwake, which turns the mode off, runs `LidAwake --uninstall-helper` to unregister the helper and remove the wakes it scheduled, and removes LidAwake from Applications. With `--zap` it also moves the settings file `~/Library/Preferences/com.vladimirpodgornyi.LidAwake.plist` to the Trash. The activity log in `~/Library/Application Support/com.vladimirpodgornyi.LidAwake` and the helper's folder in `/Library/Application Support` are left in place; remove them with the commands in step 5 below.
 
 Without Homebrew:
 
@@ -205,7 +215,7 @@ The helper's launchd job is registered from inside the app bundle, so remove it 
    /Applications/LidAwake.app/Contents/MacOS/LidAwake --uninstall-helper
    ```
 
-   The command prints the helper state and exits.
+   The command prints the helper state and exits. It also removes the wakes scheduled for Wake at.
 4. Move LidAwake from Applications to the Trash.
 5. Optionally, remove the settings, the activity log and the helper's folder:
 
