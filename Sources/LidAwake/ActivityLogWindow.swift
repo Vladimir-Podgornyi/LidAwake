@@ -31,8 +31,17 @@ final class ActivityLogWindowController {
         }
         window.makeKeyAndOrderFront(nil)
         // With keyboard navigation on, the window puts Clear in focus, and Space would empty the
-        // log right away. The window keeps the keys itself until Tab moves to the button.
-        window.makeFirstResponder(nil)
+        // log right away. The list takes the keys instead; with no list the window keeps them.
+        // The list is only built on layout, so the first show lays it out before looking for it.
+        window.contentView?.layoutSubtreeIfNeeded()
+        window.makeFirstResponder(window.contentView.flatMap(Self.scrollKeys))
+    }
+
+    private static func scrollKeys(in view: NSView) -> ActivityLogScrollKeyView? {
+        if let keys = view as? ActivityLogScrollKeyView {
+            return keys
+        }
+        return view.subviews.lazy.compactMap(scrollKeys).first
     }
 
     private func makeWindow() -> NSWindow {
@@ -114,6 +123,7 @@ struct ActivityLogContent: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.bottom, 8)
+                    .background(ActivityLogScrollKeys())
                 }
             }
             Divider()
@@ -163,6 +173,71 @@ struct ActivityLogContent: View {
         formatter.dateStyle = .none
         formatter.timeStyle = .short
         return formatter
+    }
+}
+
+/// Gives the list a place in the key view loop, so the arrow, page, Home and End keys scroll it
+/// the way they scroll other lists.
+private struct ActivityLogScrollKeys: NSViewRepresentable {
+    func makeNSView(context: Context) -> ActivityLogScrollKeyView {
+        ActivityLogScrollKeyView()
+    }
+
+    func updateNSView(_ nsView: ActivityLogScrollKeyView, context: Context) {}
+}
+
+final class ActivityLogScrollKeyView: NSView {
+    /// The lowest row is 40 points, so one arrow press moves about one entry.
+    private static let lineHeight: CGFloat = 40
+
+    override var acceptsFirstResponder: Bool { true }
+
+    override func keyDown(with event: NSEvent) {
+        interpretKeyEvents([event])
+    }
+
+    // Space and letters do nothing here.
+    override func insertText(_ insertString: Any) {}
+
+    override func doCommand(by selector: Selector) {
+        guard let scrollView = enclosingScrollView else {
+            super.doCommand(by: selector)
+            return
+        }
+        let page = max(scrollView.contentView.bounds.height - scrollView.verticalPageScroll, Self.lineHeight)
+        switch selector {
+        case #selector(moveUp(_:)), #selector(scrollLineUp(_:)):
+            scroll(scrollView, by: -Self.lineHeight)
+        case #selector(moveDown(_:)), #selector(scrollLineDown(_:)):
+            scroll(scrollView, by: Self.lineHeight)
+        case #selector(scrollPageUp(_:)), #selector(pageUp(_:)):
+            scroll(scrollView, by: -page)
+        case #selector(scrollPageDown(_:)), #selector(pageDown(_:)):
+            scroll(scrollView, by: page)
+        case #selector(scrollToBeginningOfDocument(_:)), #selector(moveToBeginningOfDocument(_:)):
+            scroll(scrollView, by: -.greatestFiniteMagnitude)
+        case #selector(scrollToEndOfDocument(_:)), #selector(moveToEndOfDocument(_:)):
+            scroll(scrollView, by: .greatestFiniteMagnitude)
+        // Read as key bindings, Tab would no longer reach the window's key view loop.
+        case #selector(insertTab(_:)):
+            window?.selectKeyView(following: self)
+        case #selector(insertBacktab(_:)):
+            window?.selectKeyView(preceding: self)
+        default:
+            super.doCommand(by: selector)
+        }
+    }
+
+    /// A positive distance moves down the list.
+    private func scroll(_ scrollView: NSScrollView, by distance: CGFloat) {
+        let clip = scrollView.contentView
+        let document = clip.documentRect
+        let lowest = document.minY
+        let highest = max(document.maxY - clip.bounds.height, lowest)
+        var origin = clip.bounds.origin
+        origin.y = min(max(origin.y + (clip.isFlipped ? distance : -distance), lowest), highest)
+        clip.scroll(to: origin)
+        scrollView.reflectScrolledClipView(clip)
     }
 }
 
