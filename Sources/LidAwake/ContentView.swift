@@ -71,7 +71,9 @@ struct ContentView: View {
             autoLogout.refresh()
             followedMode = controller.mode
         }
-        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
+        // Only this window: the activity log window becoming key leaves the cards alone.
+        .onChange(of: isWindowKey) { isKey in
+            guard isKey else { return }
             launchAtLogin.refresh()
             autoLogout.refresh()
             // After AppKit has given focus to the first card as the window opens.
