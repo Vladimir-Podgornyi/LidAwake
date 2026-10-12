@@ -128,8 +128,14 @@ public final class HelperClient: ObservableObject, HelperPreparing {
         }
     }
 
-    public func uninstall() async {
+    /// Cancels the helper's wakes through `wakes` first, so the Mac stops waking once the helper is
+    /// gone; a failure there does not keep the helper registered.
+    public func uninstall(cancelingWakesWith wakes: ScheduledWakeService? = nil) async {
         await perform {
+            if let wakes, self.service.registration == .enabled,
+               (try? await self.connection.protocolVersion()) == self.expectedVersion {
+                try? await wakes.setScheduledWake(minuteOfDay: ScheduledWake.off)
+            }
             try await self.service.unregister()
         }
     }

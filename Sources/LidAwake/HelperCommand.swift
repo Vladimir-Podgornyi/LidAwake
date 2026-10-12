@@ -45,7 +45,7 @@ enum HelperCommand: Equatable {
         case .install:
             await client.install()
         case .uninstall:
-            await client.uninstall()
+            await client.uninstall(cancelingWakesWith: connection)
         }
 
         if case .error(let message) = client.state, self != .status {
