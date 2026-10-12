@@ -42,4 +42,10 @@ import Foundation
     /// Replies with a result code, an error message and the idle events collected since the last call,
     /// written by `IdleEventWire`. The helper keeps no copy of what it hands over.
     func takeIdleEvents(reply: @escaping (Int, String?, String?) -> Void)
+    /// Keeps the next two wakes at `minuteOfDay` (0 to 1439, local time) scheduled under the helper's name;
+    /// -1 cancels them. Replies with a result code and an error message.
+    func setScheduledWake(minuteOfDay: Int, reply: @escaping (Int, String?) -> Void)
+    /// Replies with a result code, an error message and the helper's scheduled wakes, written by
+    /// `ScheduledWakeWire` (nil when they could not be read).
+    func scheduledWakes(reply: @escaping (Int, String?, String?) -> Void)
 }

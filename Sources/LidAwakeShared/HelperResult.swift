@@ -9,6 +9,7 @@ public enum HelperResultCode: Int, Equatable {
     case stopReasonFailed = 7
     case thermalLimitReached = 8
     case powerUnreadable = 9
+    case wakeScheduleFailed = 10
 }
 
 public enum SleepFlagState: Int, Equatable {

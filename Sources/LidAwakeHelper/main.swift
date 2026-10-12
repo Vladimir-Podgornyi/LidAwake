@@ -25,6 +25,18 @@ private let session = LidSession(
     stopReasons: FileStopReasonStore()
 )
 
+private let wakeScheduler = WakeScheduler(
+    events: IOKitPowerEvents(),
+    now: Date.init,
+    calendar: {
+        // The process caches the time zone; the system one may have changed since.
+        NSTimeZone.resetSystemTimeZone()
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone.current
+        return calendar
+    }
+)
+
 final class Helper: NSObject, HelperProtocol {
     func protocolVersion(reply: @escaping (Int) -> Void) {
         reply(HelperConstants.protocolVersion)
@@ -134,6 +146,20 @@ final class Helper: NSObject, HelperProtocol {
     func takeIdleEvents(reply: @escaping (Int, String?, String?) -> Void) {
         DispatchQueue.main.async {
             reply(HelperResultCode.ok.rawValue, nil, IdleEventWire.encode(idleWatcher.takeEvents()))
+        }
+    }
+
+    func setScheduledWake(minuteOfDay: Int, reply: @escaping (Int, String?) -> Void) {
+        perform(reply: reply) { wakeScheduler.set(minuteOfDay: minuteOfDay) }
+    }
+
+    func scheduledWakes(reply: @escaping (Int, String?, String?) -> Void) {
+        DispatchQueue.main.async {
+            do {
+                reply(HelperResultCode.ok.rawValue, nil, ScheduledWakeWire.encode(try wakeScheduler.scheduledWakes()))
+            } catch {
+                reply(HelperResultCode.wakeScheduleFailed.rawValue, error.localizedDescription, nil)
+            }
         }
     }
 
