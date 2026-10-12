@@ -236,6 +236,26 @@ public struct XPCHelperConnection: HelperConnecting, LidSessionService, IdleStat
         }
     }
 
+    public func setScheduledWake(minuteOfDay: Int) async throws {
+        try await call(timeout: timeout) { helper, done in
+            helper.setScheduledWake(minuteOfDay: minuteOfDay) { done(Self.result($0, $1)) }
+        }
+    }
+
+    /// The wakes the helper scheduled, earliest first.
+    public func scheduledWakes() async throws -> [Date] {
+        try await call(timeout: timeout) { helper, done in
+            helper.scheduledWakes { code, message, wakes in
+                done(Self.result(code, message).flatMap {
+                    guard let wakes, let decoded = ScheduledWakeWire.decode(wakes) else {
+                        return .failure(HelperError.connection(String(localized: "Unexpected helper reply.")))
+                    }
+                    return .success(decoded)
+                })
+            }
+        }
+    }
+
     static func result(_ code: Int, _ message: String?) -> Result<Void, Error> {
         guard let code = HelperResultCode(rawValue: code) else {
             return .failure(HelperError.connection(String(localized: "Unexpected helper reply.")))
