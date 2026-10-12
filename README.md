@@ -93,6 +93,12 @@ caffeinate -i make release
 
 A closed laptop in a bag cools poorly. The protections reduce the risk; they do not remove it. The thermal protection reacts only to what macOS itself reports as overheating: in tests on a MacBook Air (M1) under full CPU load, the system reported a nominal thermal state throughout, so this protection has never been seen to trip.
 
+## Activity log
+
+Activity log in Settings opens a window with what happened and when: a mode was turned on or off and why, the session was paused on battery and resumed, the Mac went to sleep and woke up. With Sleep when idle on, it also shows what kept the Mac awake (a program, processor load with the busiest process, or the keyboard and mouse) and when the quiet minutes started to count.
+
+The log keeps the last 200 events in a file on this Mac, `~/Library/Application Support/com.vladimirpodgornyi.LidAwake/activity-log.json`, readable only by your user account. It is never sent anywhere. Clear in the log window empties it.
+
 ## Automatic logout
 
 macOS can log you out after a period of inactivity. The setting is in System Settings > Privacy & Security > Advanced… > Log out automatically after inactivity; the Advanced… button is at the bottom of Privacy & Security. Logging out quits all apps, LidAwake included, so the mode ends with the session. LidAwake only reads this setting; it does not change it or work around it.
@@ -185,7 +191,7 @@ If LidAwake was installed with Homebrew, first turn off Launch at login in Setti
 brew uninstall --cask lidawake
 ```
 
-This quits LidAwake, which turns the mode off, runs `LidAwake --uninstall-helper` to unregister the helper, and removes LidAwake from Applications. With `--zap` it also moves the settings file `~/Library/Preferences/com.vladimirpodgornyi.LidAwake.plist` to the Trash. The helper's folder in `/Library/Application Support` is left in place; remove it with the `sudo rm` command in step 5 below.
+This quits LidAwake, which turns the mode off, runs `LidAwake --uninstall-helper` to unregister the helper, and removes LidAwake from Applications. With `--zap` it also moves the settings file `~/Library/Preferences/com.vladimirpodgornyi.LidAwake.plist` to the Trash. The activity log in `~/Library/Application Support/com.vladimirpodgornyi.LidAwake` and the helper's folder in `/Library/Application Support` are left in place; remove them with the commands in step 5 below.
 
 Without Homebrew:
 
@@ -201,10 +207,11 @@ The helper's launchd job is registered from inside the app bundle, so remove it 
 
    The command prints the helper state and exits.
 4. Move LidAwake from Applications to the Trash.
-5. Optionally, remove the settings and the helper's folder:
+5. Optionally, remove the settings, the activity log and the helper's folder:
 
    ```sh
    defaults delete com.vladimirpodgornyi.LidAwake
+   rm -r "$HOME/Library/Application Support/com.vladimirpodgornyi.LidAwake"
    sudo rm -r "/Library/Application Support/com.vladimirpodgornyi.LidAwake"
    ```
 
