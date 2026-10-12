@@ -13,6 +13,7 @@ final class ActivityLogWindowController {
     private let log: ActivityLog
     private let accent: AccentPreference
     private var window: NSWindow?
+    private var activation: NSObjectProtocol?
 
     init(log: ActivityLog, accent: AccentPreference) {
         self.log = log
@@ -23,18 +24,45 @@ final class ActivityLogWindowController {
         let window = self.window ?? makeWindow()
         self.window = window
         // The app has no Dock icon and stays without one; activating it only brings its window
-        // in front of the other apps.
-        if #available(macOS 14, *) {
-            NSApp.activate()
-        } else {
-            NSApp.activate(ignoringOtherApps: true)
-        }
+        // in front of the other apps. The row is often pressed while the app is not active, and
+        // the system may turn down the plain activate() of macOS 14; this call asks outright.
+        NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
+        if !NSApp.isActive {
+            // The activation lands a moment later, if at all, and a window ordered front by an
+            // inactive app stays behind the active app's windows. The window goes in front now
+            // and becomes key once the app is active; its level stays normal, so another app
+            // brought forward still covers it.
+            window.orderFrontRegardless()
+            makeKeyOnActivation(window)
+        }
         // With keyboard navigation on, the window puts Clear in focus, and Space would empty the
         // log right away. The list takes the keys instead; with no list the window keeps them.
         // The list is only built on layout, so the first show lays it out before looking for it.
         window.contentView?.layoutSubtreeIfNeeded()
         window.makeFirstResponder(window.contentView.flatMap(Self.scrollKeys))
+    }
+
+    private func makeKeyOnActivation(_ window: NSWindow) {
+        stopWaitingForActivation()
+        activation = NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self, weak window] _ in
+            MainActor.assumeIsolated {
+                self?.stopWaitingForActivation()
+                guard let window, window.isVisible else { return }
+                window.makeKeyAndOrderFront(nil)
+            }
+        }
+    }
+
+    private func stopWaitingForActivation() {
+        if let activation {
+            NotificationCenter.default.removeObserver(activation)
+        }
+        activation = nil
     }
 
     private static func scrollKeys(in view: NSView) -> ActivityLogScrollKeyView? {
