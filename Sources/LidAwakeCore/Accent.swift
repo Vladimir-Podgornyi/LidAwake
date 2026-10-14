@@ -6,6 +6,11 @@ public struct ThemedRGB: Equatable {
     public let light: UInt32
     public let dark: UInt32
 
+    public init(light: UInt32, dark: UInt32) {
+        self.light = light
+        self.dark = dark
+    }
+
     public func value(isDark: Bool) -> UInt32 {
         isDark ? dark : light
     }
@@ -25,8 +30,34 @@ public enum AccentTheme: String, CaseIterable {
         }
     }
 
-    /// The symbol drawn on an accent-colored background, the same for every accent.
+    /// The symbol drawn on an accent-colored background, the same for Blue and Amber.
     public static let onAccent = ThemedRGB(light: 0xFFFFFF, dark: 0x17181B)
+
+    /// The symbol on the accent chosen in the macOS settings: the usual one for the appearance,
+    /// or the other one where the usual one falls below 3:1, the least contrast for a symbol.
+    public static func onSystemAccent(_ accent: UInt32, isDark: Bool) -> UInt32 {
+        let usual = onAccent.value(isDark: isDark)
+        guard Contrast.ratio(usual, accent) < 3 else { return usual }
+        let other = onAccent.value(isDark: !isDark)
+        return Contrast.ratio(other, accent) > Contrast.ratio(usual, accent) ? other : usual
+    }
+}
+
+/// WCAG 2 contrast of sRGB colors given as 0xRRGGBB.
+public enum Contrast {
+    public static func ratio(_ first: UInt32, _ second: UInt32) -> Double {
+        let lighter = max(luminance(first), luminance(second))
+        let darker = min(luminance(first), luminance(second))
+        return (lighter + 0.05) / (darker + 0.05)
+    }
+
+    public static func luminance(_ rgb: UInt32) -> Double {
+        func linear(_ shift: UInt32) -> Double {
+            let value = Double((rgb >> shift) & 0xFF) / 255
+            return value <= 0.04045 ? value / 12.92 : pow((value + 0.055) / 1.055, 2.4)
+        }
+        return 0.2126 * linear(16) + 0.7152 * linear(8) + 0.0722 * linear(0)
+    }
 }
 
 /// Kept apart from `SafetyPreferences`: the accent is never sent to the helper.

@@ -221,7 +221,13 @@ struct ContentView: View {
     private var modeCards: some View {
         VStack(spacing: 8) {
             ForEach(Mode.allCases, id: \.self) { mode in
-                ModeCard(mode: mode, isSelected: controller.mode == mode, accent: accentColor, look: look) {
+                ModeCard(
+                    mode: mode,
+                    isSelected: controller.mode == mode,
+                    accent: accentColor,
+                    onAccent: Palette.onAccent(accent.theme),
+                    look: look
+                ) {
                     Task { await helperSetup.select(mode) }
                 }
                 .focused($focusedCard, equals: mode)
@@ -602,6 +608,7 @@ private struct ModeCard: View {
     let mode: Mode
     let isSelected: Bool
     let accent: Color
+    let onAccent: Color
     let look: WindowLook
     let action: () -> Void
 
@@ -626,7 +633,7 @@ private struct ModeCard: View {
                 if isSelected {
                     Image(systemName: "checkmark")
                         .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(Palette.onAccent)
+                        .foregroundStyle(onAccent)
                         .frame(width: 18, height: 18)
                         .background(Circle().fill(accent))
                         .accessibilityHidden(true)

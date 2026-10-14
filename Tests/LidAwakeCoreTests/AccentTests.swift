@@ -109,4 +109,52 @@ final class AccentTests: XCTestCase {
         XCTAssertEqual(AccentTheme.onAccent.value(isDark: false), 0xFFFFFF)
         XCTAssertEqual(AccentTheme.onAccent.value(isDark: true), 0x17181B)
     }
+
+    func testContrastRatio() {
+        XCTAssertEqual(Contrast.ratio(0xFFFFFF, 0x000000), 21, accuracy: 0.001)
+        XCTAssertEqual(Contrast.ratio(0x000000, 0xFFFFFF), 21, accuracy: 0.001)
+        XCTAssertEqual(Contrast.ratio(0x007AFF, 0x007AFF), 1, accuracy: 0.001)
+        XCTAssertEqual(Contrast.ratio(0xFFFFFF, 0x007AFF), 4.02, accuracy: 0.01)
+        XCTAssertEqual(Contrast.ratio(0x17181B, 0x007AFF), 4.42, accuracy: 0.01)
+    }
+
+    /// The accent colors macOS 26.6 gives for each choice, as sRGB in the light and the dark
+    /// appearance, and the symbol drawn on them.
+    private static let macAccents: [(name: String, light: UInt32, dark: UInt32, onLight: UInt32, onDark: UInt32)] = [
+        ("blue", 0x007AFF, 0x007AFF, 0xFFFFFF, 0x17181B),
+        ("purple", 0x953D96, 0xA550A7, 0xFFFFFF, 0x17181B),
+        ("pink", 0xF74F9E, 0xF74F9E, 0xFFFFFF, 0x17181B),
+        ("red", 0xE0383E, 0xFF5257, 0xFFFFFF, 0x17181B),
+        ("orange", 0xF7821B, 0xF7821B, 0x17181B, 0x17181B),
+        ("yellow", 0xFFC726, 0xFFC600, 0x17181B, 0x17181B),
+        ("green", 0x62BA46, 0x62BA46, 0x17181B, 0x17181B),
+        ("graphite", 0x989898, 0x8C8C8C, 0x17181B, 0x17181B),
+    ]
+
+    func testSymbolOnMacAccents() {
+        for accent in Self.macAccents {
+            XCTAssertEqual(AccentTheme.onSystemAccent(accent.light, isDark: false), accent.onLight, accent.name)
+            XCTAssertEqual(AccentTheme.onSystemAccent(accent.dark, isDark: true), accent.onDark, accent.name)
+        }
+    }
+
+    func testSymbolOnMacAccentsIsReadable() {
+        for accent in Self.macAccents {
+            for (color, isDark) in [(accent.light, false), (accent.dark, true)] {
+                let symbol = AccentTheme.onSystemAccent(color, isDark: isDark)
+                XCTAssertGreaterThanOrEqual(Contrast.ratio(symbol, color), 3, "\(accent.name) dark=\(isDark)")
+            }
+        }
+    }
+
+    func testDarkSymbolOnYellowInLightAppearance() {
+        XCTAssertEqual(AccentTheme.onSystemAccent(0xFFC726, isDark: false), 0x17181B)
+    }
+
+    func testUsualSymbolKeptFrom3Up() {
+        // White 3.45, dark 5.14: white stays in the light appearance though dark has more.
+        XCTAssertEqual(AccentTheme.onSystemAccent(0x8A8A8A, isDark: false), 0xFFFFFF)
+        // White 5.02, dark 3.53: dark stays in the dark appearance.
+        XCTAssertEqual(AccentTheme.onSystemAccent(0x6F6F6F, isDark: true), 0x17181B)
+    }
 }
