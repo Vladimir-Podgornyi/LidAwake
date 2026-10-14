@@ -72,6 +72,37 @@ final class SafetyPreferencesTests: XCTestCase {
         XCTAssertEqual(preferences.idleSleepMinutes, 30)
     }
 
+    func testWatchedAppsAreStoredAndSentOnlyWithIdleSleep() {
+        let preferences = SafetyPreferences(defaults: defaults)
+        XCTAssertEqual(preferences.watchedAppPaths, [])
+        XCTAssertEqual(preferences.helperSettings.watchedAppPaths, [])
+
+        preferences.watchedAppPaths = ["/Applications/Editor.app", "/Applications/Utilities/Console.app"]
+        XCTAssertEqual(defaults.stringArray(forKey: "watchedAppPaths"), preferences.watchedAppPaths)
+        XCTAssertEqual(preferences.helperSettings.watchedAppPaths, [], "Sleep when idle is off")
+
+        preferences.idleSleepEnabled = true
+        XCTAssertEqual(preferences.helperSettings.watchedAppPaths, ["/Applications/Editor.app", "/Applications/Utilities/Console.app"])
+        XCTAssertEqual(SafetyPreferences(defaults: defaults).watchedAppPaths, preferences.watchedAppPaths)
+    }
+
+    func testWatchedAppsTheHelperWouldRefuseAreLeftOut() {
+        defaults.set(
+            ["/Applications/Editor.app", "Editor.app", "/Applications/Editor", "/Applications/Editor.app"]
+                + (1...25).map { "/Applications/App\($0).app" },
+            forKey: "watchedAppPaths"
+        )
+        defaults.set(true, forKey: "idleSleepEnabled")
+        let settings = SafetyPreferences(defaults: defaults).helperSettings
+        XCTAssertEqual(settings.watchedAppPaths.count, WatchedApps.maximumCount)
+        XCTAssertEqual(settings.watchedAppPaths.first, "/Applications/Editor.app")
+        XCTAssertEqual(settings.watchedAppPaths[1], "/Applications/App1.app")
+        XCTAssertTrue(settings.isValid)
+
+        defaults.set("not a list", forKey: "watchedAppPaths")
+        XCTAssertEqual(SafetyPreferences(defaults: defaults).watchedAppPaths, [])
+    }
+
     func testIdleSleepChoicesAreAcceptedByTheHelper() {
         let preferences = SafetyPreferences(defaults: defaults)
         preferences.idleSleepEnabled = true

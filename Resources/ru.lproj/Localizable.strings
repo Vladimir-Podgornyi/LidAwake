@@ -142,5 +142,6 @@
 "Power connected" = "Питание подключено";
 "The app asked macOS not to sleep." = "Программа попросила macOS не засыпать.";
 "Busiest app: %@" = "Больше всего грузит: %@";
+"Started programs are working" = "Запущенные программы работают";
 "No work detected, counting %lld minutes" = "Работы не видно, отсчёт %lld мин";
 "LidAwake was restarted." = "LidAwake перезапустился.";

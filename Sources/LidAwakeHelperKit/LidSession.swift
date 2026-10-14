@@ -313,7 +313,7 @@ public final class LidSession {
 
     private static let invalidSafety = SessionResult(
         code: .invalidArgument,
-        message: "Timer must be 0 or \(SafetySettings.timerRange.lowerBound) to \(SafetySettings.timerRange.upperBound) seconds; battery limit must be 0 to 100 percent; idle sleep must be 0 or \(SafetySettings.idleSleepRange.lowerBound) to \(SafetySettings.idleSleepRange.upperBound) minutes."
+        message: "Timer must be 0 or \(SafetySettings.timerRange.lowerBound) to \(SafetySettings.timerRange.upperBound) seconds; battery limit must be 0 to 100 percent; idle sleep must be 0 or \(SafetySettings.idleSleepRange.lowerBound) to \(SafetySettings.idleSleepRange.upperBound) minutes; at most \(WatchedApps.maximumCount) watched apps, each an absolute path ending in .app."
     )
 
     // Counted from the start of the session, even after the timer setting changes, and through sleep.
@@ -410,7 +410,9 @@ public final class LidSession {
 
     /// The idle count runs only while a session actually holds the Mac awake.
     private func updateIdleRequirement() {
-        idle.require(minutes: isActive && !isPaused ? safety.idleSleepMinutes : 0)
+        let holdsAwake = isActive && !isPaused
+        idle.require(minutes: holdsAwake ? safety.idleSleepMinutes : 0)
+        idle.watch(appPaths: holdsAwake ? safety.watchedAppPaths : [])
     }
 
     @discardableResult

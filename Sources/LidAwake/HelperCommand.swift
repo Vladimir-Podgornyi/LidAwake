@@ -70,6 +70,7 @@ enum HelperCommand: Equatable {
                 let idle = try await Self.idleStatus(from: connection)
                 line += " idle=\(idle.token) cores=\(idle.coresToken)"
                 line += " input=\(idle.inputToken) holders=\(idle.holdersToken)"
+                line += " watched=\(idle.watchedToken)"
                 line += " \(ScheduledWake.statusField(try? await connection.scheduledWakes()))"
             }
         } catch {

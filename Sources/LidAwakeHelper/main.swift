@@ -53,6 +53,7 @@ final class Helper: NSObject, HelperProtocol {
         thermalProtection: Bool,
         chargingOnly: Bool,
         idleSleepMinutes: Int,
+        watchedAppPaths: [String],
         reply: @escaping (Int, String?) -> Void
     ) {
         let safety = SafetySettings(
@@ -60,7 +61,8 @@ final class Helper: NSObject, HelperProtocol {
             batteryLimitPercent: batteryLimitPercent,
             thermalProtection: thermalProtection,
             chargingOnly: chargingOnly,
-            idleSleepMinutes: idleSleepMinutes
+            idleSleepMinutes: idleSleepMinutes,
+            watchedAppPaths: watchedAppPaths
         )
         withLease(leaseSeconds, reply: reply) { session.start(lease: $0, safety: safety) }
     }
@@ -72,6 +74,7 @@ final class Helper: NSObject, HelperProtocol {
         thermalProtection: Bool,
         chargingOnly: Bool,
         idleSleepMinutes: Int,
+        watchedAppPaths: [String],
         reply: @escaping (Int, String?) -> Void
     ) {
         let safety = SafetySettings(
@@ -79,7 +82,8 @@ final class Helper: NSObject, HelperProtocol {
             batteryLimitPercent: batteryLimitPercent,
             thermalProtection: thermalProtection,
             chargingOnly: chargingOnly,
-            idleSleepMinutes: idleSleepMinutes
+            idleSleepMinutes: idleSleepMinutes,
+            watchedAppPaths: watchedAppPaths
         )
         withLease(leaseSeconds, reply: reply) { session.renew(lease: $0, safety: safety) }
     }
@@ -109,7 +113,7 @@ final class Helper: NSObject, HelperProtocol {
         }
     }
 
-    func idleStatus(reply: @escaping (Int, String?, Int, Int, Int, Double, Double, String?) -> Void) {
+    func idleStatus(reply: @escaping (Int, String?, Int, Int, Int, Double, Double, String?, String?) -> Void) {
         DispatchQueue.main.async {
             let status = idleWatcher.status()
             reply(
@@ -120,7 +124,8 @@ final class Helper: NSObject, HelperProtocol {
                 status.requiredMinutes,
                 status.cores ?? -1,
                 status.inputIdleSeconds ?? -1,
-                status.holders?.joined(separator: "\n")
+                status.holders?.joined(separator: "\n"),
+                WatchedAppState.encode(status.watched)
             )
         }
     }

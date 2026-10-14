@@ -70,6 +70,7 @@ private final class FakeIdle: IdleWatching {
     private(set) var requiredMinutes = 0
     private(set) var sampleCount = 0
     private(set) var restartCount = 0
+    private(set) var watchedAppPaths: [String] = []
 
     func sample() {
         sampleCount += 1
@@ -84,6 +85,10 @@ private final class FakeIdle: IdleWatching {
     func restart() {
         restartCount += 1
         countedMinutes = 0
+    }
+
+    func watch(appPaths: [String]) {
+        watchedAppPaths = appPaths
     }
 
     func status() -> IdleStatus {
@@ -818,6 +823,73 @@ final class LidSessionTests: XCTestCase {
         XCTAssertFalse(session.isPaused)
         XCTAssertEqual(idle.requiredMinutes, 10)
         XCTAssertEqual(idle.countedMinutes, 0)
+    }
+
+    func testInvalidWatchedAppPathsAreRefused() {
+        let tooMany = (1...21).map { "/Applications/App\($0).app" }
+        let invalid: [[String]] = [
+            ["Applications/Editor.app"],
+            ["/Applications/Editor"],
+            ["/Applications/Editor.app/"],
+            ["/Applications/.app"],
+            [""],
+            ["/Applications/Editor.app", "relative/Terminal.app"],
+            tooMany,
+        ]
+        let session = makeSession()
+        for paths in invalid {
+            let settings = SafetySettings(timerSeconds: 0, batteryLimitPercent: 0, thermalProtection: false, idleSleepMinutes: 10, watchedAppPaths: paths)
+            XCTAssertEqual(session.start(lease: 120, safety: settings).code, .invalidArgument, "\(paths)")
+        }
+        XCTAssertFalse(session.isActive)
+        XCTAssertEqual(flag.writes, [])
+
+        let twenty = Array(tooMany.prefix(20))
+        let valid = SafetySettings(timerSeconds: 0, batteryLimitPercent: 0, thermalProtection: false, idleSleepMinutes: 10, watchedAppPaths: twenty)
+        XCTAssertEqual(session.start(lease: 120, safety: valid), .ok)
+        for paths in invalid {
+            let settings = SafetySettings(timerSeconds: 0, batteryLimitPercent: 0, thermalProtection: false, idleSleepMinutes: 10, watchedAppPaths: paths)
+            XCTAssertEqual(session.renew(lease: 120, safety: settings).code, .invalidArgument, "\(paths)")
+        }
+        XCTAssertEqual(session.safety, valid)
+    }
+
+    func testWatchedAppsAreWatchedOnlyWhileTheSessionHoldsTheMacAwake() {
+        let paths = ["/Applications/Editor.app", "/Applications/Utilities/Console.app"]
+        let settings = SafetySettings(
+            timerSeconds: 0,
+            batteryLimitPercent: 0,
+            thermalProtection: false,
+            chargingOnly: true,
+            idleSleepMinutes: 10,
+            watchedAppPaths: paths
+        )
+        let session = makeSession()
+        XCTAssertEqual(session.start(lease: 600, safety: settings), .ok)
+        XCTAssertEqual(idle.watchedAppPaths, paths)
+
+        let fewer = SafetySettings(
+            timerSeconds: 0,
+            batteryLimitPercent: 0,
+            thermalProtection: false,
+            chargingOnly: true,
+            idleSleepMinutes: 10,
+            watchedAppPaths: [paths[0]]
+        )
+        XCTAssertEqual(session.renew(lease: 600, safety: fewer), .ok)
+        XCTAssertEqual(idle.watchedAppPaths, [paths[0]])
+
+        power.reading = PowerReading(battery: .percent(80), source: .battery)
+        XCTAssertEqual(session.enforceLimits(), .ok)
+        XCTAssertTrue(session.isPaused)
+        XCTAssertEqual(idle.watchedAppPaths, [])
+
+        power.reading = PowerReading(battery: .percent(80), source: .ac)
+        XCTAssertEqual(session.enforceLimits(), .ok)
+        XCTAssertEqual(idle.watchedAppPaths, [paths[0]])
+
+        XCTAssertEqual(session.end(), .ok)
+        XCTAssertEqual(idle.watchedAppPaths, [])
     }
 
     func testTimerStillEndsSessionWithIdleSleepOn() {

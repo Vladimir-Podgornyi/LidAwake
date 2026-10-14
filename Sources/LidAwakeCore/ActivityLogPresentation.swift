@@ -74,6 +74,12 @@ public struct ActivityRow: Equatable {
                 detail: String(localized: "The app asked macOS not to sleep."),
                 symbol: .busy
             )
+        case .keptAwakeByWatchedApp(let name):
+            self.init(
+                title: String(localized: "Kept awake by \(name)"),
+                detail: String(localized: "Started programs are working"),
+                symbol: .busy
+            )
         case .keptAwakeByLoad(let busiest):
             let name = busiest?.trimmingCharacters(in: .whitespacesAndNewlines)
             self.init(

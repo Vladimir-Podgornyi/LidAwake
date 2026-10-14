@@ -142,5 +142,6 @@
 "Power connected" = "已接通电源";
 "The app asked macOS not to sleep." = "该应用请求 macOS 不要进入睡眠。";
 "Busiest app: %@" = "占用最高：%@";
+"Started programs are working" = "已启动的程序正在运行";
 "No work detected, counting %lld minutes" = "未检测到任务，开始计时 %lld 分钟";
 "LidAwake was restarted." = "LidAwake 已重新启动。";

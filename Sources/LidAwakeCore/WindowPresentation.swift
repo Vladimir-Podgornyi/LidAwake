@@ -324,6 +324,11 @@ public struct IdleSleepNote: Equatable {
     public static func make(mode: Mode, isEnabled: Bool, isPaused: Bool, status: IdleStatus?) -> IdleSleepNote {
         let plain = IdleSleepNote(text: String(localized: "After the work is done"), dot: nil)
         guard mode == .lidClosed, isEnabled, !isPaused, let status else { return plain }
+        // The watched apps come right after the programs that ask macOS not to sleep, as in the count.
+        if status.state != .off, status.state != .busyApp,
+           let name = appName(status.watched.filter(\.isBusy).map(\.name)) {
+            return IdleSleepNote(text: String(localized: "Kept awake by \(name)"), dot: .busy)
+        }
         switch status.state {
         case .off:
             return plain

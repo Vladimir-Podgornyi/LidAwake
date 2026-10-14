@@ -205,6 +205,52 @@ final class ActivityLogTests: XCTestCase {
         ])
     }
 
+    func testWatchedAppEventIsStoredAndReadBack() throws {
+        let log = makeLog()
+        log.record(.keptAwakeByWatchedApp("Code Editor"), at: at(0))
+        log.record(.keptAwakeByApp("Example"), at: at(60))
+        XCTAssertEqual(ActivityLog.read(from: fileURL).map(\.event), [.keptAwakeByWatchedApp("Code Editor"), .keptAwakeByApp("Example")])
+
+        let object = try JSONSerialization.jsonObject(with: Data(contentsOf: fileURL)) as? [String: Any]
+        XCTAssertEqual(object?["version"] as? Int, 1)
+        let entries = try XCTUnwrap(object?["entries"] as? [[String: Any]])
+        XCTAssertEqual(entries.map { $0["kind"] as? String }, ["busy-watched", "busy-app"])
+        XCTAssertEqual(entries[0]["name"] as? String, "Code Editor")
+        XCTAssertEqual(ActivityEvent(IdleCause.watched("Code Editor")), .keptAwakeByWatchedApp("Code Editor"))
+    }
+
+    func testOldFileWithoutWatchedAppsReadsAsBefore() throws {
+        try writeFile("""
+        {"version": 1, "entries": [
+          {"kind": "busy-app", "time": 1800000000, "name": "Example"},
+          {"kind": "idle-start", "time": 1800000030, "minutes": 10}
+        ]}
+        """)
+        XCTAssertEqual(makeLog().entries, [
+            ActivityEntry(time: at(0), event: .keptAwakeByApp("Example")),
+            ActivityEntry(time: at(30), event: .idleStarted(minutes: 10)),
+        ])
+    }
+
+    func testDamagedWatchedAppEntryIsSkipped() throws {
+        try writeFile("""
+        {"version": 1, "entries": [
+          {"kind": "busy-watched", "time": 1800000000},
+          {"kind": "busy-watched", "time": 1800000010, "name": "Editor"}
+        ]}
+        """)
+        XCTAssertEqual(makeLog().entries, [ActivityEntry(time: at(10), event: .keptAwakeByWatchedApp("Editor"))])
+    }
+
+    func testPrintedWatchedAppLine() {
+        let zone = TimeZone(secondsFromGMT: 7200)!
+        let time = ISO8601DateFormatter().date(from: "2026-10-11T22:10:03Z")!
+        XCTAssertEqual(
+            ActivityToken.line(for: ActivityEntry(time: time, event: .keptAwakeByWatchedApp("Code \"Editor\"")), timeZone: zone),
+            "2026-10-12T00:10:03+02:00 busy-watched name=\"Code \\\"Editor\\\"\""
+        )
+    }
+
     func testClearEmptiesLog() {
         let log = makeLog()
         log.record(.sleep)

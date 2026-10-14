@@ -18,6 +18,8 @@ public enum ActivityEvent: Equatable {
     case scheduledWake
     /// A program asked macOS not to sleep.
     case keptAwakeByApp(String)
+    /// A program started by a watched app worked; the name is the app's.
+    case keptAwakeByWatchedApp(String)
     /// `busiest` is the process that spent the most processor time in that minute.
     case keptAwakeByLoad(busiest: String?)
     case keptAwakeByInput
@@ -29,6 +31,7 @@ extension ActivityEvent {
     public init(_ cause: IdleCause) {
         switch cause {
         case .app(let name): self = .keptAwakeByApp(name)
+        case .watched(let name): self = .keptAwakeByWatchedApp(name)
         case .input: self = .keptAwakeByInput
         case .load(let busiest): self = .keptAwakeByLoad(busiest: busiest)
         case .idle(let minutes): self = .idleStarted(minutes: minutes)
@@ -212,6 +215,8 @@ struct StoredEntry: Codable {
             event = bySchedule ? .scheduledWake : .wake
         case ActivityToken.busyApp:
             event = .keptAwakeByApp(try container.decode(String.self, forKey: .name))
+        case ActivityToken.busyWatched:
+            event = .keptAwakeByWatchedApp(try container.decode(String.self, forKey: .name))
         case ActivityToken.busyCPU:
             event = .keptAwakeByLoad(busiest: try container.decodeIfPresent(String.self, forKey: .busiest))
         case ActivityToken.busyInput:
@@ -295,7 +300,7 @@ struct StoredEntry: Codable {
                 try container.encodeIfPresent(idle, forKey: .idle)
                 try container.encodeIfPresent(timer, forKey: .timer)
             }
-        case .keptAwakeByApp(let name):
+        case .keptAwakeByApp(let name), .keptAwakeByWatchedApp(let name):
             try container.encode(name, forKey: .name)
         case .keptAwakeByLoad(let busiest):
             try container.encodeIfPresent(busiest, forKey: .busiest)
@@ -317,6 +322,7 @@ public enum ActivityToken {
     static let sleep = "sleep"
     static let wake = "wake"
     static let busyApp = "busy-app"
+    static let busyWatched = "busy-watched"
     static let busyCPU = "busy-cpu"
     static let busyInput = "busy-input"
     static let idleStart = "idle-start"
@@ -348,6 +354,7 @@ public enum ActivityToken {
         case .sleep: return sleep
         case .wake, .scheduledWake: return wake
         case .keptAwakeByApp: return busyApp
+        case .keptAwakeByWatchedApp: return busyWatched
         case .keptAwakeByLoad: return busyCPU
         case .keptAwakeByInput: return busyInput
         case .idleStarted: return idleStart
@@ -419,7 +426,7 @@ public enum ActivityToken {
                 if let idle { parts.append("idle=\(idle)") }
                 if let timer { parts.append("timer=\(timer)") }
             }
-        case .keptAwakeByApp(let name):
+        case .keptAwakeByApp(let name), .keptAwakeByWatchedApp(let name):
             parts.append("name=\(quoted(name))")
         case .keptAwakeByLoad(let busiest):
             if let busiest { parts.append("busiest=\(quoted(busiest))") }

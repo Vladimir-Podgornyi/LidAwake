@@ -142,5 +142,6 @@
 "Power connected" = "Netzteil angeschlossen";
 "The app asked macOS not to sleep." = "Die App bat macOS, wach zu bleiben.";
 "Busiest app: %@" = "Aktivste App: %@";
+"Started programs are working" = "Gestartete Programme arbeiten";
 "No work detected, counting %lld minutes" = "Keine Arbeit erkannt, es werden %lld Minuten gezählt";
 "LidAwake was restarted." = "LidAwake wurde neu gestartet.";

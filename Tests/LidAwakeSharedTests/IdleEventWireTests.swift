@@ -18,6 +18,12 @@ final class IdleEventWireTests: XCTestCase {
         XCTAssertEqual(IdleEventWire.decode(IdleEventWire.encode([])), [])
     }
 
+    func testWatchedAppEventSurvivesTheTrip() {
+        let events = [IdleEvent(time: at(30), cause: .watched("Code Editor"))]
+        XCTAssertEqual(IdleEventWire.encode(events), "1800000030.0\twatched\tCode Editor")
+        XCTAssertEqual(IdleEventWire.decode(IdleEventWire.encode(events)), events)
+    }
+
     func testSeparatorsInNamesBecomeSpaces() {
         let events = [IdleEvent(time: at(0), cause: .app("odd\tname\nhere\r"))]
         XCTAssertEqual(IdleEventWire.decode(IdleEventWire.encode(events)), [

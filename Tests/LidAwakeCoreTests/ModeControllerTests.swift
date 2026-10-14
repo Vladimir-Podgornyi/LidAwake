@@ -648,6 +648,19 @@ final class ModeControllerTests: XCTestCase {
         )
     }
 
+    func testWatchedAppsChangeSendsRenewal() async throws {
+        preferences.idleSleepEnabled = true
+        let controller = makeController()
+        try await controller.select(.lidClosed)
+        XCTAssertEqual(sessions.safety.last?.watchedAppPaths, [])
+
+        preferences.watchedAppPaths = ["/Applications/Editor.app"]
+        await settle { sessions.calls.count >= 2 }
+        XCTAssertEqual(sessions.calls, ["start 120", "renew 120"])
+        XCTAssertEqual(sessions.safety.last?.watchedAppPaths, ["/Applications/Editor.app"])
+        XCTAssertEqual(controller.mode, .lidClosed)
+    }
+
     func testThermalSettingChangeSendsRenewal() async throws {
         let controller = makeController()
         try await controller.select(.lidClosed)

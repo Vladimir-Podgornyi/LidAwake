@@ -42,6 +42,36 @@ final class IdleStatusTests: XCTestCase {
         XCTAssertEqual(status(.counting, holders: []).holdersToken, "none")
     }
 
+    func testWatchedToken() {
+        XCTAssertEqual(status(.counting).watchedToken, "none")
+        let watched = IdleStatus(
+            state: .counting,
+            countedMinutes: 0,
+            requiredMinutes: 20,
+            cores: nil,
+            inputIdleSeconds: nil,
+            holders: nil,
+            watched: [
+                WatchedAppState(name: "Code Editor", isBusy: true),
+                WatchedAppState(name: "Console", isBusy: false),
+            ]
+        )
+        XCTAssertEqual(watched.watchedToken, "\"Code Editor:busy,Console:idle\"")
+    }
+
+    func testWatchedAppsSurviveTheTrip() {
+        let states = [
+            WatchedAppState(name: "Code Editor", isBusy: true),
+            WatchedAppState(name: "Console", isBusy: false),
+        ]
+        XCTAssertEqual(WatchedAppState.decode(WatchedAppState.encode(states)), states)
+        XCTAssertEqual(WatchedAppState.decode(WatchedAppState.encode([])), [])
+        XCTAssertEqual(WatchedAppState.decode("busy\tOne\nmaybe\tTwo\nidle\tThree"), [
+            WatchedAppState(name: "One", isBusy: true),
+            WatchedAppState(name: "Three", isBusy: false),
+        ])
+    }
+
     /// The helper sends the state as a number, so the values have to stay as they are.
     func testWireValues() {
         XCTAssertEqual(IdleState.off.rawValue, 0)

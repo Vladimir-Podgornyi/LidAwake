@@ -33,6 +33,8 @@ public struct IdleStatus: Equatable {
     public let inputIdleSeconds: Double?
     /// Names of the processes whose sleep requests count; nil when the requests could not be read.
     public let holders: [String]?
+    /// The watched apps in the order they were given, as of the last minute counted.
+    public let watched: [WatchedAppState]
 
     public init(
         state: IdleState,
@@ -40,7 +42,8 @@ public struct IdleStatus: Equatable {
         requiredMinutes: Int,
         cores: Double?,
         inputIdleSeconds: Double?,
-        holders: [String]?
+        holders: [String]?,
+        watched: [WatchedAppState] = []
     ) {
         self.state = state
         self.countedMinutes = countedMinutes
@@ -48,6 +51,7 @@ public struct IdleStatus: Equatable {
         self.cores = cores
         self.inputIdleSeconds = inputIdleSeconds
         self.holders = holders
+        self.watched = watched
     }
 
     public var token: String {
@@ -72,12 +76,53 @@ public struct IdleStatus: Equatable {
         guard let holders else { return "unreadable" }
         return holders.isEmpty ? "none" : "\"\(holders.joined(separator: ","))\""
     }
+
+    /// Quoted, because app names may contain spaces.
+    public var watchedToken: String {
+        guard !watched.isEmpty else { return "none" }
+        return "\"\(watched.map { "\($0.name):\($0.isBusy ? "busy" : "idle")" }.joined(separator: ","))\""
+    }
+}
+
+/// Whether the programs a watched app started worked in the last minute counted.
+public struct WatchedAppState: Equatable {
+    /// The app's folder name without `.app`.
+    public let name: String
+    public let isBusy: Bool
+
+    public init(name: String, isBusy: Bool) {
+        self.name = name
+        self.isBusy = isBusy
+    }
+
+    private static let busy = "busy"
+    private static let idle = "idle"
+
+    /// One app per line: `busy` or `idle`, a tab, the name.
+    public static func encode(_ states: [WatchedAppState]) -> String {
+        states.map { "\($0.isBusy ? busy : idle)\t\(IdleEventWire.field($0.name))" }.joined(separator: "\n")
+    }
+
+    /// Lines it cannot make sense of are skipped.
+    public static func decode(_ text: String) -> [WatchedAppState] {
+        text.split(separator: "\n").compactMap { line in
+            let fields = line.split(separator: "\t", maxSplits: 1, omittingEmptySubsequences: false).map(String.init)
+            guard fields.count == 2 else { return nil }
+            switch fields[0] {
+            case busy: return WatchedAppState(name: fields[1], isBusy: true)
+            case idle: return WatchedAppState(name: fields[1], isBusy: false)
+            default: return nil
+            }
+        }
+    }
 }
 
 /// What a minute of the idle count came down to, in the order the count rules check it.
 public enum IdleCause: Equatable {
     /// A program asked the system to stay awake; the smallest of the names seen in the minute.
     case app(String)
+    /// A program started by a watched app worked; the smallest of the busy apps' names.
+    case watched(String)
     case input
     /// The load cleared the count. `busiest` is the process that spent the most processor time in
     /// the minute, as the system names it; nil when the processes could not be read.
@@ -100,6 +145,7 @@ public struct IdleEvent: Equatable {
 /// How events cross from the helper to the app: one per line, fields separated by tabs.
 public enum IdleEventWire {
     private static let app = "app"
+    private static let watched = "watched"
     private static let input = "input"
     private static let load = "load"
     private static let idle = "idle"
@@ -110,6 +156,8 @@ public enum IdleEventWire {
             switch event.cause {
             case .app(let name):
                 fields += [app, field(name)]
+            case .watched(let name):
+                fields += [watched, field(name)]
             case .input:
                 fields += [input]
             case .load(let busiest):
@@ -131,6 +179,8 @@ public enum IdleEventWire {
             switch (fields[1], fields.count) {
             case (app, 3):
                 cause = .app(fields[2])
+            case (watched, 3):
+                cause = .watched(fields[2])
             case (input, 2):
                 cause = .input
             case (load, 2):
@@ -148,7 +198,7 @@ public enum IdleEventWire {
     }
 
     // Process names may hold any character; the two separators become spaces.
-    private static func field(_ name: String) -> String {
+    static func field(_ name: String) -> String {
         name.replacingOccurrences(of: "\t", with: " ")
             .replacingOccurrences(of: "\r", with: " ")
             .replacingOccurrences(of: "\n", with: " ")

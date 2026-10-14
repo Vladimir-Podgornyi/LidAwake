@@ -49,6 +49,13 @@ final class ActivityRowTests: XCTestCase {
         )
     }
 
+    func testKeptAwakeByWatchedApp() {
+        XCTAssertEqual(
+            row(.keptAwakeByWatchedApp("Editor")),
+            ActivityRow(title: "Kept awake by Editor", detail: "Started programs are working", symbol: .busy)
+        )
+    }
+
     func testKeptAwakeByLoadWithTheBusiestProcess() {
         XCTAssertEqual(
             row(.keptAwakeByLoad(busiest: "example-tool")),

@@ -129,7 +129,8 @@ public struct XPCHelperConnection: HelperConnecting, LidSessionService, IdleStat
                 batteryLimitPercent: safety.batteryLimitPercent,
                 thermalProtection: safety.thermalProtection,
                 chargingOnly: safety.chargingOnly,
-                idleSleepMinutes: safety.idleSleepMinutes
+                idleSleepMinutes: safety.idleSleepMinutes,
+                watchedAppPaths: safety.watchedAppPaths
             ) { done(Self.result($0, $1)) }
         }
     }
@@ -142,7 +143,8 @@ public struct XPCHelperConnection: HelperConnecting, LidSessionService, IdleStat
                 batteryLimitPercent: safety.batteryLimitPercent,
                 thermalProtection: safety.thermalProtection,
                 chargingOnly: safety.chargingOnly,
-                idleSleepMinutes: safety.idleSleepMinutes
+                idleSleepMinutes: safety.idleSleepMinutes,
+                watchedAppPaths: safety.watchedAppPaths
             ) { done(Self.result($0, $1)) }
         }
     }
@@ -185,7 +187,7 @@ public struct XPCHelperConnection: HelperConnecting, LidSessionService, IdleStat
 
     public func idleStatus() async throws -> IdleStatus {
         try await call(timeout: timeout) { helper, done in
-            helper.idleStatus { code, message, state, counted, required, cores, input, holders in
+            helper.idleStatus { code, message, state, counted, required, cores, input, holders, watched in
                 done(Self.result(code, message).flatMap {
                     guard let state = IdleState(rawValue: state) else {
                         return .failure(HelperError.connection(String(localized: "Unexpected helper reply.")))
@@ -196,7 +198,8 @@ public struct XPCHelperConnection: HelperConnecting, LidSessionService, IdleStat
                         requiredMinutes: required,
                         cores: cores < 0 ? nil : cores,
                         inputIdleSeconds: input < 0 ? nil : input,
-                        holders: holders.map { $0.isEmpty ? [] : $0.components(separatedBy: "\n") }
+                        holders: holders.map { $0.isEmpty ? [] : $0.components(separatedBy: "\n") },
+                        watched: WatchedAppState.decode(watched ?? "")
                     ))
                 })
             }

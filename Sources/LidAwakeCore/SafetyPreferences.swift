@@ -14,6 +14,7 @@ public final class SafetyPreferences: ObservableObject {
         public static let lockOnLidCloseEnabled = "lockOnLidCloseEnabled"
         public static let idleSleepEnabled = "idleSleepEnabled"
         public static let idleSleepMinutes = "idleSleepMinutes"
+        public static let watchedAppPaths = "watchedAppPaths"
     }
 
     public static let timerChoices = [1800, 3600, 7200, 14_400, 28_800]
@@ -44,6 +45,10 @@ public final class SafetyPreferences: ObservableObject {
     @Published public var idleSleepMinutes: Int {
         didSet { save(idleSleepMinutes, Key.idleSleepMinutes) }
     }
+    /// Apps whose started programs count as work for Sleep when idle.
+    @Published public var watchedAppPaths: [String] {
+        didSet { save(watchedAppPaths, Key.watchedAppPaths) }
+    }
     /// Not sent to the helper, so changing it does not fire `changes`.
     @Published public var lockOnLidCloseEnabled: Bool {
         didSet { defaults.set(lockOnLidCloseEnabled, forKey: Key.lockOnLidCloseEnabled) }
@@ -67,6 +72,7 @@ public final class SafetyPreferences: ObservableObject {
             Key.lockOnLidCloseEnabled: true,
             Key.idleSleepEnabled: false,
             Key.idleSleepMinutes: 20,
+            Key.watchedAppPaths: [String](),
         ])
         timerEnabled = defaults.bool(forKey: Key.timerEnabled)
         timerSeconds = Self.clamp(defaults.integer(forKey: Key.timerSeconds), to: SafetySettings.timerRange)
@@ -80,6 +86,7 @@ public final class SafetyPreferences: ObservableObject {
         lockOnLidCloseEnabled = defaults.bool(forKey: Key.lockOnLidCloseEnabled)
         idleSleepEnabled = defaults.bool(forKey: Key.idleSleepEnabled)
         idleSleepMinutes = Self.clamp(defaults.integer(forKey: Key.idleSleepMinutes), to: SafetySettings.idleSleepRange)
+        watchedAppPaths = defaults.stringArray(forKey: Key.watchedAppPaths) ?? []
     }
 
     /// The timer applies in both modes; the other protections only in Run with Lid Closed.
@@ -98,8 +105,18 @@ public final class SafetyPreferences: ObservableObject {
             batteryLimitPercent: batteryLimitApplies && batteryLimitEnabled ? batteryLimitPercent : 0,
             thermalProtection: thermalProtectionEnabled,
             chargingOnly: chargingOnlyEnabled,
-            idleSleepMinutes: idleSleepEnabled ? idleSleepMinutes : 0
+            idleSleepMinutes: idleSleepEnabled ? idleSleepMinutes : 0,
+            watchedAppPaths: idleSleepEnabled ? Self.acceptedWatchedAppPaths(watchedAppPaths) : []
         )
+    }
+
+    /// Paths the helper would reject are left out rather than failing the session; repeats are sent once.
+    static func acceptedWatchedAppPaths(_ paths: [String]) -> [String] {
+        var accepted: [String] = []
+        for path in paths where WatchedApps.isValidPath(path) && !accepted.contains(path) {
+            accepted.append(path)
+        }
+        return Array(accepted.prefix(WatchedApps.maximumCount))
     }
 
     /// Turns Sleep when idle on for a session about to start, which reads the setting itself,

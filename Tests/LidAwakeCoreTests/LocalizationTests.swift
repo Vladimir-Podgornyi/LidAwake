@@ -178,6 +178,19 @@ final class LocalizationTests: XCTestCase {
         }
     }
 
+    func testWatchedAppStrings() throws {
+        let key = "Started programs are working"
+        let expected = [
+            "en": "Started programs are working",
+            "de": "Gestartete Programme arbeiten",
+            "ru": "Запущенные программы работают",
+            "zh-Hans": "已启动的程序正在运行",
+        ]
+        for (language, value) in expected {
+            XCTAssertEqual(try table(language)[key], value, language)
+        }
+    }
+
     func testActivityLogStrings() throws {
         let expected: [String: [String: String]] = [
             "Activity log": ["de": "Aktivitätsprotokoll", "ru": "Журнал событий", "zh-Hans": "活动日志"],

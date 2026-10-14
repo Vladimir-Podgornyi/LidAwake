@@ -16,25 +16,30 @@ public struct SafetySettings: Equatable {
     public let chargingOnly: Bool
     /// Minutes of an idle Mac that end the session; 0 turns it off.
     public let idleSleepMinutes: Int
+    /// Apps whose started programs count as work for the idle count; empty turns this off.
+    public let watchedAppPaths: [String]
 
     public init(
         timerSeconds: Int,
         batteryLimitPercent: Int,
         thermalProtection: Bool,
         chargingOnly: Bool = false,
-        idleSleepMinutes: Int = 0
+        idleSleepMinutes: Int = 0,
+        watchedAppPaths: [String] = []
     ) {
         self.timerSeconds = timerSeconds
         self.batteryLimitPercent = batteryLimitPercent
         self.thermalProtection = thermalProtection
         self.chargingOnly = chargingOnly
         self.idleSleepMinutes = idleSleepMinutes
+        self.watchedAppPaths = watchedAppPaths
     }
 
     public var isValid: Bool {
         (timerSeconds == 0 || Self.timerRange.contains(timerSeconds))
             && (batteryLimitPercent == 0 || Self.batteryLimitRange.contains(batteryLimitPercent))
             && (idleSleepMinutes == 0 || Self.idleSleepRange.contains(idleSleepMinutes))
+            && WatchedApps.isValid(watchedAppPaths)
     }
 }
 

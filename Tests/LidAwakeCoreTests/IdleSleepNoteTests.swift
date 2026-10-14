@@ -34,6 +34,44 @@ final class IdleSleepNoteTests: XCTestCase {
         )
     }
 
+    func testAWatchedAppKeepsTheMacAwake() {
+        let watched = [
+            WatchedAppState(name: "Editor", isBusy: true),
+            WatchedAppState(name: "Console", isBusy: true),
+            WatchedAppState(name: "Idle Tool", isBusy: false),
+        ]
+        func status(_ state: IdleState, holders: [String] = []) -> IdleStatus {
+            IdleStatus(
+                state: state,
+                countedMinutes: 3,
+                requiredMinutes: state == .off ? 0 : 20,
+                cores: 0.2,
+                inputIdleSeconds: 600,
+                holders: holders,
+                watched: watched
+            )
+        }
+        for state in [IdleState.counting, .busyCPU, .busyInput] {
+            XCTAssertEqual(note(status(state)), IdleSleepNote(text: "Kept awake by Console", dot: .busy), "\(state)")
+        }
+        XCTAssertEqual(
+            note(status(.busyApp, holders: ["Example App"])),
+            IdleSleepNote(text: "Kept awake by Example App", dot: .busy)
+        )
+        XCTAssertEqual(note(status(.off)), plain)
+
+        let idle = IdleStatus(
+            state: .counting,
+            countedMinutes: 3,
+            requiredMinutes: 20,
+            cores: 0.2,
+            inputIdleSeconds: 600,
+            holders: [],
+            watched: [WatchedAppState(name: "Editor", isBusy: false)]
+        )
+        XCTAssertEqual(note(idle), IdleSleepNote(text: "Idle for 3 of 20 min", dot: .counting))
+    }
+
     func testTheLoadKeepsTheMacAwake() {
         XCTAssertEqual(note(status(.busyCPU)), IdleSleepNote(text: "Kept awake by CPU load", dot: .busy))
     }

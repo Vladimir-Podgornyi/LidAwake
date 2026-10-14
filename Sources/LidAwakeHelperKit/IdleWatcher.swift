@@ -8,6 +8,8 @@ public protocol IdleWatching: AnyObject {
     func require(minutes: Int)
     /// Starts the count from zero, keeping the required number of minutes.
     func restart()
+    /// Apps whose started programs count as work; empty turns this off.
+    func watch(appPaths: [String])
     /// Minutes in a row in which the Mac did nothing.
     var countedMinutes: Int { get }
     /// What the helper sees right now; takes a reading of its own.
@@ -15,7 +17,8 @@ public protocol IdleWatching: AnyObject {
 }
 
 /// Counts the minutes in which nothing worked on the Mac: the load stayed below the threshold,
-/// no program asked the system to stay awake and nobody touched the keyboard or the mouse.
+/// no program asked the system to stay awake, nothing a watched app started did any work and nobody
+/// touched the keyboard or the mouse.
 ///
 /// Not thread-safe: the helper calls it from one queue.
 public final class IdleWatcher: IdleWatching {
@@ -27,6 +30,9 @@ public final class IdleWatcher: IdleWatching {
     public static let recentInputSeconds: TimeInterval = 60
     /// Minutes busy by load alone in a row that clear the count; fewer leave the count as it is.
     public static let loadMinutesBeforeReset = 3
+    /// A watched app is busy when one group of programs it started spent more processor seconds than
+    /// this in a minute.
+    public static let watchedGroupBusySeconds = 0.5
     /// The load cannot be averaged over a shorter span than this.
     static let shortestLoadWindow: TimeInterval = 1
     /// Events kept until the app takes them; older ones make room for newer.
@@ -58,6 +64,9 @@ public final class IdleWatcher: IdleWatching {
     private var lastCause: IdleCause?
     /// Process times at the start of the minute; read only while the count runs.
     private var processesAtMinuteStart: [ProcessTime]?
+    private var watchedAppPaths: [String] = []
+    /// Busy apps of the last minute counted, by path.
+    private var busyWatchedPaths: Set<String> = []
     private var events: [IdleEvent] = []
 
     public init(
@@ -105,12 +114,19 @@ public final class IdleWatcher: IdleWatching {
         restart()
     }
 
+    public func watch(appPaths: [String]) {
+        guard appPaths != watchedAppPaths else { return }
+        watchedAppPaths = appPaths
+        busyWatchedPaths.formIntersection(appPaths)
+    }
+
     public func restart() {
         countedMinutes = 0
         loadMinutesInARow = 0
         sawHolderThisMinute = false
         holderNamesThisMinute = []
         lastCause = nil
+        busyWatchedPaths = []
         processesAtMinuteStart = requiredMinutes > 0 ? processes.read() : nil
         // The counter reading is up to one reading old, so the load of the first minute can come out
         // slightly high. That can only keep the Mac awake, never put it to sleep too early.
@@ -131,7 +147,10 @@ public final class IdleWatcher: IdleWatching {
             requiredMinutes: requiredMinutes,
             cores: lastCores,
             inputIdleSeconds: lastInputIdleSeconds,
-            holders: lastHolders
+            holders: lastHolders,
+            watched: watchedAppPaths.map {
+                WatchedAppState(name: WatchedApps.name(ofAppAt: $0), isBusy: busyWatchedPaths.contains($0))
+            }
         )
     }
 
@@ -156,8 +175,12 @@ public final class IdleWatcher: IdleWatching {
         // A signal that could not be read counts as an absent one.
         let busyByLoad = minuteCores.map { $0 > Self.busyCores } ?? false
         let busyByInput = reading.inputIdleSeconds.map { $0 < Self.recentInputSeconds } ?? false
+        // Processes are read only while the count runs.
+        let processesNow = requiredMinutes > 0 ? processes.read() : nil
+        busyWatchedPaths = busyWatched(from: processesAtMinuteStart, to: processesNow)
+        let busyByWatched = !busyWatchedPaths.isEmpty
 
-        if sawHolderThisMinute || busyByInput {
+        if sawHolderThisMinute || busyByWatched || busyByInput {
             countedMinutes = 0
             loadMinutesInARow = 0
         } else if busyByLoad {
@@ -176,9 +199,9 @@ public final class IdleWatcher: IdleWatching {
             loadMinutesInARow = 0
         } else {
             countedMinutes = min(countedMinutes, requiredMinutes)
-            let processesNow = processes.read()
             note(cause(
                 holder: sawHolderThisMinute,
+                watched: busyByWatched,
                 input: busyByInput,
                 load: busyByLoad,
                 processes: processesNow
@@ -192,12 +215,21 @@ public final class IdleWatcher: IdleWatching {
 
     /// What the minute just counted came down to, checked in the order of the count rules above.
     /// Nil for a minute busy by load that did not clear the count: it changes nothing.
-    private func cause(holder: Bool, input: Bool, load: Bool, processes processesNow: [ProcessTime]?) -> IdleCause? {
+    private func cause(
+        holder: Bool,
+        watched: Bool,
+        input: Bool,
+        load: Bool,
+        processes processesNow: [ProcessTime]?
+    ) -> IdleCause? {
         if holder {
             let names = holderNamesThisMinute
                 .map { $0.trimmingCharacters(in: .whitespaces) }
                 .filter { !$0.isEmpty }
             return .app(names.min() ?? "")
+        }
+        if watched {
+            return .watched(busyWatchedPaths.map(WatchedApps.name(ofAppAt:)).min() ?? "")
         }
         if input {
             return .input
@@ -217,6 +249,18 @@ public final class IdleWatcher: IdleWatching {
         if events.count > Self.eventCapacity {
             events.removeFirst(events.count - Self.eventCapacity)
         }
+    }
+
+    /// A reading that is missing on either side counts as no work.
+    private func busyWatched(from start: [ProcessTime]?, to end: [ProcessTime]?) -> Set<String> {
+        guard !watchedAppPaths.isEmpty, let start, let end else { return [] }
+        let readings = WatchedApps.readings(
+            appPaths: watchedAppPaths,
+            from: start.map(\.snapshot),
+            to: end.map(\.snapshot),
+            busyAboveSeconds: Self.watchedGroupBusySeconds
+        )
+        return Set(readings.filter(\.isBusy).map(\.path))
     }
 
     // The busiest process may change from minute to minute while the load stays the reason.

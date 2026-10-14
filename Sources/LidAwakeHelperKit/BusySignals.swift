@@ -1,6 +1,7 @@
 import Foundation
 import IOKit
 import IOKit.pwr_mgt
+import LidAwakeShared
 
 /// One request to keep the Mac awake, as the system reports it.
 public struct SleepRequest: Equatable {
@@ -178,7 +179,7 @@ public struct SystemBusySignals: BusySignalSource {
         return requests
     }
 
-    private static func executablePath(of pid: Int32) -> String? {
+    static func executablePath(of pid: Int32) -> String? {
         // PROC_PIDPATHINFO_MAXSIZE, which Swift does not import.
         var buffer = [CChar](repeating: 0, count: 4 * 1024)
         guard proc_pidpath(pid, &buffer, UInt32(buffer.count)) > 0 else { return nil }
@@ -201,12 +202,32 @@ public struct ProcessTime: Equatable {
     public let name: String
     /// In the system's own units; only compared with other readings.
     public let cpuTime: UInt64
+    public let parentPID: Int32
+    /// The executable; nil when it could not be read.
+    public let path: String?
+    /// Processor seconds of the process and of its children that have ended and been reaped.
+    public let cpuSecondsWithReaped: Double
 
-    public init(pid: Int32, startTime: UInt64, name: String, cpuTime: UInt64) {
+    public init(
+        pid: Int32,
+        startTime: UInt64,
+        name: String,
+        cpuTime: UInt64,
+        parentPID: Int32 = 0,
+        path: String? = nil,
+        cpuSecondsWithReaped: Double = 0
+    ) {
         self.pid = pid
         self.startTime = startTime
         self.name = name
         self.cpuTime = cpuTime
+        self.parentPID = parentPID
+        self.path = path
+        self.cpuSecondsWithReaped = cpuSecondsWithReaped
+    }
+
+    public var snapshot: ProcessSnapshot {
+        ProcessSnapshot(pid: pid, startTime: startTime, parentPID: parentPID, path: path, cpuSeconds: cpuSecondsWithReaped)
     }
 }
 
@@ -239,13 +260,32 @@ public struct SystemProcessTimes: ProcessTimeSource {
         guard result == 0 else { return nil }
         var buffer = [CChar](repeating: 0, count: 256)
         let name = proc_name(pid, &buffer, UInt32(buffer.count)) > 0 ? String(cString: buffer) : ""
+        let cpuTime = usage.ri_user_time + usage.ri_system_time
+        let reaped = usage.ri_child_user_time + usage.ri_child_system_time
         return ProcessTime(
             pid: pid,
             startTime: usage.ri_proc_start_abstime,
             name: name,
-            cpuTime: usage.ri_user_time + usage.ri_system_time
+            cpuTime: cpuTime,
+            parentPID: parentPID(of: pid) ?? 0,
+            path: SystemBusySignals.executablePath(of: pid),
+            cpuSecondsWithReaped: Double(cpuTime + reaped) * secondsPerUnit
         )
     }
+
+    private static func parentPID(of pid: pid_t) -> Int32? {
+        var info = proc_bsdinfo()
+        let size = Int32(MemoryLayout<proc_bsdinfo>.size)
+        guard proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, size) == size else { return nil }
+        return Int32(bitPattern: info.pbi_ppid)
+    }
+
+    // The times come in ticks of the absolute clock: nanoseconds on Intel, not on Apple silicon.
+    private static let secondsPerUnit: Double = {
+        var timebase = mach_timebase_info_data_t()
+        guard mach_timebase_info(&timebase) == KERN_SUCCESS, timebase.denom > 0 else { return 1e-9 }
+        return Double(timebase.numer) / Double(timebase.denom) / 1e9
+    }()
 }
 
 public enum BusiestProcess {
