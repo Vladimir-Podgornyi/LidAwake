@@ -13,11 +13,14 @@ public struct ThemedRGB: Equatable {
 
 public enum AccentTheme: String, CaseIterable {
     case blue
+    case system
     case amber
 
-    public var color: ThemedRGB {
+    /// nil for `system`, which takes the accent color chosen in the macOS settings.
+    public var color: ThemedRGB? {
         switch self {
         case .blue: return ThemedRGB(light: 0x0B63E5, dark: 0x5B9DFF)
+        case .system: return nil
         case .amber: return ThemedRGB(light: 0xD98200, dark: 0xF5A623)
         }
     }
@@ -36,9 +39,28 @@ public final class AccentPreference: ObservableObject {
     }
 
     private let defaults: UserDefaults
+    private var systemColorsObserver: AnyCancellable?
 
-    public init(defaults: UserDefaults = .standard) {
+    /// `systemColorsChanged` is the notification posted when the accent changes in the macOS
+    /// settings; with the `system` accent it redraws the views that show the accent.
+    public init(
+        defaults: UserDefaults = .standard,
+        systemColorsChanged: Notification.Name? = nil,
+        center: NotificationCenter = .default
+    ) {
         self.defaults = defaults
-        theme = defaults.string(forKey: Self.key).flatMap(AccentTheme.init(rawValue:)) ?? .blue
+        theme = defaults.string(forKey: Self.key).flatMap(AccentTheme.init(rawValue:)) ?? .system
+        if let systemColorsChanged {
+            systemColorsObserver = center.publisher(for: systemColorsChanged)
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] _ in
+                    MainActor.assumeIsolated { self?.systemColorsDidChange() }
+                }
+        }
+    }
+
+    private func systemColorsDidChange() {
+        guard theme == .system else { return }
+        objectWillChange.send()
     }
 }

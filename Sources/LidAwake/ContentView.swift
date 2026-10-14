@@ -583,6 +583,7 @@ private extension AccentTheme {
     var title: LocalizedStringKey {
         switch self {
         case .blue: return "Blue"
+        case .system: return "System"
         case .amber: return "Amber"
         }
     }

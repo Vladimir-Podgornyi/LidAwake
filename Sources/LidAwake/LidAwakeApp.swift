@@ -8,7 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let modeController: ModeController
     let helperSetup: HelperSetup
     let launchAtLogin = LaunchAtLogin()
-    let accent = AccentPreference()
+    let accent = AccentPreference(systemColorsChanged: NSColor.systemColorsDidChangeNotification)
     let windowStyle = WindowAppearancePreference()
     let settingsDisclosure = SettingsDisclosurePreference()
     let updates = UpdateChecker(source: UpdateBuild.source())

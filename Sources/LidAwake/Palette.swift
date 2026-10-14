@@ -6,6 +6,7 @@ enum Palette {
     static func accent(_ theme: AccentTheme) -> Color {
         switch theme {
         case .blue: return blueAccent
+        case .system: return systemAccent()
         case .amber: return amberAccent
         }
     }
@@ -27,12 +28,29 @@ enum Palette {
     /// The track of a switch that is off, as in the mockup.
     static let switchOff = dynamic { color($0 ? 0x6E717A : 0x8E9197) }
 
-    private static let blueAccent = dynamic(AccentTheme.blue.color)
-    private static let amberAccent = dynamic(AccentTheme.amber.color)
+    private static let blueAccent = dynamic(AccentTheme.blue.color!)
+    private static let amberAccent = dynamic(AccentTheme.amber.color!)
     private static let opaqueCardBackground = Color(nsColor: .controlBackgroundColor)
     private static let opaqueCardBorder = Color(nsColor: .tertiaryLabelColor)
     private static let glassCardFill = dynamic(GlassCard.fill)
     private static let glassCardBorder = dynamic(GlassCard.border)
+
+    /// Read anew on every call: the system color keeps its name when the accent changes in the
+    /// macOS settings, so a view drawn with it would compare equal and keep the old color.
+    /// With Multicolor chosen, macOS gives its blue, as the app sets no accent of its own.
+    private static func systemAccent() -> Color {
+        let light = resolved(.controlAccentColor, in: .aqua)
+        let dark = resolved(.controlAccentColor, in: .darkAqua)
+        return dynamic { $0 ? dark : light }
+    }
+
+    private static func resolved(_ color: NSColor, in name: NSAppearance.Name) -> NSColor {
+        var result = color
+        NSAppearance(named: name)?.performAsCurrentDrawingAppearance {
+            result = color.usingColorSpace(.sRGB) ?? color
+        }
+        return result
+    }
 
     private static func dynamic(_ rgb: ThemedRGB) -> Color {
         dynamic { color(rgb.value(isDark: $0)) }

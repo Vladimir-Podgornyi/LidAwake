@@ -59,6 +59,7 @@
 "Solid" = "纯色";
 "Accent" = "强调色";
 "Blue" = "蓝色";
+"System" = "跟随系统";
 "Amber" = "琥珀色";
 "Settings" = "设置";
 "Collapsed" = "已收起";
