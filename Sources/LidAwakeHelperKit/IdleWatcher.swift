@@ -30,9 +30,6 @@ public final class IdleWatcher: IdleWatching {
     public static let recentInputSeconds: TimeInterval = 60
     /// Minutes busy by load alone in a row that clear the count; fewer leave the count as it is.
     public static let loadMinutesBeforeReset = 3
-    /// A watched app is busy when one group of programs it started spent more processor seconds than
-    /// this in a minute.
-    public static let watchedGroupBusySeconds = 0.5
     /// The load cannot be averaged over a shorter span than this.
     static let shortestLoadWindow: TimeInterval = 1
     /// Events kept until the app takes them; older ones make room for newer.
@@ -258,7 +255,7 @@ public final class IdleWatcher: IdleWatching {
             appPaths: watchedAppPaths,
             from: start.map(\.snapshot),
             to: end.map(\.snapshot),
-            busyAboveSeconds: Self.watchedGroupBusySeconds
+            busyAboveSeconds: WatchedApps.busyGroupSeconds
         )
         return Set(readings.filter(\.isBusy).map(\.path))
     }

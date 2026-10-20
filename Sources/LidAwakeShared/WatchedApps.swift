@@ -41,6 +41,9 @@ public struct WatchedAppReading: Equatable {
 /// outside it, together with all its descendants, wherever their executables lie.
 public enum WatchedApps {
     public static let maximumCount = 20
+    /// An app is busy when one group of programs it started spent more processor seconds than this
+    /// in a minute.
+    public static let busyGroupSeconds = 0.5
 
     /// At most `maximumCount` paths, each absolute and ending in `.app`.
     public static func isValid(_ paths: [String]) -> Bool {
