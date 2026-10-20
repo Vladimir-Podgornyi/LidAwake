@@ -15,6 +15,7 @@ final class WatchedAppsWindowController {
     private let accent: AccentPreference
     private let monitor = WatchedAppsMonitor()
     private let keyboard = WatchedAppsKeyboard()
+    private let turnedOff = WatchedAppsTurnedOffRows()
     private var window: NSWindow?
     private var activation: NSObjectProtocol?
     private var closing: NSObjectProtocol?
@@ -108,6 +109,7 @@ final class WatchedAppsWindowController {
             accent: accent,
             monitor: monitor,
             keyboard: keyboard,
+            turnedOff: turnedOff,
             addOtherApp: { [weak self] in self?.addOtherApp() },
             done: { [weak self] in self?.close() }
         ))
@@ -124,6 +126,7 @@ final class WatchedAppsWindowController {
             MainActor.assumeIsolated {
                 self?.monitor.stop()
                 self?.keyboard.cursor.reset()
+                self?.turnedOff.rows.reset()
             }
         }
         return window
@@ -247,33 +250,42 @@ struct WatchedAppsScreen: View {
     @ObservedObject var accent: AccentPreference
     @ObservedObject var monitor: WatchedAppsMonitor
     let keyboard: WatchedAppsKeyboard
+    @ObservedObject var turnedOff: WatchedAppsTurnedOffRows
     let addOtherApp: () -> Void
     let done: () -> Void
 
     var body: some View {
+        let list = WatchedAppList.make(
+            running: monitor.running,
+            watched: preferences.watchedAppPaths,
+            turnedOff: turnedOff.rows.paths,
+            ownBundleIdentifier: Bundle.main.bundleIdentifier,
+            ownPath: Bundle.main.bundleURL.path,
+            name: AppDisplayName.of
+        )
         WatchedAppsContent(
-            list: WatchedAppList.make(
-                running: monitor.running,
-                watched: preferences.watchedAppPaths,
-                ownBundleIdentifier: Bundle.main.bundleIdentifier,
-                ownPath: Bundle.main.bundleURL.path,
-                name: AppDisplayName.of
-            ),
+            list: list,
             busy: monitor.busy,
             canAdd: WatchedAppSelection.canAdd(to: preferences.watchedAppPaths),
             accent: Palette.accent(accent.theme),
             icon: AppDisplayName.icon,
             keyboard: keyboard,
             setWatched: { path, isOn in
-                preferences.watchedAppPaths = WatchedAppSelection.setting(path, isOn: isOn, in: preferences.watchedAppPaths)
+                preferences.watchedAppPaths = turnedOff.rows.setting(path, isOn: isOn, in: preferences.watchedAppPaths, list: list)
             },
             toggle: { path in
-                preferences.watchedAppPaths = WatchedAppSelection.toggling(path, in: preferences.watchedAppPaths)
+                preferences.watchedAppPaths = turnedOff.rows.toggling(path, in: preferences.watchedAppPaths, list: list)
             },
             addOtherApp: addOtherApp,
             done: done
         )
     }
+}
+
+/// Kept while the window is open, like the keyboard.
+@MainActor
+final class WatchedAppsTurnedOffRows: ObservableObject {
+    @Published var rows = WatchedAppsTurnedOff()
 }
 
 /// The row the keys are on, and whether the list has the keys. Kept while the window is open.

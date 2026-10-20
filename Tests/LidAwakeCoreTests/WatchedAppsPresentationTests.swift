@@ -281,6 +281,109 @@ final class WatchedAppCursorTests: XCTestCase {
     }
 }
 
+final class WatchedAppsTurnedOffTests: XCTestCase {
+    private let editor = "/Applications/Editor.app"
+    private let shell = "/Applications/Shell.app"
+    private let studio = "/Applications/Studio.app"
+
+    private func app(_ path: String) -> RunningApp {
+        RunningApp(path: path, name: WatchedApps.name(ofAppAt: path), bundleIdentifier: nil, isRegular: true)
+    }
+
+    private func make(_ running: [RunningApp] = [], watched: [String], turnedOff: WatchedAppsTurnedOff) -> WatchedAppList {
+        WatchedAppList.make(
+            running: running,
+            watched: watched,
+            turnedOff: turnedOff.paths,
+            ownBundleIdentifier: "com.vladimirpodgornyi.LidAwake",
+            ownPath: "/Applications/LidAwake.app",
+            name: { WatchedApps.name(ofAppAt: $0) }
+        )
+    }
+
+    func testAnAppTurnedOffInWatchedNotOpenKeepsItsRowSwitchedOff() {
+        var turnedOff = WatchedAppsTurnedOff()
+        let watched = [studio, editor, shell]
+        let before = make(watched: watched, turnedOff: turnedOff)
+        let after = turnedOff.toggling(shell, in: watched, list: before)
+        XCTAssertEqual(after, [studio, editor])
+        let list = make(watched: after, turnedOff: turnedOff)
+        XCTAssertEqual(list.rowPaths, before.rowPaths)
+        XCTAssertEqual(list.notOpen.map(\.isWatched), [true, false, true])
+    }
+
+    func testAClickWorksLikeSpace() {
+        var turnedOff = WatchedAppsTurnedOff()
+        let watched = [editor, shell]
+        let after = turnedOff.setting(editor, isOn: false, in: watched, list: make(watched: watched, turnedOff: turnedOff))
+        XCTAssertEqual(after, [shell])
+        XCTAssertEqual(make(watched: after, turnedOff: turnedOff).notOpen.map(\.path), [editor, shell])
+    }
+
+    func testSpaceAgainTurnsItBackOn() {
+        var turnedOff = WatchedAppsTurnedOff()
+        let watched = [editor, shell]
+        let off = turnedOff.toggling(editor, in: watched, list: make(watched: watched, turnedOff: turnedOff))
+        let on = turnedOff.toggling(editor, in: off, list: make(watched: off, turnedOff: turnedOff))
+        XCTAssertEqual(on, [shell, editor])
+        XCTAssertEqual(make(watched: on, turnedOff: turnedOff).notOpen.map(\.isWatched), [true, true])
+    }
+
+    func testAFullListDoesNotTakeItBack() {
+        var turnedOff = WatchedAppsTurnedOff()
+        let others = (1..<WatchedApps.maximumCount).map { "/Applications/App \($0).app" }
+        let watched = others + [editor]
+        let off = turnedOff.toggling(editor, in: watched, list: make(watched: watched, turnedOff: turnedOff))
+        XCTAssertEqual(off, others)
+        let full = WatchedAppSelection.setting(studio, isOn: true, in: off)
+        XCTAssertFalse(WatchedAppSelection.canAdd(to: full))
+        XCTAssertEqual(turnedOff.toggling(editor, in: full, list: make(watched: full, turnedOff: turnedOff)), full)
+        XCTAssertEqual(turnedOff.setting(editor, isOn: true, in: full, list: make(watched: full, turnedOff: turnedOff)), full)
+        let row = make(watched: full, turnedOff: turnedOff).notOpen.first { $0.path == editor }
+        XCTAssertEqual(row?.isWatched, false)
+    }
+
+    func testTheRowIsGoneWhenTheWindowOpensAgain() {
+        var turnedOff = WatchedAppsTurnedOff()
+        let watched = [editor, shell]
+        let after = turnedOff.toggling(editor, in: watched, list: make(watched: watched, turnedOff: turnedOff))
+        turnedOff.reset()
+        XCTAssertEqual(make(watched: after, turnedOff: turnedOff).notOpen.map(\.path), [shell])
+    }
+
+    func testAnAppThatOpensMovesToOpenNow() {
+        var turnedOff = WatchedAppsTurnedOff()
+        let watched = [editor]
+        let after = turnedOff.toggling(editor, in: watched, list: make(watched: watched, turnedOff: turnedOff))
+        let list = make([app(editor)], watched: after, turnedOff: turnedOff)
+        XCTAssertEqual(list.open, [WatchedAppEntry(path: editor, name: "Editor", isWatched: false)])
+        XCTAssertEqual(list.notOpen, [])
+    }
+
+    func testAnAppTurnedOffInOpenNowIsNotKept() {
+        var turnedOff = WatchedAppsTurnedOff()
+        let watched = [editor]
+        let list = make([app(editor)], watched: watched, turnedOff: turnedOff)
+        XCTAssertEqual(turnedOff.toggling(editor, in: watched, list: list), [])
+        XCTAssertEqual(turnedOff.paths, [])
+        XCTAssertEqual(make(watched: [], turnedOff: turnedOff).rowPaths, [])
+    }
+
+    func testTheKeysStayOnTheRow() {
+        var turnedOff = WatchedAppsTurnedOff()
+        let watched = [editor, shell, studio]
+        let before = make(watched: watched, turnedOff: turnedOff)
+        var cursor = WatchedAppCursor(rows: before.rowPaths, selected: shell)
+        let off = turnedOff.toggling(shell, in: watched, list: before)
+        cursor.update(rows: make(watched: off, turnedOff: turnedOff).rowPaths)
+        XCTAssertEqual(cursor.selected, shell)
+        let on = turnedOff.toggling(cursor.selected!, in: off, list: make(watched: off, turnedOff: turnedOff))
+        XCTAssertEqual(on, [editor, studio, shell])
+        cursor.update(rows: make(watched: on, turnedOff: turnedOff).rowPaths)
+        XCTAssertEqual(cursor.selected, shell)
+    }
+}
+
 @MainActor
 final class WatchedAppsPreferenceTests: XCTestCase {
     private var defaults: UserDefaults!

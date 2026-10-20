@@ -66,10 +66,12 @@ public struct WatchedAppList: Equatable {
     }
 
     /// LidAwake itself is left out by its identifier and its path. `name` gives the name of a chosen
-    /// app that is not running.
+    /// app that is not running. Apps in `turnedOff` that are not running stay in Watched, not open
+    /// with the switch off.
     public static func make(
         running: [RunningApp],
         watched: [String],
+        turnedOff: [String] = [],
         ownBundleIdentifier: String?,
         ownPath: String?,
         name: (String) -> String
@@ -86,9 +88,9 @@ public struct WatchedAppList: Equatable {
             open.append(WatchedAppEntry(path: app.path, name: title, isWatched: watched.contains(app.path)))
         }
         var notOpen: [WatchedAppEntry] = []
-        for path in watched where !openPaths.contains(path) && !isOwn(path, nil) {
+        for path in watched + turnedOff where !openPaths.contains(path) && !isOwn(path, nil) {
             guard !notOpen.contains(where: { $0.path == path }) else { continue }
-            notOpen.append(WatchedAppEntry(path: path, name: name(path), isWatched: true))
+            notOpen.append(WatchedAppEntry(path: path, name: name(path), isWatched: watched.contains(path)))
         }
         return WatchedAppList(open: sorted(open), notOpen: sorted(notOpen))
     }
@@ -125,6 +127,35 @@ public enum WatchedAppSelection {
     /// The list after Space on a row: the app's switch flipped, with the same limits.
     public static func toggling(_ path: String, in paths: [String]) -> [String] {
         setting(path, isOn: !paths.contains(path), in: paths)
+    }
+}
+
+/// Apps turned off in Watched, not open while the window is open. They keep their rows until the
+/// window closes, so the row under the keys does not go away and Space can turn it back on.
+public struct WatchedAppsTurnedOff: Equatable {
+    public private(set) var paths: [String]
+
+    public init(paths: [String] = []) {
+        self.paths = paths
+    }
+
+    /// The chosen apps after the switch of `path` was set to `isOn`, with the limits of
+    /// `WatchedAppSelection`.
+    public mutating func setting(_ path: String, isOn: Bool, in watched: [String], list: WatchedAppList) -> [String] {
+        if !isOn, !paths.contains(path), list.notOpen.contains(where: { $0.path == path }) {
+            paths.append(path)
+        }
+        return WatchedAppSelection.setting(path, isOn: isOn, in: watched)
+    }
+
+    /// Space on a row: the switch of `path` flipped.
+    public mutating func toggling(_ path: String, in watched: [String], list: WatchedAppList) -> [String] {
+        setting(path, isOn: !watched.contains(path), in: watched, list: list)
+    }
+
+    /// The window closed; it opens again without these rows.
+    public mutating func reset() {
+        paths = []
     }
 }
 
