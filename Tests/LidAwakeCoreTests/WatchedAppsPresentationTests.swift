@@ -153,6 +153,132 @@ final class WatchedAppSelectionTests: XCTestCase {
         XCTAssertTrue(WatchedAppSelection.canAdd(to: Array(full.dropLast())))
         XCTAssertEqual(WatchedAppSelection.setting("/Applications/Editor.app", isOn: true, in: full), full)
     }
+
+    func testSpaceFlipsTheApp() {
+        let paths = ["/Applications/Editor.app"]
+        XCTAssertEqual(
+            WatchedAppSelection.toggling("/Applications/Shell.app", in: paths),
+            ["/Applications/Editor.app", "/Applications/Shell.app"]
+        )
+        XCTAssertEqual(WatchedAppSelection.toggling("/Applications/Editor.app", in: paths), [])
+    }
+
+    func testSpaceOnAFullListOnlyTurnsOff() {
+        let full = (1...WatchedApps.maximumCount).map { "/Applications/App \($0).app" }
+        XCTAssertEqual(WatchedAppSelection.toggling("/Applications/Editor.app", in: full), full)
+        XCTAssertEqual(WatchedAppSelection.toggling(full[3], in: full), full.filter { $0 != full[3] })
+    }
+}
+
+final class WatchedAppCursorTests: XCTestCase {
+    private let rows = ["/Applications/A.app", "/Applications/B.app", "/Applications/C.app", "/Applications/D.app"]
+
+    func testRowsRunThroughBothSectionsWithoutHeadings() {
+        let list = WatchedAppList(
+            open: [
+                WatchedAppEntry(path: "/Applications/B.app", name: "B", isWatched: false),
+                WatchedAppEntry(path: "/Applications/C.app", name: "C", isWatched: true),
+            ],
+            notOpen: [WatchedAppEntry(path: "/Applications/A.app", name: "A", isWatched: true)]
+        )
+        XCTAssertEqual(list.rowPaths, ["/Applications/B.app", "/Applications/C.app", "/Applications/A.app"])
+    }
+
+    func testNothingIsChosenUntilTheListGetsTheKeys() {
+        var cursor = WatchedAppCursor(rows: rows)
+        XCTAssertNil(cursor.selected)
+        cursor.enter()
+        XCTAssertEqual(cursor.selected, rows[0])
+    }
+
+    func testComingBackKeepsTheRowChosenBefore() {
+        var cursor = WatchedAppCursor(rows: rows, selected: rows[2])
+        cursor.enter()
+        XCTAssertEqual(cursor.selected, rows[2])
+    }
+
+    func testAnEmptyListHasNoRowToChoose() {
+        var cursor = WatchedAppCursor()
+        cursor.enter()
+        cursor.move(by: 1)
+        XCTAssertNil(cursor.selected)
+    }
+
+    func testArrowsMoveOneRowAndStopAtTheEnds() {
+        var cursor = WatchedAppCursor(rows: rows, selected: rows[0])
+        cursor.move(by: -1)
+        XCTAssertEqual(cursor.selected, rows[0])
+        cursor.move(by: 1)
+        XCTAssertEqual(cursor.selected, rows[1])
+        cursor.move(by: 1)
+        cursor.move(by: 1)
+        cursor.move(by: 1)
+        XCTAssertEqual(cursor.selected, rows[3])
+        cursor.move(by: -1)
+        XCTAssertEqual(cursor.selected, rows[2])
+    }
+
+    func testAnArrowWithNothingChosenChoosesTheFirstRow() {
+        var cursor = WatchedAppCursor(rows: rows)
+        cursor.move(by: 1)
+        XCTAssertEqual(cursor.selected, rows[0])
+    }
+
+    func testTheChoiceFollowsItsAppWhenTheListChanges() {
+        var cursor = WatchedAppCursor(rows: rows, selected: rows[1])
+        // An app opened above it, and the chosen app moved from one section to the other.
+        cursor.update(rows: ["/Applications/0.app", rows[0], rows[2], rows[3], rows[1]])
+        XCTAssertEqual(cursor.selected, rows[1])
+    }
+
+    func testTheSameListKeepsTheChoice() {
+        var cursor = WatchedAppCursor(rows: rows, selected: rows[2])
+        cursor.update(rows: rows)
+        XCTAssertEqual(cursor.selected, rows[2])
+        XCTAssertEqual(cursor.rows, rows)
+    }
+
+    func testAClosedAppPassesTheChoiceToTheNextRow() {
+        var cursor = WatchedAppCursor(rows: rows, selected: rows[1])
+        cursor.update(rows: [rows[0], rows[2], rows[3]])
+        XCTAssertEqual(cursor.selected, rows[2])
+    }
+
+    func testTheNextRowThatIsStillThereIsChosen() {
+        var cursor = WatchedAppCursor(rows: rows, selected: rows[1])
+        cursor.update(rows: [rows[0], rows[3]])
+        XCTAssertEqual(cursor.selected, rows[3])
+    }
+
+    func testTheLastRowPassesTheChoiceUp() {
+        var cursor = WatchedAppCursor(rows: rows, selected: rows[3])
+        cursor.update(rows: [rows[0], rows[1]])
+        XCTAssertEqual(cursor.selected, rows[1])
+    }
+
+    func testAnEmptiedListHasNoChoice() {
+        var cursor = WatchedAppCursor(rows: rows, selected: rows[0])
+        cursor.update(rows: [])
+        XCTAssertNil(cursor.selected)
+    }
+
+    func testNothingChosenStaysSoWhenTheListChanges() {
+        var cursor = WatchedAppCursor(rows: rows)
+        cursor.update(rows: Array(rows.dropFirst()))
+        XCTAssertNil(cursor.selected)
+    }
+
+    func testClosingTheWindowForgetsTheChoice() {
+        var cursor = WatchedAppCursor(rows: rows, selected: rows[2])
+        cursor.reset()
+        XCTAssertNil(cursor.selected)
+        cursor.enter()
+        XCTAssertEqual(cursor.selected, rows[0])
+    }
+
+    func testAChoiceOutsideTheRowsIsDropped() {
+        XCTAssertNil(WatchedAppCursor(rows: rows, selected: "/Applications/Z.app").selected)
+    }
 }
 
 @MainActor

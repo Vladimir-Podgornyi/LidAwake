@@ -12,7 +12,8 @@ import UniformTypeIdentifiers
 /// idle state, Run with Lid Closed expanded with Wake at on as well, and Run with Lid Closed expanded
 /// with made-up watched apps, without touching the helper, the login item, the display, the network or the saved settings.
 /// It also draws the content of the wake time popover, the activity log window from made-up
-/// entries, with the log file left alone, and the Watched Apps window with made-up apps.
+/// entries, with the log file left alone, and the Watched Apps window with made-up apps, also with
+/// the list in focus and one row chosen.
 enum WindowSnapshot {
     static let flag = "--render-window"
 
@@ -53,10 +54,13 @@ enum WindowSnapshot {
                 try render(shot).write(to: file)
                 print(file.path)
             }
-            for isDark in [false, true] {
-                let file = folder.appendingPathComponent("watched-apps-\(isDark ? "dark" : "light").png")
-                try renderWatchedApps(isDark: isDark).write(to: file)
-                print(file.path)
+            for isChosen in [false, true] {
+                for isDark in [false, true] {
+                    let name = "watched-apps-\(isChosen ? "chosen-" : "")\(isDark ? "dark" : "light").png"
+                    let file = folder.appendingPathComponent(name)
+                    try renderWatchedApps(isDark: isDark, isChosen: isChosen).write(to: file)
+                    print(file.path)
+                }
             }
             return 0
         } catch {
@@ -328,22 +332,29 @@ enum WindowSnapshot {
     }
 
     @MainActor
-    private static func renderWatchedApps(isDark: Bool) throws -> Data {
+    private static func renderWatchedApps(isDark: Bool, isChosen: Bool) throws -> Data {
         let appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)!
+        let list = WatchedAppList.make(
+            running: WatchedAppsShot.running,
+            watched: WatchedAppsShot.watched,
+            ownBundleIdentifier: Bundle.main.bundleIdentifier,
+            ownPath: Bundle.main.bundleURL.path,
+            name: AppDisplayName.of
+        )
+        let keyboard = WatchedAppsKeyboard(
+            cursor: WatchedAppCursor(rows: list.rowPaths, selected: isChosen ? WatchedAppsShot.chosen : nil),
+            hasKeys: isChosen
+        )
         let content = WatchedAppsContent(
-            list: WatchedAppList.make(
-                running: WatchedAppsShot.running,
-                watched: WatchedAppsShot.watched,
-                ownBundleIdentifier: Bundle.main.bundleIdentifier,
-                ownPath: Bundle.main.bundleURL.path,
-                name: AppDisplayName.of
-            ),
+            list: list,
             busy: WatchedAppsShot.busy,
             canAdd: true,
             accent: Palette.accent(.blue),
             // The made-up apps have no icons of their own.
             icon: { _ in NSWorkspace.shared.icon(for: .applicationBundle) },
+            keyboard: keyboard,
             setWatched: { _, _ in },
+            toggle: { _ in },
             addOtherApp: {},
             done: {}
         )
@@ -477,6 +488,9 @@ private enum WatchedAppsShot {
     ]
 
     static let busy: Set<String> = ["/Applications/Example Editor.app"]
+
+    /// The row chosen with the keys in the shots with the list in focus.
+    static let chosen = "/Applications/Example Editor.app"
 }
 
 private struct FixedAutoLogout: AutoLogoutSource {

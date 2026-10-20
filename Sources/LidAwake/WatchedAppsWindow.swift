@@ -14,6 +14,7 @@ final class WatchedAppsWindowController {
     private let preferences: SafetyPreferences
     private let accent: AccentPreference
     private let monitor = WatchedAppsMonitor()
+    private let keyboard = WatchedAppsKeyboard()
     private var window: NSWindow?
     private var activation: NSObjectProtocol?
     private var closing: NSObjectProtocol?
@@ -35,9 +36,12 @@ final class WatchedAppsWindowController {
             window.orderFrontRegardless()
             makeKeyOnActivation(window)
         }
-        // With keyboard navigation on, the window would put the first switch in focus, and Space
-        // would change the choice right away. The window keeps the keys; Tab moves to the switches.
+        // With keyboard navigation on, the window would put the list in focus, and Space would
+        // change the choice right away. The window keeps the keys; Tab moves to the list.
+        // Closed with Return, the window comes back with a key view loop that Tab cannot follow,
+        // so the loop is built again.
         window.contentView?.layoutSubtreeIfNeeded()
+        window.recalculateKeyViewLoop()
         window.makeFirstResponder(nil)
     }
 
@@ -103,6 +107,7 @@ final class WatchedAppsWindowController {
             preferences: preferences,
             accent: accent,
             monitor: monitor,
+            keyboard: keyboard,
             addOtherApp: { [weak self] in self?.addOtherApp() },
             done: { [weak self] in self?.close() }
         ))
@@ -118,6 +123,7 @@ final class WatchedAppsWindowController {
         ) { [weak self] _ in
             MainActor.assumeIsolated {
                 self?.monitor.stop()
+                self?.keyboard.cursor.reset()
             }
         }
         return window
@@ -240,6 +246,7 @@ struct WatchedAppsScreen: View {
     @ObservedObject var preferences: SafetyPreferences
     @ObservedObject var accent: AccentPreference
     @ObservedObject var monitor: WatchedAppsMonitor
+    let keyboard: WatchedAppsKeyboard
     let addOtherApp: () -> Void
     let done: () -> Void
 
@@ -256,12 +263,33 @@ struct WatchedAppsScreen: View {
             canAdd: WatchedAppSelection.canAdd(to: preferences.watchedAppPaths),
             accent: Palette.accent(accent.theme),
             icon: AppDisplayName.icon,
+            keyboard: keyboard,
             setWatched: { path, isOn in
                 preferences.watchedAppPaths = WatchedAppSelection.setting(path, isOn: isOn, in: preferences.watchedAppPaths)
+            },
+            toggle: { path in
+                preferences.watchedAppPaths = WatchedAppSelection.toggling(path, in: preferences.watchedAppPaths)
             },
             addOtherApp: addOtherApp,
             done: done
         )
+    }
+}
+
+/// The row the keys are on, and whether the list has the keys. Kept while the window is open.
+@MainActor
+final class WatchedAppsKeyboard: ObservableObject {
+    @Published var cursor: WatchedAppCursor
+    @Published var hasKeys: Bool
+
+    init(cursor: WatchedAppCursor = WatchedAppCursor(), hasKeys: Bool = false) {
+        self.cursor = cursor
+        self.hasKeys = hasKeys
+    }
+
+    /// The row drawn as chosen.
+    var highlighted: String? {
+        hasKeys ? cursor.selected : nil
     }
 }
 
@@ -271,33 +299,38 @@ struct WatchedAppsContent: View {
     let canAdd: Bool
     let accent: Color
     let icon: (String) -> NSImage
+    @ObservedObject var keyboard: WatchedAppsKeyboard
     let setWatched: (String, Bool) -> Void
+    /// Space on the chosen row.
+    let toggle: (String) -> Void
     let addOtherApp: () -> Void
     let done: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
-            ScrollView(.vertical) {
-                VStack(alignment: .leading, spacing: 0) {
-                    Text("While a watched app runs programs it started, such as a coding agent, a build or a script, Sleep when idle keeps counting it as work. Typing in the app and its own windows do not count.")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.top, 14)
-                    header("Open now")
-                    ForEach(list.open) { entry in
-                        row(entry, state: openState(entry))
-                    }
-                    if !list.notOpen.isEmpty {
-                        header("Watched, not open")
-                        ForEach(list.notOpen) { entry in
-                            row(entry, state: .notOpen)
-                                .opacity(0.6)
-                        }
+            ScrollViewReader { proxy in
+                ScrollView(.vertical) {
+                    rows
+                        .background(WatchedAppsListKeys(
+                            enter: {
+                                keyboard.hasKeys = true
+                                keyboard.cursor.enter()
+                            },
+                            leave: { keyboard.hasKeys = false },
+                            move: { keyboard.cursor.move(by: $0) },
+                            toggle: {
+                                if let path = keyboard.highlighted {
+                                    toggle(path)
+                                }
+                            }
+                        )
+                        .accessibilityHidden(true))
+                }
+                .onChange(of: keyboard.highlighted) { path in
+                    if let path {
+                        proxy.scrollTo(path)
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 8)
             }
             Divider()
             HStack(spacing: 12) {
@@ -314,6 +347,30 @@ struct WatchedAppsContent: View {
         .frame(maxHeight: .infinity)
         .background(Color(nsColor: .windowBackgroundColor))
         .tint(accent)
+        .onAppear { keyboard.cursor.update(rows: list.rowPaths) }
+        .onChange(of: list.rowPaths) { keyboard.cursor.update(rows: $0) }
+    }
+
+    private var rows: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("While a watched app runs programs it started, such as a coding agent, a build or a script, Sleep when idle keeps counting it as work. Typing in the app and its own windows do not count.")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 14)
+            header("Open now")
+            ForEach(list.open) { entry in
+                row(entry, state: openState(entry))
+            }
+            if !list.notOpen.isEmpty {
+                header("Watched, not open")
+                ForEach(list.notOpen) { entry in
+                    row(entry, state: .notOpen)
+                }
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 8)
     }
 
     private enum State {
@@ -364,9 +421,18 @@ struct WatchedAppsContent: View {
             .toggleStyle(.switch)
             .controlSize(.small)
             .disabled(!entry.isWatched && !canAdd)
+            // The list takes the keys for all its rows, so Tab does not stop at each switch.
+            .focusable(false)
         }
         .padding(.vertical, 4)
         .frame(minHeight: 44)
+        .opacity(state == .notOpen ? 0.6 : 1)
+        .background(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(accent.opacity(0.18))
+                .padding(.horizontal, -8)
+                .opacity(keyboard.highlighted == entry.path ? 1 : 0)
+        )
     }
 
     @ViewBuilder
@@ -396,5 +462,79 @@ struct WatchedAppsContent: View {
             .foregroundStyle(.secondary)
             .lineLimit(1)
             .truncationMode(.tail)
+    }
+}
+
+/// Gives the list one place in the key view loop, before the bottom buttons, as in the activity log
+/// window: the arrow keys move between the rows and Space flips the chosen one.
+private struct WatchedAppsListKeys: NSViewRepresentable {
+    let enter: () -> Void
+    let leave: () -> Void
+    let move: (Int) -> Void
+    let toggle: () -> Void
+
+    func makeNSView(context: Context) -> WatchedAppsListKeyView {
+        let view = WatchedAppsListKeyView()
+        updateNSView(view, context: context)
+        return view
+    }
+
+    func updateNSView(_ nsView: WatchedAppsListKeyView, context: Context) {
+        nsView.enter = enter
+        nsView.leave = leave
+        nsView.move = move
+        nsView.toggle = toggle
+    }
+}
+
+final class WatchedAppsListKeyView: NSView {
+    var enter: () -> Void = {}
+    var leave: () -> Void = {}
+    var move: (Int) -> Void = { _ in }
+    var toggle: () -> Void = {}
+
+    override var acceptsFirstResponder: Bool { true }
+
+    override func becomeFirstResponder() -> Bool {
+        enter()
+        return true
+    }
+
+    override func resignFirstResponder() -> Bool {
+        leave()
+        return true
+    }
+
+    override func keyDown(with event: NSEvent) {
+        // Return and Enter go on to the window, which presses Done.
+        if event.keyCode == 36 || event.keyCode == 76 {
+            super.keyDown(with: event)
+            return
+        }
+        interpretKeyEvents([event])
+    }
+
+    // Letters do nothing here.
+    override func insertText(_ insertString: Any) {
+        let text = (insertString as? String) ?? (insertString as? NSAttributedString)?.string
+        if text == " " {
+            toggle()
+        }
+    }
+
+    override func doCommand(by selector: Selector) {
+        switch selector {
+        case #selector(moveUp(_:)):
+            move(-1)
+        case #selector(moveDown(_:)):
+            move(1)
+        // Read as key bindings, Tab would no longer reach the window's key view loop.
+        case #selector(insertTab(_:)):
+            window?.selectKeyView(following: self)
+        case #selector(insertBacktab(_:)):
+            window?.selectKeyView(preceding: self)
+        default:
+            super.doCommand(by: selector)
+        }
     }
 }

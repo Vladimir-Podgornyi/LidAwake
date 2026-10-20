@@ -121,6 +121,65 @@ public enum WatchedAppSelection {
     public static func canAdd(to paths: [String]) -> Bool {
         paths.count < WatchedApps.maximumCount
     }
+
+    /// The list after Space on a row: the app's switch flipped, with the same limits.
+    public static func toggling(_ path: String, in paths: [String]) -> [String] {
+        setting(path, isOn: !paths.contains(path), in: paths)
+    }
+}
+
+extension WatchedAppList {
+    /// The rows the arrow keys go through, top to bottom across both sections; the headings are
+    /// not rows.
+    public var rowPaths: [String] {
+        (open + notOpen).map(\.path)
+    }
+}
+
+/// The row the keyboard is on in the Watched Apps window.
+public struct WatchedAppCursor: Equatable {
+    public private(set) var rows: [String]
+    public private(set) var selected: String?
+
+    public init(rows: [String] = [], selected: String? = nil) {
+        self.rows = rows
+        self.selected = selected.flatMap { rows.contains($0) ? $0 : nil }
+    }
+
+    /// The list got the keys: the row chosen before stays, otherwise the first row is chosen.
+    public mutating func enter() {
+        if selected == nil {
+            selected = rows.first
+        }
+    }
+
+    /// One row up for a negative offset, down for a positive one; stops at the ends.
+    public mutating func move(by offset: Int) {
+        guard let selected, let index = rows.firstIndex(of: selected) else {
+            self.selected = rows.first
+            return
+        }
+        self.selected = rows[min(max(index + offset, 0), rows.count - 1)]
+    }
+
+    /// The list changed. The chosen app keeps the choice, also when it moved to the other section;
+    /// when it left the list, the choice goes to the next row that is still there, or else the one
+    /// before.
+    public mutating func update(rows newRows: [String]) {
+        defer { rows = newRows }
+        guard let selected, !newRows.contains(selected) else { return }
+        guard let index = rows.firstIndex(of: selected) else {
+            self.selected = newRows.first
+            return
+        }
+        let neighbours = rows[(index + 1)...] + rows[..<index].reversed()
+        self.selected = neighbours.first(where: newRows.contains) ?? newRows.first
+    }
+
+    /// The window closed; it opens again with nothing chosen.
+    public mutating func reset() {
+        selected = nil
+    }
 }
 
 /// Whether the programs each app started are working now, from the app's own readings of the
