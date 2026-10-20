@@ -145,3 +145,14 @@
 "Started programs are working" = "Gestartete Programme arbeiten";
 "No work detected, counting %lld minutes" = "Keine Arbeit erkannt, es werden %lld Minuten gezählt";
 "LidAwake was restarted." = "LidAwake wurde neu gestartet.";
+"Watched apps" = "Beobachtete Apps";
+"Watched Apps" = "Beobachtete Apps";
+"None" = "Keine";
+"While a watched app runs programs it started, such as a coding agent, a build or a script, Sleep when idle keeps counting it as work. Typing in the app and its own windows do not count." = "Solange eine beobachtete App Programme ausführt, die sie gestartet hat, etwa einen Coding-Agenten, einen Build oder ein Skript, zählt „Ruhezustand bei Leerlauf“ das als Arbeit. Tippen in der App und ihre eigenen Fenster zählen nicht.";
+"Open now" = "Geöffnet";
+"Watched, not open" = "Beobachtet, nicht geöffnet";
+"Started programs are working now" = "Gestartete Programme arbeiten gerade";
+"Nothing running" = "Nichts läuft";
+"Not open" = "Nicht geöffnet";
+"Add Other App…" = "Andere App hinzufügen …";
+"Done" = "Fertig";

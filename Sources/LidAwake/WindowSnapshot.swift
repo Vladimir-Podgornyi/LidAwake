@@ -2,15 +2,17 @@ import AppKit
 import LidAwakeCore
 import LidAwakeShared
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// `--render-window <folder>`: draws the window with default settings in the Off and the
 /// Keep Screen On positions, with the settings collapsed and expanded, Off with the update
 /// banner, Keep Screen On with the automatic logout warning, Off expanded in a window limited
 /// to 600 points, Keep Screen On expanded with both banners, Run with Lid Closed expanded with
 /// Only while charging on, Run with Lid Closed expanded with Sleep when idle on and a made-up
-/// idle state, and Run with Lid Closed expanded with Wake at on as well, without touching the helper, the login item, the display, the network or the saved settings.
-/// It also draws the content of the wake time popover, and the activity log window from made-up
-/// entries, with the log file left alone.
+/// idle state, Run with Lid Closed expanded with Wake at on as well, and Run with Lid Closed expanded
+/// with made-up watched apps, without touching the helper, the login item, the display, the network or the saved settings.
+/// It also draws the content of the wake time popover, the activity log window from made-up
+/// entries, with the log file left alone, and the Watched Apps window with made-up apps.
 enum WindowSnapshot {
     static let flag = "--render-window"
 
@@ -51,6 +53,11 @@ enum WindowSnapshot {
                 try render(shot).write(to: file)
                 print(file.path)
             }
+            for isDark in [false, true] {
+                let file = folder.appendingPathComponent("watched-apps-\(isDark ? "dark" : "light").png")
+                try renderWatchedApps(isDark: isDark).write(to: file)
+                print(file.path)
+            }
             return 0
         } catch {
             FileHandle.standardError.write(Data("render-window: \(error.localizedDescription)\n".utf8))
@@ -66,6 +73,7 @@ enum WindowSnapshot {
         var showsAutoLogout = false
         var chargingOnly = false
         var wakeOn = false
+        var watched: [String] = []
         /// Turns Sleep when idle on and stands in for the helper's answer.
         var idle: IdleStatus?
         var maxHeight: CGFloat?
@@ -124,6 +132,20 @@ enum WindowSnapshot {
                 idle: idleStatus(.counting, counted: 7),
                 name: "lid-expanded-wake-idle-light.png"
             ),
+            Shot(
+                mode: .lidClosed,
+                isExpanded: true,
+                isDark: false,
+                watched: WatchedAppsShot.watched,
+                name: "lid-expanded-watched-light.png"
+            ),
+            Shot(
+                mode: .lidClosed,
+                isExpanded: true,
+                isDark: true,
+                watched: WatchedAppsShot.watched,
+                name: "lid-expanded-watched-dark.png"
+            ),
         ]
 
         private static func idleStatus(_ state: IdleState, counted: Int = 0, holders: [String] = []) -> IdleStatus {
@@ -174,6 +196,7 @@ enum WindowSnapshot {
         shotArguments[SafetyPreferences.Key.idleSleepEnabled] = shot.idle != nil
         shotArguments[SafetyPreferences.Key.idleSleepMinutes] = 20
         shotArguments[WakePreferences.Key.wakeEnabled] = shot.wakeOn
+        shotArguments[SafetyPreferences.Key.watchedAppPaths] = shot.watched
         shotArguments[WakePreferences.Key.wakeMinuteOfDay] = WakePreferences.defaultMinuteOfDay
         UserDefaults.standard.setVolatileDomain(shotArguments, forName: UserDefaults.argumentDomain)
         defer { UserDefaults.standard.setVolatileDomain(arguments, forName: UserDefaults.argumentDomain) }
@@ -226,6 +249,7 @@ enum WindowSnapshot {
             wakePreferences: wake.preferences,
             idleSource: FixedIdleStatus(status: shot.idle),
             openActivityLog: {},
+            openWatchedApps: {},
             // The offscreen window has no screen, so the limit is set here or not at all.
             heightLimit: .fixed(shot.maxHeight)
         )
@@ -301,6 +325,50 @@ enum WindowSnapshot {
         host.layoutSubtreeIfNeeded()
         defer { window.close() }
         return try png(of: host, appearance: shot.appearance)
+    }
+
+    @MainActor
+    private static func renderWatchedApps(isDark: Bool) throws -> Data {
+        let appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)!
+        let content = WatchedAppsContent(
+            list: WatchedAppList.make(
+                running: WatchedAppsShot.running,
+                watched: WatchedAppsShot.watched,
+                ownBundleIdentifier: Bundle.main.bundleIdentifier,
+                ownPath: Bundle.main.bundleURL.path,
+                name: AppDisplayName.of
+            ),
+            busy: WatchedAppsShot.busy,
+            canAdd: true,
+            accent: Palette.accent(.blue),
+            // The made-up apps have no icons of their own.
+            icon: { _ in NSWorkspace.shared.icon(for: .applicationBundle) },
+            setWatched: { _, _ in },
+            addOtherApp: {},
+            done: {}
+        )
+        let host = NSHostingView(rootView: content)
+        host.sizingOptions = []
+        let window = SnapshotWindow(
+            contentRect: NSRect(
+                x: -10_000,
+                y: -10_000,
+                width: WatchedAppsWindowController.width,
+                height: WatchedAppsWindowController.initialHeight
+            ),
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        window.isReleasedWhenClosed = false
+        window.appearance = appearance
+        window.contentView = host
+        window.setFrameOrigin(NSPoint(x: -10_000, y: -10_000))
+        window.makeKeyAndOrderFront(nil)
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.5))
+        host.layoutSubtreeIfNeeded()
+        defer { window.close() }
+        return try png(of: host, appearance: appearance)
     }
 
     @MainActor
@@ -393,6 +461,22 @@ private struct LogShot {
     private static func time(day: Int, hour: Int, minute: Int) -> Date {
         Calendar.autoupdatingCurrent.date(from: DateComponents(year: 2026, month: 10, day: day, hour: hour, minute: minute))!
     }
+}
+
+/// Made-up apps: two watched, one of them busy, a background agent that is left out, and one
+/// watched app that is not open.
+private enum WatchedAppsShot {
+    static let watched = ["/Applications/Example Editor.app", "/Applications/Example Shell.app", "/Applications/Example Studio.app"]
+
+    static let running = [
+        RunningApp(path: "/Applications/Example Shell.app", name: "Example Shell", bundleIdentifier: "example.shell", isRegular: true),
+        RunningApp(path: "/Applications/Example Editor.app", name: "Example Editor", bundleIdentifier: "example.editor", isRegular: true),
+        RunningApp(path: "/Applications/Example Notes.app", name: "Example Notes", bundleIdentifier: "example.notes", isRegular: true),
+        RunningApp(path: "/Applications/Example Browser.app", name: "Example Browser", bundleIdentifier: "example.browser", isRegular: true),
+        RunningApp(path: "/Applications/Example Agent.app", name: "Example Agent", bundleIdentifier: "example.agent", isRegular: false),
+    ]
+
+    static let busy: Set<String> = ["/Applications/Example Editor.app"]
 }
 
 private struct FixedAutoLogout: AutoLogoutSource {

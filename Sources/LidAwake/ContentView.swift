@@ -17,6 +17,7 @@ struct ContentView: View {
     @ObservedObject var wakePreferences: WakePreferences
     let idleSource: IdleStatusReading
     let openActivityLog: () -> Void
+    let openWatchedApps: () -> Void
     var heightLimit: HeightLimit = .screen
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
@@ -362,21 +363,29 @@ struct ContentView: View {
         .disabled(true)
     }
 
-    // Wake at works in every position; Sleep when idle only with Run with Lid Closed.
+    // Wake at and Watched apps work in every position; Sleep when idle not in Keep Screen On.
     private var sleepAndWakeSection: some View {
         VStack(alignment: .leading, spacing: 4) {
             SectionHeader(title: "Sleep and wake")
-            wakeRow
-            switch SafetyLayout(mode: controller.mode) {
-            case .all:
-                idleRow
-            case .timerOnly:
-                SettingRow(title: "Sleep when idle", minHeight: 40) {
-                    idleValue
-                    idleToggle
+            ForEach(SleepAndWakeRow.list(mode: controller.mode), id: \.self) { row in
+                switch row {
+                case .wakeAt:
+                    wakeRow
+                case .sleepWhenIdle(isDimmed: false):
+                    idleRow
+                case .sleepWhenIdle(isDimmed: true):
+                    SettingRow(title: "Sleep when idle", minHeight: 40) {
+                        idleValue
+                        idleToggle
+                    }
+                    .opacity(0.45)
+                    .disabled(true)
+                case .watchedApps:
+                    WatchedAppsOpenRow(
+                        summary: WatchedAppsSummary.text(paths: preferences.watchedAppPaths, name: AppDisplayName.of),
+                        action: openWatchedApps
+                    )
                 }
-                .opacity(0.45)
-                .disabled(true)
             }
         }
     }
@@ -803,6 +812,38 @@ private struct ActivityLogOpenRow: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text("Activity log"))
+    }
+}
+
+private struct WatchedAppsOpenRow: View {
+    let summary: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Watched apps")
+                        .font(.system(size: 13))
+                    Text(verbatim: summary)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 14)
+                    .accessibilityHidden(true)
+            }
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text("Watched apps"))
+        .accessibilityValue(Text(verbatim: summary))
     }
 }
 

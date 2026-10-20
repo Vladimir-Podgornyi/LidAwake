@@ -145,3 +145,14 @@
 "Started programs are working" = "已启动的程序正在运行";
 "No work detected, counting %lld minutes" = "未检测到任务，开始计时 %lld 分钟";
 "LidAwake was restarted." = "LidAwake 已重新启动。";
+"Watched apps" = "监视的应用";
+"Watched Apps" = "监视的应用";
+"None" = "无";
+"While a watched app runs programs it started, such as a coding agent, a build or a script, Sleep when idle keeps counting it as work. Typing in the app and its own windows do not count." = "当被监视的应用正在运行由它启动的程序（例如编程助手、构建或脚本）时，“空闲时睡眠”会将其视为工作。在应用中打字以及应用自身的窗口不计入。";
+"Open now" = "当前打开";
+"Watched, not open" = "已监视，未打开";
+"Started programs are working now" = "已启动的程序正在运行";
+"Nothing running" = "没有运行的程序";
+"Not open" = "未打开";
+"Add Other App…" = "添加其他应用…";
+"Done" = "完成";

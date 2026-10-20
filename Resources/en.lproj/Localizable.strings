@@ -145,3 +145,14 @@
 "Started programs are working" = "Started programs are working";
 "No work detected, counting %lld minutes" = "No work detected, counting %lld minutes";
 "LidAwake was restarted." = "LidAwake was restarted.";
+"Watched apps" = "Watched apps";
+"Watched Apps" = "Watched Apps";
+"None" = "None";
+"While a watched app runs programs it started, such as a coding agent, a build or a script, Sleep when idle keeps counting it as work. Typing in the app and its own windows do not count." = "While a watched app runs programs it started, such as a coding agent, a build or a script, Sleep when idle keeps counting it as work. Typing in the app and its own windows do not count.";
+"Open now" = "Open now";
+"Watched, not open" = "Watched, not open";
+"Started programs are working now" = "Started programs are working now";
+"Nothing running" = "Nothing running";
+"Not open" = "Not open";
+"Add Other App…" = "Add Other App…";
+"Done" = "Done";

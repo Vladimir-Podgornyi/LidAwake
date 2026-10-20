@@ -145,3 +145,14 @@
 "Started programs are working" = "Запущенные программы работают";
 "No work detected, counting %lld minutes" = "Работы не видно, отсчёт %lld мин";
 "LidAwake was restarted." = "LidAwake перезапустился.";
+"Watched apps" = "Программы под наблюдением";
+"Watched Apps" = "Программы под наблюдением";
+"None" = "Нет";
+"While a watched app runs programs it started, such as a coding agent, a build or a script, Sleep when idle keeps counting it as work. Typing in the app and its own windows do not count." = "Пока программа под наблюдением выполняет запущенные ею программы — агента для кода, сборку или скрипт, — «Сон после простоя» считает это работой. Набор текста в самой программе и её окна не считаются.";
+"Open now" = "Открыты сейчас";
+"Watched, not open" = "Под наблюдением, не открыты";
+"Started programs are working now" = "Запущенные программы сейчас работают";
+"Nothing running" = "Ничего не запущено";
+"Not open" = "Не открыта";
+"Add Other App…" = "Добавить другую…";
+"Done" = "Готово";

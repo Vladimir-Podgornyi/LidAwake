@@ -17,6 +17,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let sleepRecorder: SystemSleepRecorder
     let wakeScheduler: WakeScheduler
     private(set) lazy var activityLogWindow = ActivityLogWindowController(log: activityLog, accent: accent)
+    private(set) lazy var watchedAppsWindow = WatchedAppsWindowController(
+        preferences: modeController.preferences,
+        accent: accent
+    )
 
     override init() {
         helperClient = HelperClient()
@@ -97,6 +101,12 @@ struct LidAwakeApp: App {
                         MenuBarWindow.close(window)
                     }
                     appDelegate.activityLogWindow.show()
+                },
+                openWatchedApps: {
+                    if let window = NSApp.keyWindow {
+                        MenuBarWindow.close(window)
+                    }
+                    appDelegate.watchedAppsWindow.show()
                 }
             )
         } label: {

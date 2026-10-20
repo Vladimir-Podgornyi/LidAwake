@@ -11,7 +11,7 @@ public enum WindowBlock: Hashable {
     case safety
     /// Keep Screen On: the dimmed SAFETY · LID CLOSED ONLY section.
     case dimmedSafety
-    /// The SLEEP AND WAKE section: Wake at, then Sleep when idle, dimmed in Keep Screen On.
+    /// The SLEEP AND WAKE section: the rows of `SleepAndWakeRow`.
     case sleepAndWake
     case settingsDivider
     /// The GENERAL section header above the general setting rows.
