@@ -87,6 +87,10 @@ If a tool does not ask macOS to stay awake and uses little processor time, LidAw
 caffeinate -i make release
 ```
 
+### Watched apps
+
+A coding agent in an editor thinks on a server and barely uses the processor, so on its own it can look idle. Watched apps in Settings fixes that: choose the editor or terminal you run it in, and while that app runs programs it started, LidAwake counts it as work. The app's own windows, and typing in it, do not count. The window lists the apps that are open now and marks the ones whose started programs are working.
+
 <p align="center">
   <img src="docs/images/settings-blue.png" width="335" alt="The LidAwake window with the settings expanded and the Blue accent">
   <img src="docs/images/settings-amber.png" width="335" alt="The LidAwake window with the settings expanded and the Amber accent">
