@@ -89,11 +89,7 @@ caffeinate -i make release
 
 ### Watched apps
 
-A coding agent in an editor thinks on a server and barely uses the processor, so on its own it can look idle. Watched apps in Settings fixes that: choose the editor or terminal you run it in, and while that app runs programs it started, LidAwake counts it as work. The app's own windows, and typing in it, do not count. The window lists the apps that are open now and marks the ones whose started programs are working.
-
-### Watching a movie on an external display
-
-To keep a movie playing on a TV or monitor with the lid closed, connect power, choose Run with Lid Closed, and turn off Lock screen when the lid closes and Sleep when idle first: a locked screen would cover the movie, and a video player does not count as work for Sleep when idle. If macOS switches the external display to another desktop when the lid closes, turn off Automatically rearrange Spaces based on most recent use in System Settings > Desktop & Dock.
+A coding agent in an editor thinks on a server and barely uses the processor, so on its own it can look idle. Watched apps in Settings fixes that: choose the editor or terminal you run it in, and while that app runs programs it started, LidAwake counts it as work. The app's own windows, and typing in it, do not count. The window lists the apps that are open now and the watched apps that are not, and marks the ones whose started programs are working.
 
 <p align="center">
   <img src="docs/images/settings-blue.png" width="335" alt="The LidAwake window in Off with the settings expanded and the Blue accent">
@@ -101,6 +97,10 @@ To keep a movie playing on a TV or monitor with the lid closed, connect power, c
 </p>
 
 A closed laptop in a bag cools poorly. The protections reduce the risk; they do not remove it. The thermal protection reacts only to what macOS itself reports as overheating: in tests on a MacBook Air (M1) under full CPU load, the system reported a nominal thermal state throughout, so this protection has never been seen to trip.
+
+### Watching a movie on an external display
+
+To keep a movie playing on a TV or monitor with the lid closed, connect power, choose Run with Lid Closed, and turn off Lock screen when the lid closes and Sleep when idle first: a locked screen would cover the movie, and a video player does not count as work for Sleep when idle. If macOS switches the external display to another desktop when the lid closes, turn off Automatically rearrange Spaces based on most recent use in System Settings > Desktop & Dock.
 
 ## Wake at
 
