@@ -201,6 +201,12 @@ sudo pmset -a disablesleep 0
 
 This also clears a flag that another program has set.
 
+If Sleep when idle ended while a program was asking the Mac to stay awake, the helper may have failed to read the sleep requests. It writes these failures to the system log, with the code macOS returned:
+
+```sh
+/usr/bin/log show --last 1d --predicate 'subsystem == "com.vladimirpodgornyi.LidAwake.helper"'
+```
+
 ## Uninstall
 
 If LidAwake was installed with Homebrew, first turn off Launch at login in Settings, then run:

@@ -2,6 +2,7 @@ import Foundation
 import IOKit
 import IOKit.pwr_mgt
 import LidAwakeShared
+import os
 
 /// One request to keep the Mac awake, as the system reports it.
 public struct SleepRequest: Equatable {
@@ -83,16 +84,21 @@ public enum BusyRules {
 /// Reads the signals from macOS itself, with documented calls only and without starting any program.
 public struct SystemBusySignals: BusySignalSource {
     public let ownPathPrefix: String?
+    private let requests: SleepRequestReader
 
-    public init(ownPathPrefix: String? = SystemBusySignals.enclosingBundlePath()) {
+    public init(
+        ownPathPrefix: String? = SystemBusySignals.enclosingBundlePath(),
+        requests: SleepRequestReader = SleepRequestReader()
+    ) {
         self.ownPathPrefix = ownPathPrefix
+        self.requests = requests
     }
 
     public func read() -> BusySample {
         BusySample(
             cpuBusySeconds: Self.cpuBusySeconds(),
             inputIdleSeconds: Self.inputIdleSeconds(),
-            sleepRequests: Self.sleepRequests()
+            sleepRequests: requests.read()
         )
     }
 
@@ -157,11 +163,13 @@ public struct SystemBusySignals: BusySignalSource {
         return nanoseconds.doubleValue / 1_000_000_000
     }
 
-    static func sleepRequests() -> [SleepRequest]? {
+    public static func attemptSleepRequests() -> Result<[SleepRequest], SleepRequestFailure> {
         var copied: Unmanaged<CFDictionary>?
-        guard IOPMCopyAssertionsByProcess(&copied) == kIOReturnSuccess,
-              let byProcess = copied?.takeRetainedValue() as? [AnyHashable: Any] else {
-            return nil
+        let code = IOPMCopyAssertionsByProcess(&copied)
+        guard code == kIOReturnSuccess else { return .failure(SleepRequestFailure(code: code, reason: .notSuccess)) }
+        guard let copied else { return .failure(SleepRequestFailure(code: code, reason: .emptyPointer)) }
+        guard let byProcess = copied.takeRetainedValue() as? [AnyHashable: Any] else {
+            return .failure(SleepRequestFailure(code: code, reason: .notDictionary))
         }
         var requests: [SleepRequest] = []
         for (key, value) in byProcess {
@@ -176,7 +184,7 @@ public struct SystemBusySignals: BusySignalSource {
                 requests.append(SleepRequest(kind: kind, processName: name, executablePath: path))
             }
         }
-        return requests
+        return .success(requests)
     }
 
     static func executablePath(of pid: Int32) -> String? {
@@ -191,6 +199,96 @@ public struct SystemBusySignals: BusySignalSource {
         guard proc_name(pid, &buffer, UInt32(buffer.count)) > 0 else { return nil }
         let name = String(cString: buffer)
         return name.isEmpty ? nil : name
+    }
+}
+
+/// Why one attempt to read the sleep requests failed.
+public struct SleepRequestFailure: Error, Hashable {
+    public enum Reason: String {
+        case notSuccess = "result is not success"
+        case emptyPointer = "empty pointer"
+        case notDictionary = "not a dictionary"
+    }
+
+    /// What IOPMCopyAssertionsByProcess returned.
+    public let code: IOReturn
+    public let reason: Reason
+
+    public init(code: IOReturn, reason: Reason) {
+        self.code = code
+        self.reason = reason
+    }
+
+    /// Holds no process names, so it can go to the system log as it is.
+    public var logLine: String {
+        "Sleep requests unreadable: code 0x\(String(UInt32(bitPattern: code), radix: 16)), \(reason.rawValue)"
+    }
+}
+
+public protocol SleepRequestLog {
+    func write(_ line: String)
+}
+
+/// The system log of macOS, under the helper's identifier.
+public struct SystemSleepRequestLog: SleepRequestLog {
+    private let logger = Logger(subsystem: HelperConstants.helperIdentifier, category: "sleep-requests")
+
+    public init() {}
+
+    public func write(_ line: String) {
+        logger.error("\(line, privacy: .public)")
+    }
+}
+
+/// Reads the sleep requests, once more right away when that fails, and when the second attempt fails
+/// too, takes the last reading that succeeded, if it is recent. A request that has ended can so count
+/// for up to a minute longer: the Mac may stay awake a little longer, never go to sleep earlier.
+///
+/// Not thread-safe: the helper calls it from one queue.
+public final class SleepRequestReader {
+    /// The last reading that succeeded stands in for this long.
+    public static let lastReadingLifetime: TimeInterval = 60
+    /// One failure is written to the log at most this often.
+    public static let logInterval: TimeInterval = 30
+
+    private let attempt: () -> Result<[SleepRequest], SleepRequestFailure>
+    private let clock: SessionClock
+    private let log: SleepRequestLog
+    private var lastReading: (at: TimeInterval, requests: [SleepRequest])?
+    private var lastLogged: [SleepRequestFailure: TimeInterval] = [:]
+
+    /// The clock keeps counting while the Mac sleeps, so a reading from before sleep does not count as
+    /// recent after it.
+    public init(
+        attempt: @escaping () -> Result<[SleepRequest], SleepRequestFailure> = SystemBusySignals.attemptSleepRequests,
+        clock: SessionClock = MonotonicClock(),
+        log: SleepRequestLog = SystemSleepRequestLog()
+    ) {
+        self.attempt = attempt
+        self.clock = clock
+        self.log = log
+    }
+
+    /// Nil when neither attempt succeeded and no recent reading is left.
+    public func read() -> [SleepRequest]? {
+        for _ in 0..<2 {
+            switch attempt() {
+            case .success(let requests):
+                lastReading = (at: clock.now, requests: requests)
+                return requests
+            case .failure(let failure):
+                note(failure)
+            }
+        }
+        guard let lastReading, clock.now - lastReading.at <= Self.lastReadingLifetime else { return nil }
+        return lastReading.requests
+    }
+
+    private func note(_ failure: SleepRequestFailure) {
+        let now = clock.now
+        if let logged = lastLogged[failure], now - logged < Self.logInterval { return }
+        lastLogged[failure] = now
+        log.write(failure.logLine)
     }
 }
 
