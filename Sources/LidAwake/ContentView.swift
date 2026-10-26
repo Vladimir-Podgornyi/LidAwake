@@ -286,7 +286,8 @@ struct ContentView: View {
         WindowBlock.list(
             mode: controller.mode,
             isExpanded: disclosure.isExpanded,
-            showsAppearance: WindowLook.showsStyleSetting(isSystem26OrLater: isSystem26OrLater)
+            showsAppearance: WindowLook.showsStyleSetting(isSystem26OrLater: isSystem26OrLater),
+            showsProOffer: ProOffer.isShown
         )
     }
 
@@ -308,6 +309,7 @@ struct ContentView: View {
         case .appearance: appearanceRow
         case .accent: accentRow
         case .activityLog: ActivityLogOpenRow(action: openActivityLog)
+        case .proOffer: ProOfferRow { NSWorkspace.shared.open(ProOffer.page) }
         }
     }
 
@@ -812,6 +814,35 @@ private struct ActivityLogOpenRow: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text("Activity log"))
+    }
+}
+
+private struct ProOfferRow: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(verbatim: "LidAwake Pro")
+                        .font(.system(size: 13))
+                    Text("Movie on a TV, waits for downloads and exports")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 14)
+                    .accessibilityHidden(true)
+            }
+            .frame(minHeight: 36)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(verbatim: "LidAwake Pro, ") + Text("Movie on a TV, waits for downloads and exports"))
     }
 }
 

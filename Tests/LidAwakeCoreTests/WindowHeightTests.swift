@@ -168,6 +168,18 @@ final class WindowBlockGroupTests: XCTestCase {
         ])
     }
 
+    func testProOfferIsDrawnAmongTheGeneralRows() {
+        for mode in Mode.allCases {
+            let blocks = WindowBlock.list(mode: mode, isExpanded: true, showsAppearance: true, showsProOffer: true)
+            let compact = WindowBlockGroup.groups(blocks).compactMap { group -> [WindowBlock]? in
+                if case .compactRows(let rows) = group { return rows }
+                return nil
+            }
+            XCTAssertEqual(compact.count, 1, "\(mode)")
+            XCTAssertEqual(compact.first?.suffix(3), [.activityLog, .proOffer, .closingDivider], "\(mode)")
+        }
+    }
+
     func testEveryHeaderIsDrawnInTheMeasuredContent() {
         for mode in Mode.allCases {
             for appearance in [false, true] {
@@ -196,7 +208,7 @@ final class WindowBlockGroupTests: XCTestCase {
         for mode in Mode.allCases {
             for expanded in [false, true] {
                 for appearance in [false, true] {
-                    let blocks = WindowBlock.list(mode: mode, isExpanded: expanded, showsAppearance: appearance)
+                    let blocks = WindowBlock.list(mode: mode, isExpanded: expanded, showsAppearance: appearance, showsProOffer: appearance)
                     let flattened = WindowBlockGroup.groups(blocks).flatMap { group -> [WindowBlock] in
                         switch group {
                         case .block(let block): return [block]

@@ -23,10 +23,12 @@ public enum WindowBlock: Hashable {
     case accent
     /// Opens the activity log window.
     case activityLog
+    /// Opens the page of LidAwake Pro in the browser.
+    case proOffer
     /// The divider above the Quit row.
     case closingDivider
 
-    public static func list(mode: Mode, isExpanded: Bool, showsAppearance: Bool) -> [WindowBlock] {
+    public static func list(mode: Mode, isExpanded: Bool, showsAppearance: Bool, showsProOffer: Bool = false) -> [WindowBlock] {
         let layout = SafetyLayout(mode: mode)
         var blocks: [WindowBlock] = layout == .timerOnly ? [.timer, .settingsToggle] : [.settingsToggle]
         if isExpanded {
@@ -39,6 +41,9 @@ public enum WindowBlock: Hashable {
                 blocks.append(.appearance)
             }
             blocks += [.accent, .activityLog]
+            if showsProOffer {
+                blocks.append(.proOffer)
+            }
         }
         blocks.append(.closingDivider)
         return blocks
@@ -96,7 +101,7 @@ public enum WindowBlockGroup: Hashable {
 extension WindowBlock {
     var isGeneralSettingRow: Bool {
         switch self {
-        case .lockScreen, .launchAtLogin, .checkForUpdates, .appearance, .accent, .activityLog: return true
+        case .lockScreen, .launchAtLogin, .checkForUpdates, .appearance, .accent, .activityLog, .proOffer: return true
         case .timer, .settingsToggle, .safety, .dimmedSafety, .sleepAndWake, .settingsDivider, .generalHeader,
              .closingDivider:
             return false

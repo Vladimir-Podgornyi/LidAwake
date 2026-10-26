@@ -111,6 +111,34 @@ final class WindowBlockTests: XCTestCase {
         }
     }
 
+    func testProOfferIsTheLastGeneralRowWhenShown() {
+        for mode in Mode.allCases {
+            for appearance in [false, true] {
+                let without = WindowBlock.list(mode: mode, isExpanded: true, showsAppearance: appearance)
+                let with = WindowBlock.list(mode: mode, isExpanded: true, showsAppearance: appearance, showsProOffer: true)
+                XCTAssertEqual(with.suffix(3), [.activityLog, .proOffer, .closingDivider], "\(mode)")
+                XCTAssertEqual(with.filter(\.isGeneralSettingRow).last, .proOffer, "\(mode)")
+                XCTAssertEqual(with.filter { $0 != .proOffer }, without, "\(mode)")
+                XCTAssertFalse(without.contains(.proOffer), "\(mode)")
+                XCTAssertEqual(
+                    without,
+                    WindowBlock.list(mode: mode, isExpanded: true, showsAppearance: appearance, showsProOffer: false),
+                    "\(mode)"
+                )
+            }
+        }
+    }
+
+    func testProOfferCollapsesWithTheSettings() {
+        for mode in Mode.allCases {
+            XCTAssertEqual(
+                WindowBlock.list(mode: mode, isExpanded: false, showsAppearance: true, showsProOffer: true),
+                WindowBlock.list(mode: mode, isExpanded: false, showsAppearance: true),
+                "\(mode)"
+            )
+        }
+    }
+
     func testActivityLogCollapsesWithTheSettings() {
         for mode in Mode.allCases {
             XCTAssertFalse(WindowBlock.list(mode: mode, isExpanded: false, showsAppearance: true).contains(.activityLog))
@@ -148,9 +176,23 @@ final class WindowBlockTests: XCTestCase {
     func testBlocksAreUnique() {
         for mode in Mode.allCases {
             for expanded in [false, true] {
-                let blocks = WindowBlock.list(mode: mode, isExpanded: expanded, showsAppearance: true)
-                XCTAssertEqual(Set(blocks).count, blocks.count)
+                for proOffer in [false, true] {
+                    let blocks = WindowBlock.list(mode: mode, isExpanded: expanded, showsAppearance: true, showsProOffer: proOffer)
+                    XCTAssertEqual(Set(blocks).count, blocks.count)
+                }
             }
+        }
+    }
+}
+
+final class ProOfferLinkTests: XCTestCase {
+    func testGermanInterfaceOpensTheGermanPage() {
+        XCTAssertEqual(ProOfferLink.page(language: "de").absoluteString, "https://erstgebaut.de/lidawake/de/")
+    }
+
+    func testOtherLanguagesOpenTheMainPage() {
+        for language in ["en", "ru", "zh-Hans", "de-AT", "", nil] as [String?] {
+            XCTAssertEqual(ProOfferLink.page(language: language).absoluteString, "https://erstgebaut.de/lidawake/", "\(String(describing: language))")
         }
     }
 }
