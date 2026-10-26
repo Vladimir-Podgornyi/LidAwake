@@ -100,7 +100,7 @@ A closed laptop in a bag cools poorly. The protections reduce the risk; they do 
 
 ### Watching a movie on an external display
 
-To keep a movie playing on a TV or monitor with the lid closed, connect power, choose Run with Lid Closed, and turn off Lock screen when the lid closes and Sleep when idle first: a locked screen would cover the movie, and a video player does not count as work for Sleep when idle. If macOS switches the external display to another desktop when the lid closes, turn off Automatically rearrange Spaces based on most recent use in System Settings > Desktop & Dock.
+To keep a movie playing on a TV or monitor with the lid closed, connect power, choose Run with Lid Closed, and turn off Lock screen when the lid closes and Sleep when idle first: a locked screen would cover the movie, and a video player does not count as work for Sleep when idle. If macOS switches the external display to another desktop when the lid closes, turn off Automatically rearrange Spaces based on most recent use in System Settings > Desktop & Dock. LidAwake Pro has a Movie on a TV mode that does this setup by itself.
 
 ## Wake at
 
@@ -130,6 +130,16 @@ To see what LidAwake reads:
 ```
 
 It prints `auto-logout=` followed by the delay in seconds, or `auto-logout=off`.
+
+## LidAwake Pro
+
+LidAwake stays free and open source. LidAwake Pro is a paid, ready-to-install build for everyday use with three more features:
+
+- **Movie on a TV.** Close the lid and the movie keeps playing on a TV or monitor, by cable or AirPlay; LidAwake brings the player back to the external display by itself.
+- **Waits for downloads.** With Sleep when idle on, the Mac stays awake while a large file downloads and sleeps when the download is done.
+- **Waits for video exports.** With Sleep when idle on, the Mac stays awake while a video renders and sleeps when the export is done.
+
+It is sold at [erstgebaut.de/lidawake](https://erstgebaut.de/lidawake/).
 
 ## Install
 
@@ -169,6 +179,8 @@ brew upgrade --cask lidawake
 ```
 
 Homebrew quits LidAwake and unregisters its helper before replacing the app. LidAwake registers the helper again the next time you choose Run with Lid Closed.
+
+The bottom of the window shows a LidAwake Pro card. Clicking it opens erstgebaut.de/lidawake in the browser; the app makes no request for it.
 
 LidAwake makes no other network requests and contains no analytics. The helper does not use the network.
 
