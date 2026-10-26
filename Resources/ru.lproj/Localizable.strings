@@ -97,6 +97,7 @@
 "The Mac got too hot." = "Mac перегрелся.";
 "The thermal state could not be read." = "Не удалось узнать температурное состояние.";
 "The power source could not be read." = "Не удалось определить источник питания.";
+"The battery is at %lld%%, at or below the %lld%% limit." = "Заряд %lld %% — на пороге %lld %% или ниже.";
 "LidAwake closed unexpectedly, so normal sleep was restored." = "LidAwake неожиданно завершился, обычный сон восстановлен.";
 "Nothing was working for %lld minutes." = "%lld мин ничего не работало.";
 "Nothing was working for a while." = "Какое-то время ничего не работало.";

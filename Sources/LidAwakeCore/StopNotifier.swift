@@ -39,6 +39,49 @@ public enum StopNotice {
     }
 }
 
+/// The text shown when Run with Lid Closed could not be turned on.
+public enum RefusalNotice {
+    /// The helper words a refusal in English. The result code names the protection; the helper's text,
+    /// fixed for the build the app runs with, tells its cases apart. Any other text is shown as it is.
+    public static func text(for error: Error) -> String {
+        guard case HelperError.helper(let code, let message) = error else { return error.localizedDescription }
+        switch code {
+        case .thermalLimitReached:
+            if message == "The thermal state could not be read." {
+                return String(localized: "The thermal state could not be read.")
+            }
+            if message.hasPrefix("The Mac is too hot") {
+                return String(localized: "The Mac got too hot.")
+            }
+        case .batteryLimitReached:
+            if message == "The battery level could not be read." {
+                return String(localized: "The battery level could not be read.")
+            }
+            if message == "The power source could not be read." {
+                return String(localized: "The power source could not be read.")
+            }
+            if let (percent, limit) = batteryLimit(in: message) {
+                return String(localized: "The battery is at \(percent)%, at or below the \(limit)% limit.")
+            }
+        case .powerUnreadable:
+            if message == "The power source could not be read." {
+                return String(localized: "The power source could not be read.")
+            }
+        default:
+            break
+        }
+        return message
+    }
+
+    private static func batteryLimit(in message: String) -> (Int, Int)? {
+        let pattern = try! NSRegularExpression(pattern: "^The battery is at (\\d+)%, at or below the (\\d+)% limit\\.$")
+        guard let match = pattern.firstMatch(in: message, range: NSRange(message.startIndex..., in: message)),
+              let percent = Range(match.range(at: 1), in: message).flatMap({ Int(message[$0]) }),
+              let limit = Range(match.range(at: 2), in: message).flatMap({ Int(message[$0]) }) else { return nil }
+        return (percent, limit)
+    }
+}
+
 public enum PauseNotice {
     public static let title = String(localized: "LidAwake paused")
     public static let body = String(localized: "Running on battery. It resumes when you plug in.")

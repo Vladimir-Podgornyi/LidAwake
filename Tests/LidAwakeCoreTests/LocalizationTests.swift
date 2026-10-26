@@ -65,6 +65,17 @@ final class LocalizationTests: XCTestCase {
         XCTAssertEqual(String(format: try table("ru")["%@ left"]!, "45\u{00A0}мин"), "осталось 45\u{00A0}мин")
     }
 
+    func testBatteryRefusalTakesThePercentAndTheLimit() throws {
+        let key = "The battery is at %lld%%, at or below the %lld%% limit."
+        XCTAssertEqual(String(format: try table("en")[key]!, 18, 30), "The battery is at 18%, at or below the 30% limit.")
+        XCTAssertEqual(
+            String(format: try table("de")[key]!, 18, 30),
+            "Der Akkustand liegt bei 18\u{00A0}% und damit an oder unter der Grenze von 30\u{00A0}%."
+        )
+        XCTAssertEqual(String(format: try table("ru")[key]!, 18, 30), "Заряд 18\u{00A0}% — на пороге 30\u{00A0}% или ниже.")
+        XCTAssertEqual(String(format: try table("zh-Hans")[key]!, 18, 30), "电量为 18%，已达到或低于 30% 的下限。")
+    }
+
     func testAutoLogoutTextTakesTheDuration() throws {
         let key = "Automatic logout after %@ of inactivity is on. The mode ends when macOS logs you out."
         XCTAssertEqual(

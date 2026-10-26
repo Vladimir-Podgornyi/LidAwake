@@ -738,8 +738,19 @@ final class ModeControllerTests: XCTestCase {
         } catch {}
         XCTAssertEqual(controller.mode, .off)
         XCTAssertFalse(activity.isActive)
-        XCTAssertEqual(controller.message, .couldNotTurnOn("The Mac is too hot (thermal state serious)."))
+        XCTAssertEqual(controller.message, .couldNotTurnOn("The Mac got too hot."))
         XCTAssertEqual(notifier.posts, [])
+    }
+
+    func testUnreadableThermalRefusalShowsLocalizedText() async {
+        sessions.startError = HelperError.helper(.thermalLimitReached, "The thermal state could not be read.")
+        let controller = makeController()
+
+        do {
+            try await controller.select(.lidClosed)
+            XCTFail("expected an error")
+        } catch {}
+        XCTAssertEqual(controller.message, .couldNotTurnOn("The thermal state could not be read."))
     }
 
     func testLidClosedTimerAsksHelperEarly() async throws {
@@ -771,6 +782,52 @@ final class ModeControllerTests: XCTestCase {
         XCTAssertEqual(controller.mode, .off)
         XCTAssertEqual(controller.message, .couldNotTurnOn("The battery is at 12%, at or below the 20% limit."))
         XCTAssertEqual(notifier.posts, [])
+    }
+
+    func testUnreadableBatteryRefusalsShowLocalizedText() async {
+        for text in ["The battery level could not be read.", "The power source could not be read."] {
+            sessions.startError = HelperError.helper(.batteryLimitReached, text)
+            let controller = makeController()
+
+            do {
+                try await controller.select(.lidClosed)
+                XCTFail("expected an error")
+            } catch {}
+            XCTAssertEqual(controller.message, .couldNotTurnOn(text))
+        }
+    }
+
+    func testOtherRefusalShowsHelperText() async {
+        sessions.startError = HelperError.helper(.invalidArgument, "Timer must be 0 or 60 to 86400 seconds.")
+        let controller = makeController()
+
+        do {
+            try await controller.select(.lidClosed)
+            XCTFail("expected an error")
+        } catch {}
+        XCTAssertEqual(controller.message, .couldNotTurnOn("Timer must be 0 or 60 to 86400 seconds."))
+    }
+
+    func testRefusalNoticeTranslatesProtectionsOnly() {
+        // Run without the app bundle, the localized text is the English key, so a translated refusal
+        // differs from the helper's text only where the wording differs.
+        XCTAssertEqual(
+            RefusalNotice.text(for: HelperError.helper(.thermalLimitReached, "The Mac is too hot (thermal state critical).")),
+            "The Mac got too hot."
+        )
+        XCTAssertEqual(
+            RefusalNotice.text(for: HelperError.helper(.batteryLimitReached, "The battery is at 18%, at or below the 30% limit.")),
+            String(localized: "The battery is at \(18)%, at or below the \(30)% limit.")
+        )
+        XCTAssertEqual(
+            RefusalNotice.text(for: HelperError.helper(.batteryLimitReached, "Something else.")),
+            "Something else."
+        )
+        XCTAssertEqual(
+            RefusalNotice.text(for: HelperError.helper(.flagReadFailed, "The battery level could not be read.")),
+            "The battery level could not be read."
+        )
+        XCTAssertEqual(RefusalNotice.text(for: HelperError.timeout), HelperError.timeout.localizedDescription)
     }
 
     func testLaunchReportsUnclearedReason() async {

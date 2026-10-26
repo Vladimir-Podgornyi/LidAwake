@@ -97,6 +97,7 @@
 "The Mac got too hot." = "Mac 温度过高。";
 "The thermal state could not be read." = "无法读取温度状态。";
 "The power source could not be read." = "无法读取供电状态。";
+"The battery is at %lld%%, at or below the %lld%% limit." = "电量为 %lld%%，已达到或低于 %lld%% 的下限。";
 "LidAwake closed unexpectedly, so normal sleep was restored." = "LidAwake 意外退出，已恢复正常睡眠。";
 "Nothing was working for %lld minutes." = "已有 %lld 分钟没有任务在运行。";
 "Nothing was working for a while." = "已有一段时间没有任务在运行。";

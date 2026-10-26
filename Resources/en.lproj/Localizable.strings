@@ -97,6 +97,7 @@
 "The Mac got too hot." = "The Mac got too hot.";
 "The thermal state could not be read." = "The thermal state could not be read.";
 "The power source could not be read." = "The power source could not be read.";
+"The battery is at %lld%%, at or below the %lld%% limit." = "The battery is at %lld%%, at or below the %lld%% limit.";
 "LidAwake closed unexpectedly, so normal sleep was restored." = "LidAwake closed unexpectedly, so normal sleep was restored.";
 "Nothing was working for %lld minutes." = "Nothing was working for %lld minutes.";
 "Nothing was working for a while." = "Nothing was working for a while.";

@@ -97,6 +97,7 @@
 "The Mac got too hot." = "Der Mac ist zu heiß geworden.";
 "The thermal state could not be read." = "Der Temperaturzustand konnte nicht gelesen werden.";
 "The power source could not be read." = "Die Stromquelle konnte nicht gelesen werden.";
+"The battery is at %lld%%, at or below the %lld%% limit." = "Der Akkustand liegt bei %lld %% und damit an oder unter der Grenze von %lld %%.";
 "LidAwake closed unexpectedly, so normal sleep was restored." = "LidAwake wurde unerwartet beendet. Der normale Ruhezustand ist wiederhergestellt.";
 "Nothing was working for %lld minutes." = "Seit %lld Minuten lief nichts mehr.";
 "Nothing was working for a while." = "Es lief längere Zeit nichts mehr.";

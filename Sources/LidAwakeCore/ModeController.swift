@@ -159,7 +159,7 @@ public final class ModeController: ObservableObject, ScheduledModeStarting {
                 await updatePauseState()
             }
         } catch {
-            message = .couldNotTurnOn(error.localizedDescription)
+            message = .couldNotTurnOn(RefusalNotice.text(for: error))
             throw error
         }
     }
