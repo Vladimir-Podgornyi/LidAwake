@@ -309,7 +309,7 @@ struct ContentView: View {
         case .appearance: appearanceRow
         case .accent: accentRow
         case .activityLog: ActivityLogOpenRow(action: openActivityLog)
-        case .proOffer: ProOfferRow { NSWorkspace.shared.open(ProOffer.page) }
+        case .proOffer: ProOfferRow(accent: accentColor) { NSWorkspace.shared.open(ProOffer.page) }
         }
     }
 
@@ -818,14 +818,17 @@ private struct ActivityLogOpenRow: View {
 }
 
 private struct ProOfferRow: View {
+    let accent: Color
     let action: () -> Void
 
     var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
         Button(action: action) {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(verbatim: "LidAwake Pro")
-                        .font(.system(size: 13))
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Color.primary)
                     Text("Movie on a TV, waits for downloads and exports")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
@@ -834,12 +837,16 @@ private struct ProOfferRow: View {
                 Spacer(minLength: 0)
                 Image(systemName: "arrow.up.right")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(accent)
                     .frame(width: 14)
                     .accessibilityHidden(true)
             }
-            .frame(minHeight: 36)
-            .contentShape(Rectangle())
+            .padding(.vertical, 12)
+            .padding(.horizontal, 13)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(shape.fill(accent.opacity(0.10)))
+            .overlay(shape.strokeBorder(accent.opacity(0.45), lineWidth: 1))
+            .contentShape(shape)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(verbatim: "LidAwake Pro, ") + Text("Movie on a TV, waits for downloads and exports"))

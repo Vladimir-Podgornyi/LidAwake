@@ -111,32 +111,48 @@ final class WindowBlockTests: XCTestCase {
         }
     }
 
-    func testProOfferIsTheLastGeneralRowWhenShown() {
+    func testProOfferIsTheLastBlockAboveQuitWhenShown() {
         for mode in Mode.allCases {
+            let timer: [WindowBlock] = SafetyLayout(mode: mode) == .timerOnly ? [.timer] : []
+            XCTAssertEqual(
+                WindowBlock.list(mode: mode, isExpanded: false, showsAppearance: true, showsProOffer: true),
+                timer + [.settingsToggle, .proOffer, .closingDivider],
+                "\(mode)"
+            )
             for appearance in [false, true] {
-                let without = WindowBlock.list(mode: mode, isExpanded: true, showsAppearance: appearance)
                 let with = WindowBlock.list(mode: mode, isExpanded: true, showsAppearance: appearance, showsProOffer: true)
-                XCTAssertEqual(with.suffix(3), [.activityLog, .proOffer, .closingDivider], "\(mode)")
-                XCTAssertEqual(with.filter(\.isGeneralSettingRow).last, .proOffer, "\(mode)")
-                XCTAssertEqual(with.filter { $0 != .proOffer }, without, "\(mode)")
-                XCTAssertFalse(without.contains(.proOffer), "\(mode)")
-                XCTAssertEqual(
-                    without,
-                    WindowBlock.list(mode: mode, isExpanded: true, showsAppearance: appearance, showsProOffer: false),
-                    "\(mode)"
-                )
+                XCTAssertEqual(with.suffix(4), [.accent, .activityLog, .proOffer, .closingDivider], "\(mode)")
+                XCTAssertEqual(with.filter(\.isGeneralSettingRow).last, .activityLog, "\(mode)")
             }
         }
     }
 
-    func testProOfferCollapsesWithTheSettings() {
+    func testWithoutProOfferTheBlocksStayAsBefore() {
         for mode in Mode.allCases {
+            let timer: [WindowBlock] = SafetyLayout(mode: mode) == .timerOnly ? [.timer] : []
             XCTAssertEqual(
-                WindowBlock.list(mode: mode, isExpanded: false, showsAppearance: true, showsProOffer: true),
                 WindowBlock.list(mode: mode, isExpanded: false, showsAppearance: true),
+                timer + [.settingsToggle, .closingDivider],
                 "\(mode)"
             )
+            for expanded in [false, true] {
+                for appearance in [false, true] {
+                    let without = WindowBlock.list(mode: mode, isExpanded: expanded, showsAppearance: appearance)
+                    let with = WindowBlock.list(mode: mode, isExpanded: expanded, showsAppearance: appearance, showsProOffer: true)
+                    XCTAssertFalse(without.contains(.proOffer), "\(mode)")
+                    XCTAssertEqual(with.filter { $0 != .proOffer }, without, "\(mode)")
+                    XCTAssertEqual(
+                        without,
+                        WindowBlock.list(mode: mode, isExpanded: expanded, showsAppearance: appearance, showsProOffer: false),
+                        "\(mode)"
+                    )
+                }
+            }
         }
+    }
+
+    func testProOfferIsNotAGeneralSettingRow() {
+        XCTAssertFalse(WindowBlock.proOffer.isGeneralSettingRow)
     }
 
     func testActivityLogCollapsesWithTheSettings() {
