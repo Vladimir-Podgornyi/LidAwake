@@ -169,7 +169,7 @@
 /* What's new and How to use LidAwake */
 "What's new" = "Что нового";
 "How to use LidAwake" = "Как пользоваться LidAwake";
-"What's new in LidAwake" = "Что нового в LidAwake";
+"What's new in %@" = "Что нового в %@";
 "Version %@" = "Версия %@";
 "and %lld earlier updates" = "и ещё обновлений: %lld";
 "Six new languages" = "Шесть новых языков";
@@ -183,6 +183,9 @@
 "In a Bag" = "В сумке";
 "One switch with stricter protections for a Mac in a bag." = "Один переключатель с более строгими защитами для Mac в сумке.";
 "New" = "Новое";
+"Updates in one click" = "Обновление в один клик";
+"The Update button opens your purchases, where the new version is ready to download." = "Кнопка «Обновить» открывает ваши покупки, где новая версия уже готова к загрузке.";
+"Update" = "Обновить";
 "−%lld%% on LidAwake Pro" = "−%lld%% на LidAwake Pro";
 "one-time" = "разовая покупка";
 "one-time · until %@" = "разовая покупка · до %@";

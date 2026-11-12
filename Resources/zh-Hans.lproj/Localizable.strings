@@ -169,7 +169,7 @@
 /* What's new and How to use LidAwake */
 "What's new" = "新功能";
 "How to use LidAwake" = "如何使用 LidAwake";
-"What's new in LidAwake" = "LidAwake 新功能";
+"What's new in %@" = "%@ 新功能";
 "Version %@" = "版本 %@";
 "and %lld earlier updates" = "以及另外 %lld 次更新";
 "Six new languages" = "新增六种语言";
@@ -183,6 +183,9 @@
 "In a Bag" = "放进包里";
 "One switch with stricter protections for a Mac in a bag." = "一个开关，为包里的 Mac 启用更严格的保护。";
 "New" = "新";
+"Updates in one click" = "一键更新";
+"The Update button opens your purchases, where the new version is ready to download." = "“更新”按钮会打开你的购买记录，新版本已在那里等待下载。";
+"Update" = "更新";
 "−%lld%% on LidAwake Pro" = "LidAwake Pro 优惠 %lld%%";
 "one-time" = "一次性购买";
 "one-time · until %@" = "一次性购买 · 截至 %@";

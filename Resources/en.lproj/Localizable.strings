@@ -169,7 +169,7 @@
 /* What's new and How to use LidAwake */
 "What's new" = "What's new";
 "How to use LidAwake" = "How to use LidAwake";
-"What's new in LidAwake" = "What's new in LidAwake";
+"What's new in %@" = "What's new in %@";
 "Version %@" = "Version %@";
 "and %lld earlier updates" = "and %lld earlier updates";
 "Six new languages" = "Six new languages";
@@ -183,6 +183,9 @@
 "In a Bag" = "In a Bag";
 "One switch with stricter protections for a Mac in a bag." = "One switch with stricter protections for a Mac in a bag.";
 "New" = "New";
+"Updates in one click" = "Updates in one click";
+"The Update button opens your purchases, where the new version is ready to download." = "The Update button opens your purchases, where the new version is ready to download.";
+"Update" = "Update";
 "−%lld%% on LidAwake Pro" = "−%lld%% on LidAwake Pro";
 "one-time" = "one-time";
 "one-time · until %@" = "one-time · until %@";

@@ -169,7 +169,7 @@
 /* What's new and How to use LidAwake */
 "What's new" = "Neuigkeiten";
 "How to use LidAwake" = "So funktioniert LidAwake";
-"What's new in LidAwake" = "Neu in LidAwake";
+"What's new in %@" = "Neu in %@";
 "Version %@" = "Version %@";
 "and %lld earlier updates" = "und %lld frühere Updates";
 "Six new languages" = "Sechs neue Sprachen";
@@ -183,6 +183,9 @@
 "In a Bag" = "In der Tasche";
 "One switch with stricter protections for a Mac in a bag." = "Ein Schalter mit strengeren Schutzfunktionen für einen Mac in der Tasche.";
 "New" = "Neu";
+"Updates in one click" = "Updates mit einem Klick";
+"The Update button opens your purchases, where the new version is ready to download." = "Die Taste „Aktualisieren“ öffnet deine Käufe, dort liegt die neue Version zum Laden bereit.";
+"Update" = "Aktualisieren";
 "−%lld%% on LidAwake Pro" = "−%lld%% auf LidAwake Pro";
 "one-time" = "einmalig";
 "one-time · until %@" = "einmalig · bis %@";

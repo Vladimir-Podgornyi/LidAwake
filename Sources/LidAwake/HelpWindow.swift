@@ -59,7 +59,7 @@ struct HelpContent: View {
             Divider()
                 .padding(.bottom, 14)
             HStack(alignment: .center, spacing: 14) {
-                Text(verbatim: (version.isEmpty ? "LidAwake" : "LidAwake \(version)") + " · © 2026 Vladimir Podgornyi")
+                Text(verbatim: (version.isEmpty ? Edition.name : "\(Edition.name) \(version)") + " · © 2026 Vladimir Podgornyi")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                 ForEach(Edition.helpLinks, id: \.self) { link in

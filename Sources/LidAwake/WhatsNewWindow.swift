@@ -9,6 +9,7 @@ enum WhatsNewFeature: Hashable {
     case downloads
     case exports
     case inABag
+    case updates
 
     var title: Text {
         switch self {
@@ -17,6 +18,7 @@ enum WhatsNewFeature: Hashable {
         case .downloads: return Text("Waits for downloads")
         case .exports: return Text("Waits for video exports")
         case .inABag: return Text("In a Bag")
+        case .updates: return Text("Updates in one click")
         }
     }
 
@@ -28,6 +30,7 @@ enum WhatsNewFeature: Hashable {
         case .downloads: return Text("Stays awake until a big download is done, then sleeps.")
         case .exports: return Text("Stays awake while a video renders, then sleeps.")
         case .inABag: return Text("One switch with stricter protections for a Mac in a bag.")
+        case .updates: return Text("The Update button opens your purchases, where the new version is ready to download.")
         }
     }
 
@@ -103,7 +106,7 @@ struct WhatsNewContent: View {
         InfoPage {
             // A single version is named under the title; several each get their own heading.
             InfoPageTitle(
-                title: "What's new in LidAwake",
+                title: "What's new in \(Edition.name)",
                 subtitle: releases.count == 1 ? Text("Version \(releases[0].version)") : nil
             )
         } middle: {
@@ -165,12 +168,22 @@ private struct WhatsNewRow: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: 16) {
-            FeaturePicture(feature: feature, accent: accent, isStill: isStill)
+            FeaturePicture(feature: feature, accent: accent, isStill: isStill, isCompact: true)
                 .frame(width: 96, height: 64)
                 .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Palette.pictureBackground))
             VStack(alignment: .leading, spacing: 3) {
-                feature.title
-                    .font(.system(size: 13, weight: .semibold))
+                HStack(spacing: 6) {
+                    feature.title
+                        .font(.system(size: 13, weight: .semibold))
+                    if Edition.newFeatures.contains(feature) {
+                        Text("New")
+                            .font(.system(size: 11, weight: .semibold))
+                            .textCase(.uppercase)
+                            .foregroundStyle(accent)
+                            .padding(.horizontal, 5)
+                            .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).strokeBorder(accent, lineWidth: 1))
+                    }
+                }
                 feature.detail
                     .font(.system(size: 12))
                     .foregroundStyle(Palette.readableSecondary)
@@ -308,6 +321,8 @@ struct FeaturePicture: View {
     let feature: WhatsNewFeature
     let accent: Color
     var isStill = false
+    /// The small picture of a row rather than the wide one of a tile.
+    var isCompact = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -331,7 +346,8 @@ struct FeaturePicture: View {
         case .movieOnTV: MovieOnTVPicture(time: time, accent: accent)
         case .downloads: SleepAfterPicture(time: time, symbol: "arrow.down", symbolColor: accent, accent: accent)
         case .exports: SleepAfterPicture(time: time, symbol: "film", symbolColor: .primary, accent: accent)
-        case .inABag: BagPicture(time: time)
+        case .inABag: BagPicture(time: time, isCompact: isCompact)
+        case .updates: UpdatePicture(time: time, accent: accent)
         }
     }
 }
@@ -357,6 +373,10 @@ private struct FeatureLoop {
         case .inABag:
             period = 7
             stillTime = 6.4
+            fadesAround = true
+        case .updates:
+            period = 4
+            stillTime = 3.5
             fadesAround = true
         }
     }
@@ -485,27 +505,71 @@ private struct SleepAfterPicture: View {
 /// width; only the part filled grows.
 private struct BagPicture: View {
     let time: Double
+    var isCompact = false
 
     var body: some View {
         let lid = 1 - Ease.step(time, from: 0.5, to: 1.5)
         let bag = Ease.step(time, from: 1.7, to: 2.9)
         let heat = 0.7 * Ease.step(time, from: 3.1, to: 5.2)
-        HStack(spacing: 14) {
+        let scale: CGFloat = isCompact ? 0.72 : 1
+        HStack(spacing: isCompact ? 6 : 14) {
             ZStack(alignment: .bottom) {
-                LaptopShape(open: lid, width: 40)
-                    .padding(.bottom, 8)
+                LaptopShape(open: lid, width: 40 * scale)
+                    .padding(.bottom, 8 * scale)
                 BagShape()
-                    .frame(width: 58, height: 40)
-                    .offset(y: (1 - bag) * 60)
+                    .frame(width: 58 * scale, height: 40 * scale)
+                    .offset(y: (1 - bag) * 60 * scale)
             }
-            .frame(width: 62, height: 58, alignment: .bottom)
+            .frame(width: 62 * scale, height: 58 * scale, alignment: .bottom)
             .clipped()
-            HStack(spacing: 5) {
+            HStack(spacing: isCompact ? 3 : 5) {
                 Image(systemName: "thermometer")
-                    .font(.system(size: 15))
+                    .font(.system(size: isCompact ? 12 : 15))
                     .foregroundStyle(.primary)
                 ProgressTrack(value: heat, color: Palette.waitBar)
-                    .frame(width: 64, height: 6)
+                    .frame(width: isCompact ? 20 : 64, height: isCompact ? 5 : 6)
+            }
+        }
+    }
+}
+
+/// The Update button is pressed, the new version comes down, and a green check shows it is there.
+private struct UpdatePicture: View {
+    let time: Double
+    let accent: Color
+
+    var body: some View {
+        let press = Ease.step(time, from: 0.4, to: 0.55) * (1 - Ease.step(time, from: 0.6, to: 0.8))
+        let arrow = Ease.step(time, from: 0.8, to: 1.2)
+        let check = Ease.step(time, from: 2.8, to: 3.1)
+        let shape = RoundedRectangle(cornerRadius: 6, style: .continuous)
+        VStack(spacing: 8) {
+            Text("Update")
+                .font(.system(size: 11, weight: .semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+                .frame(maxWidth: 60)
+                .foregroundStyle(accent)
+                .padding(.horizontal, 9)
+                .padding(.vertical, 3)
+                .background(shape.fill(accent.opacity(0.12 + 0.18 * press)))
+                .overlay(shape.strokeBorder(accent, lineWidth: 1))
+                .scaleEffect(1 - 0.08 * press)
+            HStack(spacing: 5) {
+                Image(systemName: "arrow.down")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(accent)
+                    .frame(width: 12)
+                    .opacity(arrow)
+                    .offset(y: -6 * (1 - arrow))
+                ProgressTrack(value: Ease.step(time, from: 1.2, to: 2.7), color: accent)
+                    .frame(width: 44, height: 5)
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color(nsColor: .systemGreen))
+                    .frame(width: 14)
+                    .opacity(check)
+                    .scaleEffect(0.6 + 0.4 * check)
             }
         }
     }
