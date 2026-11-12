@@ -85,6 +85,8 @@ public enum RefusalNotice {
 public enum PauseNotice {
     public static let title = String(localized: "LidAwake paused")
     public static let body = String(localized: "Running on battery. It resumes when you plug in.")
+    /// The window's banner while the pause lasts.
+    public static let windowText = String(localized: "Only while charging is on, so Run with Lid Closed waits until power is connected.")
 }
 
 public enum ScreenLockNotice {

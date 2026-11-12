@@ -8,8 +8,8 @@ import UniformTypeIdentifiers
 /// Keep Screen On positions, with the settings collapsed and expanded, Off with the update
 /// banner, Keep Screen On with the automatic logout warning, Off expanded in a window limited
 /// to 600 points, Keep Screen On expanded with both banners, Run with Lid Closed expanded with
-/// Only while charging on, Run with Lid Closed expanded with Sleep when idle on and a made-up
-/// idle state, Run with Lid Closed expanded with Wake at on as well, and Run with Lid Closed expanded
+/// Only while charging on, Run with Lid Closed collapsed and paused on battery, Run with Lid
+/// Closed expanded with Sleep when idle on and a made-up idle state, Run with Lid Closed expanded with Wake at on as well, and Run with Lid Closed expanded
 /// with made-up watched apps, without touching the helper, the login item, the display, the network or the saved settings.
 /// It also draws the content of the wake time popover, the activity log window from made-up
 /// entries, with the log file left alone, the Watched Apps window with made-up apps, also with
@@ -85,6 +85,8 @@ enum WindowSnapshot {
         var showsUpdate = false
         var showsAutoLogout = false
         var chargingOnly = false
+        /// The helper answers that the session is paused on battery.
+        var paused = false
         var wakeOn = false
         var watched: [String] = []
         /// Turns Sleep when idle on and stands in for the helper's answer.
@@ -115,6 +117,22 @@ enum WindowSnapshot {
                 isDark: false,
                 chargingOnly: true,
                 name: "lid-expanded-charging-light.png"
+            ),
+            Shot(
+                mode: .lidClosed,
+                isExpanded: false,
+                isDark: false,
+                chargingOnly: true,
+                paused: true,
+                name: "lid-paused-light.png"
+            ),
+            Shot(
+                mode: .lidClosed,
+                isExpanded: false,
+                isDark: true,
+                chargingOnly: true,
+                paused: true,
+                name: "lid-paused-dark.png"
             ),
             Shot(
                 mode: .lidClosed,
@@ -214,7 +232,7 @@ enum WindowSnapshot {
         shotArguments[WakePreferences.Key.wakeMinuteOfDay] = WakePreferences.defaultMinuteOfDay
         UserDefaults.standard.setVolatileDomain(shotArguments, forName: UserDefaults.argumentDomain)
         defer { UserDefaults.standard.setVolatileDomain(arguments, forName: UserDefaults.argumentDomain) }
-        let inert = Inert()
+        let inert = Inert(paused: shot.paused)
         let controller = ModeController(
             displayAssertion: inert,
             helper: inert,
@@ -555,6 +573,12 @@ private final class SnapshotWindow: NSWindow {
 private final class Inert: PowerAssertion, HelperPreparing, HelperInstalling, LidSessionService, StopNotifying,
     ActivityHolding, PowerSourceMonitoring, LidMonitoring, LoginItemService, LaunchAtLoginStore, ReleaseSource,
     ScheduledWakeService, ActivityLogging, ClockChangeMonitoring {
+    nonisolated let paused: Bool
+
+    init(paused: Bool = false) {
+        self.paused = paused
+    }
+
     nonisolated var isHeld: Bool { false }
     nonisolated func acquire() throws {}
     nonisolated func release() {}
@@ -572,7 +596,17 @@ private final class Inert: PowerAssertion, HelperPreparing, HelperInstalling, Li
     nonisolated func renewSession(leaseSeconds: Int, safety: SafetySettings) async throws { throw CancellationError() }
     nonisolated func endSession() async throws {}
     nonisolated func clearLeftover() async throws {}
-    nonisolated func sessionStatus() async throws -> HelperSessionStatus { throw CancellationError() }
+    nonisolated func sessionStatus() async throws -> HelperSessionStatus {
+        guard paused else { throw CancellationError() }
+        return HelperSessionStatus(
+            flag: .off,
+            session: .ours,
+            timerRemaining: nil,
+            power: PowerReading(battery: .percent(82), source: .battery),
+            thermal: .nominal,
+            paused: true
+        )
+    }
     nonisolated func lastStopReason() async throws -> StopRecord? { nil }
     nonisolated func clearStopReason() async throws {}
 

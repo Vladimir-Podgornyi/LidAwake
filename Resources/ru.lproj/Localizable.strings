@@ -103,6 +103,7 @@
 "Nothing was working for a while." = "Какое-то время ничего не работало.";
 "LidAwake paused" = "LidAwake на паузе";
 "Running on battery. It resumes when you plug in." = "Mac работает от батареи. Режим продолжится после подключения зарядки.";
+"Only while charging is on, so Run with Lid Closed waits until power is connected." = "Включено «Только от зарядки», поэтому режим «С закрытой крышкой» ждёт подключения зарядки.";
 
 /* Updates */
 "Check for updates" = "Проверять обновления";

@@ -200,11 +200,13 @@ public struct WindowMessage: Equatable, Identifiable {
     public var isDismissible: Bool { source == .autoLogout }
 
     /// The notices to show, helper first, then the mode, the logout warning and the update;
-    /// empty when there is nothing to say.
+    /// empty when there is nothing to say. The pause of Run with Lid Closed takes the mode's place
+    /// while the mode has nothing else to say.
     public static func list(
         helper: HelperPrompt?,
         helperForWake: Bool = false,
         mode: ModeMessage?,
+        isPausedOnBattery: Bool = false,
         autoLogout: AutoLogoutNotice? = nil,
         update: UpdateNotice? = nil
     ) -> [WindowMessage] {
@@ -226,6 +228,16 @@ public struct WindowMessage: Equatable, Identifiable {
                 kind: mode.kind,
                 title: mode.title,
                 text: mode.text,
+                hint: nil,
+                action: nil,
+                actionTitle: nil
+            ))
+        } else if isPausedOnBattery {
+            messages.append(WindowMessage(
+                source: .mode,
+                kind: .info,
+                title: PauseNotice.title,
+                text: PauseNotice.windowText,
                 hint: nil,
                 action: nil,
                 actionTitle: nil

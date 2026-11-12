@@ -103,6 +103,7 @@
 "Nothing was working for a while." = "Nothing was working for a while.";
 "LidAwake paused" = "LidAwake paused";
 "Running on battery. It resumes when you plug in." = "Running on battery. It resumes when you plug in.";
+"Only while charging is on, so Run with Lid Closed waits until power is connected." = "Only while charging is on, so Run with Lid Closed waits until power is connected.";
 
 /* Updates */
 "Check for updates" = "Check for updates";

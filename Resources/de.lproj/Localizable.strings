@@ -103,6 +103,7 @@
 "Nothing was working for a while." = "Es lief längere Zeit nichts mehr.";
 "LidAwake paused" = "LidAwake pausiert";
 "Running on battery. It resumes when you plug in." = "Akkubetrieb. Es geht weiter, sobald das Netzteil angeschlossen ist.";
+"Only while charging is on, so Run with Lid Closed waits until power is connected." = "„Nur am Netzteil“ ist an, daher wartet „Mit geschlossenem Deckel“, bis das Netzteil angeschlossen ist.";
 
 /* Updates */
 "Check for updates" = "Nach Updates suchen";

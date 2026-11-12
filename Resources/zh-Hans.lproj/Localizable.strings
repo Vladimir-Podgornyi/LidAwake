@@ -103,6 +103,7 @@
 "Nothing was working for a while." = "已有一段时间没有任务在运行。";
 "LidAwake paused" = "LidAwake 已暂停";
 "Running on battery. It resumes when you plug in." = "当前使用电池供电，接通电源后将恢复运行。";
+"Only while charging is on, so Run with Lid Closed waits until power is connected." = "已开启“仅在接通电源时运行”，因此“合盖运行”会等到接通电源后再开始。";
 
 /* Updates */
 "Check for updates" = "检查更新";

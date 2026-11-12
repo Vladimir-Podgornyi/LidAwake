@@ -243,6 +243,7 @@ struct ContentView: View {
             helper: helperSetup.prompt,
             helperForWake: helperSetup.isPromptForWake,
             mode: controller.message,
+            isPausedOnBattery: controller.mode == .lidClosed && controller.isPaused,
             autoLogout: autoLogout.notice(
                 mode: controller.mode,
                 timerSeconds: preferences.timerEnabled ? preferences.timerSeconds : nil
