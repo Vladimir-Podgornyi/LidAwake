@@ -163,3 +163,35 @@
 
 "−%lld%%" = "−%lld%%";
 "until %@" = "до %@";
+
+/* What's new and How to use LidAwake */
+"What's new" = "Что нового";
+"How to use LidAwake" = "Как пользоваться LidAwake";
+"What's new in LidAwake" = "Что нового в LidAwake";
+"Version %@" = "Версия %@";
+"Six new languages" = "Шесть новых языков";
+"Only in LidAwake Pro %@" = "Только в LidAwake Pro %@";
+"Movie on a TV" = "Фильм на телевизоре";
+"Close the lid and the movie keeps playing on the TV." = "Закройте крышку — фильм продолжит идти на телевизоре.";
+"Waits for downloads" = "Ждёт загрузки";
+"Stays awake until a big download is done, then sleeps." = "Не даёт заснуть, пока не закончится большая загрузка, потом Mac засыпает.";
+"Waits for video exports" = "Ждёт экспорт видео";
+"Stays awake while a video renders, then sleeps." = "Не даёт заснуть, пока рендерится видео, потом Mac засыпает.";
+"In a Bag" = "В сумке";
+"One switch with stricter protections for a Mac in a bag." = "Один переключатель с более строгими защитами для Mac в сумке.";
+"New" = "Новое";
+"−%lld%% on LidAwake Pro" = "−%lld%% на LidAwake Pro";
+"one-time" = "разовая покупка";
+"one-time · until %@" = "разовая покупка · до %@";
+"Get Pro" = "Купить Pro";
+"Continue" = "Продолжить";
+"Pick a mode" = "Выберите режим";
+"Keep Screen On when you step away from the desk. Run with Lid Closed when the Mac should keep working with the lid shut. Only one mode is on at a time; Off brings normal sleep back." = "«Не гасить экран» — когда отходите от стола. «С закрытой крышкой» — когда Mac должен работать с закрытой крышкой. Включён всегда только один режим; «Выкл.» возвращает обычный сон.";
+"Allow the helper once" = "Один раз разрешите помощника";
+"The first time you choose Run with Lid Closed, allow LidAwake in System Settings › General › Login Items & Extensions. No password is needed." = "Когда вы впервые выберете «С закрытой крышкой», разрешите LidAwake: «Системные настройки» › «Основные» › «Объекты входа и расширения». Пароль не нужен.";
+"Let it end by itself" = "Пусть режим заканчивается сам";
+"In Settings, Sleep when idle lets the Mac sleep once the work is done, and Turn off after ends the mode after a set time. The mode also stops when the Mac gets hot or the battery runs low." = "В настройках «Сон после простоя» даёт Mac заснуть, когда работа закончена, а «Выключить через» завершает режим через заданное время. Режим также останавливается при перегреве или низком заряде.";
+"Avoid packing a running Mac in a closed bag" = "Не кладите работающий Mac в закрытую сумку";
+"A closed laptop in a bag cools poorly. The protections reduce the risk; they do not remove it. If you must carry it running, prefer a short session and keep an eye on the temperature. You use LidAwake at your own risk." = "Закрытый ноутбук в сумке плохо охлаждается. Защиты снижают риск, но не устраняют его. Если всё же нужно нести его включённым, пусть сеанс будет коротким, и следите за температурой. Вы пользуетесь LidAwake на свой страх и риск.";
+"Website" = "Сайт";
+"Source code" = "Исходный код";

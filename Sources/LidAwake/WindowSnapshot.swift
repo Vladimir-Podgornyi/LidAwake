@@ -12,8 +12,9 @@ import UniformTypeIdentifiers
 /// idle state, Run with Lid Closed expanded with Wake at on as well, and Run with Lid Closed expanded
 /// with made-up watched apps, without touching the helper, the login item, the display, the network or the saved settings.
 /// It also draws the content of the wake time popover, the activity log window from made-up
-/// entries, with the log file left alone, and the Watched Apps window with made-up apps, also with
-/// the list in focus and one row chosen.
+/// entries, with the log file left alone, the Watched Apps window with made-up apps, also with
+/// the list in focus and one row chosen, What's new with and without a made-up discount, its
+/// pictures on their last frame, and How to use LidAwake.
 enum WindowSnapshot {
     static let flag = "--render-window"
 
@@ -61,6 +62,33 @@ enum WindowSnapshot {
                     try renderWatchedApps(isDark: isDark, isChosen: isChosen).write(to: file)
                     print(file.path)
                 }
+            }
+            for isDark in [false, true] {
+                let theme = isDark ? "dark" : "light"
+                for withOffer in [false, true] {
+                    let file = folder.appendingPathComponent("whats-new-\(withOffer ? "offer-" : "")\(theme).png")
+                    try renderPage(isDark: isDark) {
+                        WhatsNewContent(
+                            sections: WhatsNewSections(showsPro: true, offer: withOffer ? InfoShot.offer : nil),
+                            accent: Palette.accent(.blue),
+                            language: Bundle.main.preferredLocalizations.first,
+                            isStill: true,
+                            close: {}
+                        )
+                    }.write(to: file)
+                    print(file.path)
+                }
+                let file = folder.appendingPathComponent("how-to-use-\(theme).png")
+                try renderPage(isDark: isDark) {
+                    HelpContent(
+                        accent: Palette.accent(.blue),
+                        onAccent: Palette.onAccent(.blue),
+                        version: AppVersion.installedText,
+                        language: Bundle.main.preferredLocalizations.first,
+                        close: {}
+                    )
+                }.write(to: file)
+                print(file.path)
             }
             return 0
         } catch {
@@ -254,6 +282,8 @@ enum WindowSnapshot {
             idleSource: FixedIdleStatus(status: shot.idle),
             openActivityLog: {},
             openWatchedApps: {},
+            openWhatsNew: {},
+            openHowToUse: {},
             // The offscreen window has no screen, so the limit is set here or not at all.
             heightLimit: .fixed(shot.maxHeight)
         )
@@ -374,6 +404,29 @@ enum WindowSnapshot {
         window.isReleasedWhenClosed = false
         window.appearance = appearance
         window.contentView = host
+        window.setFrameOrigin(NSPoint(x: -10_000, y: -10_000))
+        window.makeKeyAndOrderFront(nil)
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.5))
+        host.layoutSubtreeIfNeeded()
+        defer { window.close() }
+        return try png(of: host, appearance: appearance)
+    }
+
+    /// What's new and How to use LidAwake, as tall as their content.
+    @MainActor
+    private static func renderPage<Content: View>(isDark: Bool, @ViewBuilder content: () -> Content) throws -> Data {
+        let appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)!
+        let host = NSHostingView(rootView: content().background(Color(nsColor: .windowBackgroundColor)))
+        let window = SnapshotWindow(
+            contentRect: NSRect(x: -10_000, y: -10_000, width: InfoWindowController.width, height: 100),
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        window.isReleasedWhenClosed = false
+        window.appearance = appearance
+        window.contentView = host
+        window.setContentSize(host.fittingSize)
         window.setFrameOrigin(NSPoint(x: -10_000, y: -10_000))
         window.makeKeyAndOrderFront(nil)
         RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.5))
@@ -568,4 +621,15 @@ private final class Inert: PowerAssertion, HelperPreparing, HelperInstalling, Li
         get { true }
         set {}
     }
+}
+
+/// A made-up discount for the What's new shots.
+private enum InfoShot {
+    static let offer = UpdateOffer(
+        percent: 20,
+        price: "9.99",
+        sale: "7.99",
+        until: "2026-12-03",
+        url: "https://erstgebaut.de/lidawake/"
+    )
 }

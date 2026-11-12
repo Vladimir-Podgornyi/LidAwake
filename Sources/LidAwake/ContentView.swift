@@ -18,6 +18,8 @@ struct ContentView: View {
     let idleSource: IdleStatusReading
     let openActivityLog: () -> Void
     let openWatchedApps: () -> Void
+    let openWhatsNew: () -> Void
+    let openHowToUse: () -> Void
     var heightLimit: HeightLimit = .screen
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
@@ -165,12 +167,11 @@ struct ContentView: View {
                 case .compactRows(let rows):
                     VStack(alignment: .leading, spacing: 0) {
                         ForEach(rows, id: \.self) { block in
-                            view(for: block, isCompact: true)
+                            view(for: block, isCompact: true, isFirst: block == rows.first)
                         }
                     }
                 }
             }
-            quitRow
         }
         .padding(.horizontal, 14)
         .padding(.bottom, 8)
@@ -292,7 +293,7 @@ struct ContentView: View {
     }
 
     @ViewBuilder
-    private func view(for block: WindowBlock, isCompact: Bool = false) -> some View {
+    private func view(for block: WindowBlock, isCompact: Bool = false, isFirst: Bool = false) -> some View {
         switch block {
         case .timer: timerSection
         case .settingsToggle: SettingsToggleRow(isExpanded: $disclosure.isExpanded)
@@ -302,7 +303,8 @@ struct ContentView: View {
         // Among compact rows the stack has no spacing, so the dividers and the header keep their own gap.
         case .settingsDivider: Divider().padding(.bottom, isCompact ? 8 : 0)
         case .generalHeader: SectionHeader(title: "General").padding(.bottom, isCompact ? 4 : 0)
-        case .closingDivider: Divider().padding(.top, isCompact ? 8 : 0)
+        // At the top of its group the divider has the spacing between the blocks above it.
+        case .closingDivider: Divider().padding(.top, isCompact && !isFirst ? 8 : 0).padding(.bottom, isCompact ? 4 : 0)
         case .lockScreen: lockRow(minHeight: 36)
         case .launchAtLogin: launchRow
         case .checkForUpdates: updatesRow
@@ -310,6 +312,9 @@ struct ContentView: View {
         case .accent: accentRow
         case .activityLog: ActivityLogOpenRow(action: openActivityLog)
         case .proOffer: proOfferCard
+        case .whatsNew: WindowOpenRow(symbol: "star", title: "What's new", action: openWhatsNew)
+        case .howToUse: WindowOpenRow(symbol: "info.circle", title: "How to use LidAwake", action: openHowToUse)
+        case .quit: quitRow
         }
     }
 
@@ -828,6 +833,37 @@ private struct ActivityLogOpenRow: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text("Activity log"))
+    }
+}
+
+/// A row at the bottom of the window that opens a window of its own.
+private struct WindowOpenRow: View {
+    let symbol: String
+    let title: LocalizedStringKey
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: symbol)
+                    .font(.system(size: 15))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 18)
+                    .accessibilityHidden(true)
+                Text(title)
+                    .font(.system(size: 13))
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 14)
+                    .accessibilityHidden(true)
+            }
+            .frame(minHeight: 36)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(title))
     }
 }
 

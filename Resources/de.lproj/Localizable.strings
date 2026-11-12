@@ -163,3 +163,35 @@
 
 "−%lld%%" = "−%lld%%";
 "until %@" = "bis %@";
+
+/* What's new and How to use LidAwake */
+"What's new" = "Neuigkeiten";
+"How to use LidAwake" = "So funktioniert LidAwake";
+"What's new in LidAwake" = "Neu in LidAwake";
+"Version %@" = "Version %@";
+"Six new languages" = "Sechs neue Sprachen";
+"Only in LidAwake Pro %@" = "Nur in LidAwake Pro %@";
+"Movie on a TV" = "Film auf dem Fernseher";
+"Close the lid and the movie keeps playing on the TV." = "Deckel zu, und der Film läuft auf dem Fernseher weiter.";
+"Waits for downloads" = "Wartet auf Downloads";
+"Stays awake until a big download is done, then sleeps." = "Bleibt wach, bis ein großer Download fertig ist, und geht dann in den Ruhezustand.";
+"Waits for video exports" = "Wartet auf Videoexporte";
+"Stays awake while a video renders, then sleeps." = "Bleibt wach, solange ein Video gerendert wird, und geht dann in den Ruhezustand.";
+"In a Bag" = "In der Tasche";
+"One switch with stricter protections for a Mac in a bag." = "Ein Schalter mit strengeren Schutzfunktionen für einen Mac in der Tasche.";
+"New" = "Neu";
+"−%lld%% on LidAwake Pro" = "−%lld%% auf LidAwake Pro";
+"one-time" = "einmalig";
+"one-time · until %@" = "einmalig · bis %@";
+"Get Pro" = "Pro holen";
+"Continue" = "Weiter";
+"Pick a mode" = "Modus wählen";
+"Keep Screen On when you step away from the desk. Run with Lid Closed when the Mac should keep working with the lid shut. Only one mode is on at a time; Off brings normal sleep back." = "„Bildschirm anlassen“, wenn du kurz vom Schreibtisch weggehst. „Mit geschlossenem Deckel“, wenn der Mac mit geschlossenem Deckel weiterarbeiten soll. Es ist immer nur ein Modus aktiv; „Aus“ stellt den normalen Ruhezustand wieder her.";
+"Allow the helper once" = "Hilfsprogramm einmal erlauben";
+"The first time you choose Run with Lid Closed, allow LidAwake in System Settings › General › Login Items & Extensions. No password is needed." = "Wenn du „Mit geschlossenem Deckel“ zum ersten Mal wählst, erlaube LidAwake unter Systemeinstellungen › Allgemein › Anmeldeobjekte & Erweiterungen. Ein Passwort ist nicht nötig.";
+"Let it end by itself" = "Von selbst enden lassen";
+"In Settings, Sleep when idle lets the Mac sleep once the work is done, and Turn off after ends the mode after a set time. The mode also stops when the Mac gets hot or the battery runs low." = "In den Einstellungen lässt „Ruhezustand bei Leerlauf“ den Mac schlafen, sobald die Arbeit erledigt ist, und „Ausschalten nach“ beendet den Modus nach einer festen Zeit. Der Modus endet auch, wenn der Mac zu heiß wird oder der Akku schwach ist.";
+"Avoid packing a running Mac in a closed bag" = "Einen laufenden Mac nicht in eine geschlossene Tasche packen";
+"A closed laptop in a bag cools poorly. The protections reduce the risk; they do not remove it. If you must carry it running, prefer a short session and keep an eye on the temperature. You use LidAwake at your own risk." = "Ein zugeklappter Laptop in einer Tasche kühlt schlecht. Die Schutzfunktionen verringern das Risiko, beseitigen es aber nicht. Wenn du ihn unbedingt laufend tragen musst, halte die Sitzung kurz und behalte die Temperatur im Blick. Du nutzt LidAwake auf eigenes Risiko.";
+"Website" = "Website";
+"Source code" = "Quellcode";

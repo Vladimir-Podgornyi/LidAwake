@@ -163,3 +163,35 @@
 
 "−%lld%%" = "−%lld%%";
 "until %@" = "until %@";
+
+/* What's new and How to use LidAwake */
+"What's new" = "What's new";
+"How to use LidAwake" = "How to use LidAwake";
+"What's new in LidAwake" = "What's new in LidAwake";
+"Version %@" = "Version %@";
+"Six new languages" = "Six new languages";
+"Only in LidAwake Pro %@" = "Only in LidAwake Pro %@";
+"Movie on a TV" = "Movie on a TV";
+"Close the lid and the movie keeps playing on the TV." = "Close the lid and the movie keeps playing on the TV.";
+"Waits for downloads" = "Waits for downloads";
+"Stays awake until a big download is done, then sleeps." = "Stays awake until a big download is done, then sleeps.";
+"Waits for video exports" = "Waits for video exports";
+"Stays awake while a video renders, then sleeps." = "Stays awake while a video renders, then sleeps.";
+"In a Bag" = "In a Bag";
+"One switch with stricter protections for a Mac in a bag." = "One switch with stricter protections for a Mac in a bag.";
+"New" = "New";
+"−%lld%% on LidAwake Pro" = "−%lld%% on LidAwake Pro";
+"one-time" = "one-time";
+"one-time · until %@" = "one-time · until %@";
+"Get Pro" = "Get Pro";
+"Continue" = "Continue";
+"Pick a mode" = "Pick a mode";
+"Keep Screen On when you step away from the desk. Run with Lid Closed when the Mac should keep working with the lid shut. Only one mode is on at a time; Off brings normal sleep back." = "Keep Screen On when you step away from the desk. Run with Lid Closed when the Mac should keep working with the lid shut. Only one mode is on at a time; Off brings normal sleep back.";
+"Allow the helper once" = "Allow the helper once";
+"The first time you choose Run with Lid Closed, allow LidAwake in System Settings › General › Login Items & Extensions. No password is needed." = "The first time you choose Run with Lid Closed, allow LidAwake in System Settings › General › Login Items & Extensions. No password is needed.";
+"Let it end by itself" = "Let it end by itself";
+"In Settings, Sleep when idle lets the Mac sleep once the work is done, and Turn off after ends the mode after a set time. The mode also stops when the Mac gets hot or the battery runs low." = "In Settings, Sleep when idle lets the Mac sleep once the work is done, and Turn off after ends the mode after a set time. The mode also stops when the Mac gets hot or the battery runs low.";
+"Avoid packing a running Mac in a closed bag" = "Avoid packing a running Mac in a closed bag";
+"A closed laptop in a bag cools poorly. The protections reduce the risk; they do not remove it. If you must carry it running, prefer a short session and keep an eye on the temperature. You use LidAwake at your own risk." = "A closed laptop in a bag cools poorly. The protections reduce the risk; they do not remove it. If you must carry it running, prefer a short session and keep an eye on the temperature. You use LidAwake at your own risk.";
+"Website" = "Website";
+"Source code" = "Source code";

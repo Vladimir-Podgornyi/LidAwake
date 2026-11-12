@@ -1,7 +1,7 @@
 import Combine
 import Foundation
 
-/// The blocks between the messages and the Quit row, top to bottom.
+/// The blocks below the messages, top to bottom, down to the Quit row.
 public enum WindowBlock: Hashable {
     /// Keep Screen On: the TIMER section with the timer row.
     case timer
@@ -25,8 +25,13 @@ public enum WindowBlock: Hashable {
     case activityLog
     /// Opens the page of LidAwake Pro in the browser; a card of its own, shown collapsed too.
     case proOffer
-    /// The divider above the Quit row.
+    /// The divider above What's new, How to use LidAwake and Quit.
     case closingDivider
+    /// Opens the What's new window.
+    case whatsNew
+    /// Opens the How to use LidAwake window.
+    case howToUse
+    case quit
 
     public static func list(mode: Mode, isExpanded: Bool, showsAppearance: Bool, showsProOffer: Bool = false) -> [WindowBlock] {
         let layout = SafetyLayout(mode: mode)
@@ -45,7 +50,8 @@ public enum WindowBlock: Hashable {
         if showsProOffer {
             blocks.append(.proOffer)
         }
-        blocks.append(.closingDivider)
+        // Shown in every position and every build, collapsed too.
+        blocks += [.closingDivider, .whatsNew, .howToUse, .quit]
         return blocks
     }
 }
@@ -67,18 +73,18 @@ public final class SettingsDisclosurePreference: ObservableObject {
     }
 }
 
-/// Blocks drawn together. The general setting rows sit closer to each other, to their header
-/// and to the dividers around them than the other blocks do.
+/// Blocks drawn together. The general setting rows and the rows at the bottom sit closer to
+/// each other, to their header and to the dividers around them than the other blocks do.
 public enum WindowBlockGroup: Hashable {
     case block(WindowBlock)
-    /// Dividers, the general header and general setting rows, at least one row among them.
+    /// Dividers, the general header and compact rows, at least one row among them.
     case compactRows([WindowBlock])
 
     public static func groups(_ blocks: [WindowBlock]) -> [WindowBlockGroup] {
         var groups: [WindowBlockGroup] = []
         var run: [WindowBlock] = []
         func flush() {
-            if run.contains(where: \.isGeneralSettingRow) {
+            if run.contains(where: \.isCompactRow) {
                 groups.append(.compactRows(run))
             } else {
                 groups += run.map(WindowBlockGroup.block)
@@ -86,7 +92,7 @@ public enum WindowBlockGroup: Hashable {
             run = []
         }
         for block in blocks {
-            if block.isGeneralSettingRow || [.settingsDivider, .generalHeader, .closingDivider].contains(block) {
+            if block.isCompactRow || [.settingsDivider, .generalHeader, .closingDivider].contains(block) {
                 run.append(block)
             } else {
                 flush()
@@ -103,8 +109,13 @@ extension WindowBlock {
         switch self {
         case .lockScreen, .launchAtLogin, .checkForUpdates, .appearance, .accent, .activityLog: return true
         case .timer, .settingsToggle, .safety, .dimmedSafety, .sleepAndWake, .settingsDivider, .generalHeader,
-             .proOffer, .closingDivider:
+             .proOffer, .closingDivider, .whatsNew, .howToUse, .quit:
             return false
         }
+    }
+
+    /// Rows of the menu-like lists: the general settings and the rows at the bottom.
+    var isCompactRow: Bool {
+        isGeneralSettingRow || [.whatsNew, .howToUse, .quit].contains(self)
     }
 }

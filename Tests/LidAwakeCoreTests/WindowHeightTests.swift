@@ -140,10 +140,14 @@ final class WindowFitTests: XCTestCase {
 }
 
 final class WindowBlockGroupTests: XCTestCase {
-    func testCollapsedHasNoCompactRows() {
+    func testCollapsedHasOnlyTheBottomRowsCompact() {
         for mode in Mode.allCases {
             let blocks = WindowBlock.list(mode: mode, isExpanded: false, showsAppearance: true)
-            XCTAssertEqual(WindowBlockGroup.groups(blocks), blocks.map(WindowBlockGroup.block))
+            let timer: [WindowBlockGroup] = SafetyLayout(mode: mode) == .timerOnly ? [.block(.timer)] : []
+            XCTAssertEqual(WindowBlockGroup.groups(blocks), timer + [
+                .block(.settingsToggle),
+                .compactRows([.closingDivider, .whatsNew, .howToUse, .quit]),
+            ], "\(mode)")
         }
     }
 
@@ -153,7 +157,7 @@ final class WindowBlockGroupTests: XCTestCase {
             .block(.settingsToggle),
             .block(.safety),
             .block(.sleepAndWake),
-            .compactRows([.settingsDivider, .generalHeader, .lockScreen, .launchAtLogin, .checkForUpdates, .appearance, .accent, .activityLog, .closingDivider]),
+            .compactRows([.settingsDivider, .generalHeader, .lockScreen, .launchAtLogin, .checkForUpdates, .appearance, .accent, .activityLog, .closingDivider, .whatsNew, .howToUse, .quit]),
         ])
     }
 
@@ -164,7 +168,7 @@ final class WindowBlockGroupTests: XCTestCase {
             .block(.settingsToggle),
             .block(.dimmedSafety),
             .block(.sleepAndWake),
-            .compactRows([.settingsDivider, .generalHeader, .launchAtLogin, .checkForUpdates, .accent, .activityLog, .closingDivider]),
+            .compactRows([.settingsDivider, .generalHeader, .launchAtLogin, .checkForUpdates, .accent, .activityLog, .closingDivider, .whatsNew, .howToUse, .quit]),
         ])
     }
 
@@ -173,7 +177,11 @@ final class WindowBlockGroupTests: XCTestCase {
             for expanded in [false, true] {
                 let blocks = WindowBlock.list(mode: mode, isExpanded: expanded, showsAppearance: true, showsProOffer: true)
                 let groups = WindowBlockGroup.groups(blocks)
-                XCTAssertEqual(groups.suffix(2), [.block(.proOffer), .block(.closingDivider)], "\(mode) \(expanded)")
+                XCTAssertEqual(
+                    Array(groups.suffix(2)),
+                    [.block(.proOffer), .compactRows([.closingDivider, .whatsNew, .howToUse, .quit])],
+                    "\(mode) \(expanded)"
+                )
                 for group in groups {
                     if case .compactRows(let rows) = group {
                         XCTAssertFalse(rows.contains(.proOffer), "\(mode) \(expanded)")
@@ -190,9 +198,10 @@ final class WindowBlockGroupTests: XCTestCase {
                 if case .compactRows(let rows) = group { return rows }
                 return nil
             }
-            XCTAssertEqual(compact.count, 1, "\(mode)")
+            XCTAssertEqual(compact.count, 2, "\(mode)")
             XCTAssertEqual(compact.first?.prefix(2), [.settingsDivider, .generalHeader], "\(mode)")
             XCTAssertEqual(compact.first?.last, .activityLog, "\(mode)")
+            XCTAssertEqual(compact.last, [.closingDivider, .whatsNew, .howToUse, .quit], "\(mode)")
         }
     }
 
@@ -208,7 +217,7 @@ final class WindowBlockGroupTests: XCTestCase {
                 }
                 XCTAssertEqual(compact.count, 1, "\(mode)")
                 XCTAssertEqual(compact.first?.prefix(2), [.settingsDivider, .generalHeader], "\(mode)")
-                XCTAssertEqual(compact.first?.last, .closingDivider, "\(mode)")
+                XCTAssertEqual(compact.first?.last, .quit, "\(mode)")
             }
         }
     }

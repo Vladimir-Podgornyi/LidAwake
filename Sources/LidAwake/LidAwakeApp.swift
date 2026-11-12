@@ -21,6 +21,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         preferences: modeController.preferences,
         accent: accent
     )
+    private(set) lazy var whatsNewWindow = InfoWindowController(
+        title: String(localized: "What's new in LidAwake"),
+        changes: updates.objectWillChange.map { _ in }.eraseToAnyPublisher()
+    ) { [updates, accent] close in
+        WhatsNewScreen(updates: updates, accent: accent, close: close)
+    }
+    private(set) lazy var helpWindow = InfoWindowController(
+        title: String(localized: "How to use LidAwake")
+    ) { [accent] close in
+        HelpScreen(accent: accent, close: close)
+    }
 
     override init() {
         helperClient = HelperClient()
@@ -56,10 +67,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         sleepRecorder.start()
         wakeScheduler.start()
         updates.start()
+        openWhatsNewOnFirstLaunch()
         Task {
             await helperClient.updateIfOutdated()
             await modeController.clearLeftover()
             await wakeScheduler.appDidLaunch()
+        }
+    }
+
+    /// On the first launch of a build with new news; a moment after launch, so the menu bar
+    /// icon is in place first.
+    private func openWhatsNewOnFirstLaunch() {
+        let launch = WhatsNewLaunch()
+        guard launch.opensByItself(version: Edition.whatsNewVersion) else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+            launch.markShown(version: Edition.whatsNewVersion)
+            self?.whatsNewWindow.show()
         }
     }
 
@@ -107,6 +130,18 @@ struct LidAwakeApp: App {
                         MenuBarWindow.close(window)
                     }
                     appDelegate.watchedAppsWindow.show()
+                },
+                openWhatsNew: {
+                    if let window = NSApp.keyWindow {
+                        MenuBarWindow.close(window)
+                    }
+                    appDelegate.whatsNewWindow.show()
+                },
+                openHowToUse: {
+                    if let window = NSApp.keyWindow {
+                        MenuBarWindow.close(window)
+                    }
+                    appDelegate.helpWindow.show()
                 }
             )
         } label: {
