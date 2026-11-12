@@ -34,44 +34,99 @@ enum WhatsNewFeature: Hashable {
     var isNew: Bool { self == .inABag }
 }
 
-/// The What's new window: the news of this build and, where LidAwake Pro is offered, what only
-/// Pro has and the running discount.
+/// The news of one version.
+struct WhatsNewRelease {
+    let version: String
+    /// Top to bottom.
+    let features: [WhatsNewFeature]
+}
+
+/// Which versions the What's new window shows; set before it opens.
+@MainActor
+final class WhatsNewChoice: ObservableObject {
+    @Published var selection = WhatsNewSelection(versions: [Edition.whatsNewVersion])
+
+    /// The window opens by itself after an update: every version since `lastShown`.
+    func sinceLastShown(_ lastShown: String?) {
+        selection = .sinceLastShown(history: history, current: Edition.whatsNewVersion, lastShown: lastShown)
+    }
+
+    /// Opened from the row.
+    func recent() {
+        selection = .recent(history: history, current: Edition.whatsNewVersion)
+    }
+
+    private var history: [String] { Edition.whatsNewHistory.map(\.version) }
+
+    static func releases(_ selection: WhatsNewSelection) -> [WhatsNewRelease] {
+        selection.versions.compactMap { version in
+            Edition.whatsNewHistory.first { $0.version == version }
+        }
+    }
+}
+
+/// The What's new window: the news of the versions chosen and, where LidAwake Pro is offered,
+/// what only Pro has and the running discount.
 struct WhatsNewScreen: View {
     @ObservedObject var updates: UpdateChecker
     @ObservedObject var accent: AccentPreference
+    @ObservedObject var choice: WhatsNewChoice
     let close: () -> Void
-    var isStill = false
 
     var body: some View {
         WhatsNewContent(
+            releases: WhatsNewChoice.releases(choice.selection),
+            earlierCount: choice.selection.earlierCount,
             sections: WhatsNewSections(showsPro: Edition.showsProOffer, offer: updates.offer),
             accent: Palette.accent(accent.theme),
+            onAccent: Palette.onAccentText(accent.theme),
             language: Bundle.main.preferredLocalizations.first,
-            isStill: isStill,
             close: close
         )
     }
 }
 
 struct WhatsNewContent: View {
+    /// Newest first.
+    let releases: [WhatsNewRelease]
+    var earlierCount = 0
     let sections: WhatsNewSections
     let accent: Color
+    /// The text of the New badge.
+    let onAccent: Color
     let language: String?
     /// Every picture on its last frame, as with Reduce motion.
     var isStill = false
     let close: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        InfoPage {
+            // A single version is named under the title; several each get their own heading.
             InfoPageTitle(
                 title: "What's new in LidAwake",
-                subtitle: Text("Version \(Edition.whatsNewVersion)")
+                subtitle: releases.count == 1 ? Text("Version \(releases[0].version)") : nil
             )
-            .padding(.bottom, 20)
-            VStack(alignment: .leading, spacing: 16) {
-                ForEach(Edition.whatsNew, id: \.self) { feature in
-                    WhatsNewRow(feature: feature, accent: accent, isStill: isStill)
+        } middle: {
+            ForEach(Array(releases.enumerated()), id: \.element.version) { index, release in
+                if releases.count > 1 {
+                    Text("Version \(release.version)")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Palette.readableSecondary)
+                        .accessibilityAddTraits(.isHeader)
+                        .padding(.top, index == 0 ? 0 : 22)
+                        .padding(.bottom, 10)
                 }
+                VStack(alignment: .leading, spacing: 16) {
+                    ForEach(release.features, id: \.self) { feature in
+                        WhatsNewRow(feature: feature, accent: accent, isStill: isStill)
+                    }
+                }
+            }
+            if earlierCount > 0 {
+                Text("and \(earlierCount) earlier updates")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Palette.readableSecondary)
+                    .padding(.top, 16)
             }
             if sections.showsProFeatures {
                 Divider()
@@ -80,22 +135,15 @@ struct WhatsNewContent: View {
                     .font(.system(size: 11, weight: .semibold))
                     .kerning(0.6)
                     .textCase(.uppercase)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Palette.readableSecondary)
                     .accessibilityAddTraits(.isHeader)
                     .padding(.bottom, 12)
-                LazyVGrid(
-                    columns: [GridItem(.flexible(), spacing: 16, alignment: .top), GridItem(.flexible(), alignment: .top)],
-                    alignment: .leading,
-                    spacing: 18
-                ) {
-                    ForEach(Edition.proFeatures, id: \.self) { feature in
-                        WhatsNewTile(feature: feature, accent: accent, isStill: isStill)
-                    }
-                }
+                ProTiles(features: Edition.proFeatures, accent: accent, onAccent: onAccent, isStill: isStill)
             }
+        } footer: {
             if let offer = sections.discount {
                 WhatsNewDiscount(offer: offer, language: language, accent: accent)
-                    .padding(.top, 20)
+                    .padding(.bottom, 20)
             }
             HStack {
                 Spacer()
@@ -105,12 +153,7 @@ struct WhatsNewContent: View {
                 }
                 .keyboardShortcut(.defaultAction)
             }
-            .padding(.top, 22)
         }
-        .padding(.top, 28)
-        .padding(.horizontal, 28)
-        .padding(.bottom, 20)
-        .frame(width: InfoWindowController.width, alignment: .leading)
         .tint(accent)
     }
 }
@@ -124,13 +167,13 @@ private struct WhatsNewRow: View {
         HStack(alignment: .center, spacing: 16) {
             FeaturePicture(feature: feature, accent: accent, isStill: isStill)
                 .frame(width: 96, height: 64)
-                .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(accent.opacity(0.10)))
+                .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Palette.pictureBackground))
             VStack(alignment: .leading, spacing: 3) {
                 feature.title
                     .font(.system(size: 13, weight: .semibold))
                 feature.detail
                     .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Palette.readableSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 0)
@@ -139,26 +182,54 @@ private struct WhatsNewRow: View {
     }
 }
 
-private struct WhatsNewTile: View {
-    let feature: WhatsNewFeature
+/// The Pro features two to a row; the tiles of a row are as tall as the tallest.
+private struct ProTiles: View {
+    static let gap: CGFloat = 10
+
+    let features: [WhatsNewFeature]
     let accent: Color
+    let onAccent: Color
     let isStill: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        let rows = stride(from: 0, to: features.count, by: 2).map { Array(features[$0..<min($0 + 2, features.count)]) }
+        Grid(alignment: .topLeading, horizontalSpacing: Self.gap, verticalSpacing: Self.gap) {
+            ForEach(rows, id: \.self) { row in
+                GridRow {
+                    ForEach(row, id: \.self) { feature in
+                        WhatsNewTile(feature: feature, accent: accent, onAccent: onAccent, isStill: isStill)
+                    }
+                    if row.count == 1 {
+                        Color.clear.gridCellUnsizedAxes([.horizontal, .vertical])
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct WhatsNewTile: View {
+    let feature: WhatsNewFeature
+    let accent: Color
+    let onAccent: Color
+    let isStill: Bool
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
+        VStack(alignment: .leading, spacing: 0) {
             FeaturePicture(feature: feature, accent: accent, isStill: isStill)
                 .frame(maxWidth: .infinity)
                 .frame(height: 70)
-                .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(accent.opacity(0.07)))
+                .background(Palette.pictureBackground)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     feature.title
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: 13, weight: .bold))
                     if feature.isNew {
                         Text("New")
                             .font(.system(size: 9, weight: .bold))
                             .textCase(.uppercase)
-                            .foregroundStyle(Color.white)
+                            .foregroundStyle(onAccent)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 1)
                             .background(Capsule().fill(accent))
@@ -166,10 +237,18 @@ private struct WhatsNewTile: View {
                 }
                 feature.detail
                     .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Palette.readableSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            .padding(.horizontal, 10)
+            .padding(.top, 8)
+            .padding(.bottom, 10)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(Palette.tileBackground)
+        .clipShape(shape)
+        .overlay(shape.strokeBorder(Palette.tileBorder, lineWidth: 1))
+        .shadow(color: .black.opacity(0.06), radius: 3, y: 1)
         .accessibilityElement(children: .combine)
     }
 }
@@ -191,12 +270,12 @@ private struct WhatsNewDiscount: View {
                     Text(verbatim: oldPrice)
                         .font(.system(size: 11))
                         .strikethrough()
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Palette.readableSecondary)
                     Text(verbatim: newPrice)
                         .font(.system(size: 13, weight: .semibold))
                     Text(terms)
                         .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Palette.readableSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -248,11 +327,11 @@ struct FeaturePicture: View {
     @ViewBuilder
     private func picture(at time: Double) -> some View {
         switch feature {
-        case .languages: GreetingPicture(time: time, accent: accent)
+        case .languages: GreetingPicture(time: time)
         case .movieOnTV: MovieOnTVPicture(time: time, accent: accent)
-        case .downloads: SleepAfterPicture(time: time, symbol: "arrow.down", accent: accent, bar: accent)
-        case .exports: SleepAfterPicture(time: time, symbol: "film", accent: accent, bar: Palette.accent(.amber))
-        case .inABag: BagPicture(time: time, accent: accent)
+        case .downloads: SleepAfterPicture(time: time, symbol: "arrow.down", symbolColor: accent, accent: accent)
+        case .exports: SleepAfterPicture(time: time, symbol: "film", symbolColor: .primary, accent: accent)
+        case .inABag: BagPicture(time: time)
         }
     }
 }
@@ -301,7 +380,6 @@ private struct GreetingPicture: View {
     static let words = ["Hello", "こんにちは", "Bonjour", "Hola", "Olá", "안녕하세요", "Ciao"]
 
     let time: Double
-    let accent: Color
 
     var body: some View {
         let index = Int(time) % Self.words.count
@@ -315,7 +393,7 @@ private struct GreetingPicture: View {
     private func word(_ text: String) -> some View {
         Text(verbatim: text)
             .font(.system(size: 15, weight: .semibold))
-            .foregroundStyle(accent)
+            .foregroundStyle(.primary)
             .lineLimit(1)
             .minimumScaleFactor(0.6)
             .padding(.horizontal, 6)
@@ -326,20 +404,19 @@ private struct GreetingPicture: View {
 private struct LaptopShape: View {
     /// 1 open, 0 shut.
     let open: Double
-    let accent: Color
     var width: CGFloat = 46
 
     var body: some View {
         let screenHeight = width * 0.56
         VStack(spacing: 0) {
             RoundedRectangle(cornerRadius: 2.5, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.65), lineWidth: 1.5)
-                .background(RoundedRectangle(cornerRadius: 2.5, style: .continuous).fill(accent.opacity(0.18)))
+                .strokeBorder(Color.primary, lineWidth: 1.5)
+                .background(RoundedRectangle(cornerRadius: 2.5, style: .continuous).fill(Palette.deviceScreen))
                 .frame(width: width * 0.82, height: screenHeight)
                 .scaleEffect(x: 1, y: max(open, 0.07), anchor: .bottom)
                 .frame(height: screenHeight, alignment: .bottom)
             Capsule()
-                .fill(Color.primary.opacity(0.65))
+                .fill(Color.primary)
                 .frame(width: width, height: 3)
         }
     }
@@ -355,25 +432,25 @@ private struct MovieOnTVPicture: View {
         VStack(spacing: 4) {
             VStack(spacing: 1) {
                 RoundedRectangle(cornerRadius: 3, style: .continuous)
-                    .strokeBorder(Color.primary.opacity(0.65), lineWidth: 1.5)
-                    .background(RoundedRectangle(cornerRadius: 3, style: .continuous).fill(accent.opacity(0.18)))
+                    .strokeBorder(Color.primary, lineWidth: 1.5)
+                    .background(RoundedRectangle(cornerRadius: 3, style: .continuous).fill(Palette.deviceScreen))
                     .frame(width: 66, height: 34)
                     .overlay(alignment: .bottom) {
-                        ProgressTrack(value: time / 6, color: accent)
+                        ProgressTrack(value: time / 6, color: accent, track: Color.white.opacity(0.25))
                             .frame(width: 50, height: 3)
                             .padding(.bottom, 6)
                     }
                     .overlay {
                         Image(systemName: "play.fill")
                             .font(.system(size: 9))
-                            .foregroundStyle(accent)
+                            .foregroundStyle(Color.white.opacity(0.9))
                             .offset(y: -3)
                     }
                 Capsule()
-                    .fill(Color.primary.opacity(0.65))
+                    .fill(Color.primary)
                     .frame(width: 22, height: 2)
             }
-            LaptopShape(open: lid, accent: accent, width: 36)
+            LaptopShape(open: lid, width: 36)
         }
     }
 }
@@ -382,17 +459,17 @@ private struct MovieOnTVPicture: View {
 private struct SleepAfterPicture: View {
     let time: Double
     let symbol: String
+    let symbolColor: Color
     let accent: Color
-    let bar: Color
 
     var body: some View {
         let moon = Ease.step(time, from: 3.8, to: 4.4)
         HStack(spacing: 10) {
             Image(systemName: symbol)
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(accent)
+                .foregroundStyle(symbolColor)
                 .frame(width: 24)
-            ProgressTrack(value: Ease.step(time, from: 0.3, to: 3.5), color: bar)
+            ProgressTrack(value: Ease.step(time, from: 0.3, to: 3.5), color: Palette.waitBar)
                 .frame(width: 92, height: 6)
             Image(systemName: "moon.fill")
                 .font(.system(size: 16))
@@ -408,7 +485,6 @@ private struct SleepAfterPicture: View {
 /// width; only the part filled grows.
 private struct BagPicture: View {
     let time: Double
-    let accent: Color
 
     var body: some View {
         let lid = 1 - Ease.step(time, from: 0.5, to: 1.5)
@@ -416,9 +492,9 @@ private struct BagPicture: View {
         let heat = 0.7 * Ease.step(time, from: 3.1, to: 5.2)
         HStack(spacing: 14) {
             ZStack(alignment: .bottom) {
-                LaptopShape(open: lid, accent: accent, width: 40)
+                LaptopShape(open: lid, width: 40)
                     .padding(.bottom, 8)
-                BagShape(accent: accent)
+                BagShape()
                     .frame(width: 58, height: 40)
                     .offset(y: (1 - bag) * 60)
             }
@@ -427,8 +503,8 @@ private struct BagPicture: View {
             HStack(spacing: 5) {
                 Image(systemName: "thermometer")
                     .font(.system(size: 15))
-                    .foregroundStyle(accent)
-                ProgressTrack(value: heat, color: accent)
+                    .foregroundStyle(.primary)
+                ProgressTrack(value: heat, color: Palette.waitBar)
                     .frame(width: 64, height: 6)
             }
         }
@@ -436,18 +512,16 @@ private struct BagPicture: View {
 }
 
 private struct BagShape: View {
-    let accent: Color
-
     var body: some View {
         let body = RoundedRectangle(cornerRadius: 6, style: .continuous)
         ZStack(alignment: .top) {
             HandleShape()
-                .stroke(Color.primary.opacity(0.65), lineWidth: 2)
+                .stroke(Color.primary, lineWidth: 2)
                 .frame(width: 22, height: 10)
             body
-                .fill(Color(nsColor: .windowBackgroundColor))
-                .overlay(body.fill(accent.opacity(0.22)))
-                .overlay(body.strokeBorder(Color.primary.opacity(0.65), lineWidth: 1.5))
+                .fill(Palette.pictureBackground)
+                .overlay(body.fill(Color.primary.opacity(0.08)))
+                .overlay(body.strokeBorder(Color.primary, lineWidth: 1.5))
                 .padding(.top, 8)
         }
     }
@@ -470,11 +544,12 @@ private struct HandleShape: Shape {
 private struct ProgressTrack: View {
     let value: Double
     let color: Color
+    var track = Color.primary.opacity(0.15)
 
     var body: some View {
         GeometryReader { proxy in
             ZStack(alignment: .leading) {
-                Capsule().fill(Color.primary.opacity(0.15))
+                Capsule().fill(track)
                 Capsule()
                     .fill(color)
                     .frame(width: proxy.size.width * min(max(value, 0), 1))

@@ -53,6 +53,13 @@ final class LocalizationTests: XCTestCase {
         }
     }
 
+    func testEarlierUpdatesLine() throws {
+        XCTAssertEqual(String(format: try table("en")["and %lld earlier updates"]!, 2), "and 2 earlier updates")
+        XCTAssertEqual(String(format: try table("de")["and %lld earlier updates"]!, 2), "und 2 frühere Updates")
+        XCTAssertEqual(String(format: try table("ru")["and %lld earlier updates"]!, 2), "и ещё обновлений: 2")
+        XCTAssertEqual(String(format: try table("zh-Hans")["and %lld earlier updates"]!, 2), "以及另外 2 次更新")
+    }
+
     func testFormattedValuesUseANoBreakSpaceBeforePercentAndUnits() throws {
         XCTAssertEqual(String(format: try table("en")["Battery %lld%%"]!, 82), "Battery 82%")
         XCTAssertEqual(String(format: try table("de")["Battery %lld%%"]!, 82), "Akku 82\u{00A0}%")

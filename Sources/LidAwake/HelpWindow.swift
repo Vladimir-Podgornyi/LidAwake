@@ -27,9 +27,9 @@ struct HelpContent: View {
     let close: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        InfoPage {
             InfoPageTitle(title: "How to use LidAwake")
-                .padding(.bottom, 20)
+        } middle: {
             VStack(alignment: .leading, spacing: 16) {
                 HelpStep(
                     number: 1,
@@ -55,8 +55,8 @@ struct HelpContent: View {
             }
             BagWarning()
                 .padding(.top, 20)
+        } footer: {
             Divider()
-                .padding(.top, 20)
                 .padding(.bottom, 14)
             HStack(alignment: .center, spacing: 14) {
                 Text(verbatim: version.isEmpty ? "LidAwake" : "LidAwake \(version)")
@@ -77,10 +77,6 @@ struct HelpContent: View {
                 .keyboardShortcut(.defaultAction)
             }
         }
-        .padding(.top, 28)
-        .padding(.horizontal, 28)
-        .padding(.bottom, 20)
-        .frame(width: InfoWindowController.width, alignment: .leading)
         .tint(accent)
     }
 }

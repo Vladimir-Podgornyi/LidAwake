@@ -30,6 +30,23 @@ enum Palette {
         look.hasTranslucentCards ? glassCardBorder : opaqueCardBorder
     }
 
+    /// Text on an accent-colored badge: dark or white, whichever stands out more.
+    static func onAccentText(_ theme: AccentTheme) -> Color {
+        let accent = theme.color ?? systemAccent()
+        return dynamic { color(PicturePalette.text(on: accent.value(isDark: $0))) }
+    }
+
+    /// What's new: behind every picture.
+    static let pictureBackground = dynamic(PicturePalette.background)
+    /// What's new: the screens of the laptop and the TV.
+    static let deviceScreen = dynamic(PicturePalette.screen)
+    /// What's new: a Pro tile; in the dark the color of the window's cards.
+    static let tileBackground = dynamic { isDark in isDark ? NSColor.controlBackgroundColor : .white }
+    static let tileBorder = dynamic(PicturePalette.tileBorder)
+    static let waitBar = dynamic(PicturePalette.waitBar)
+    /// What's new: secondary text.
+    static let readableSecondary = dynamic(PicturePalette.secondaryText)
+
     static let solidWindowBackground = Color(nsColor: .windowBackgroundColor)
     static let valueBackground = Color(nsColor: .quaternaryLabelColor)
     /// The track of a switch that is off, as in the mockup.

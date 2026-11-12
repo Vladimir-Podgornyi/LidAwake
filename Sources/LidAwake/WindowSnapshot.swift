@@ -13,8 +13,9 @@ import UniformTypeIdentifiers
 /// with made-up watched apps, without touching the helper, the login item, the display, the network or the saved settings.
 /// It also draws the content of the wake time popover, the activity log window from made-up
 /// entries, with the log file left alone, the Watched Apps window with made-up apps, also with
-/// the list in focus and one row chosen, What's new with and without a made-up discount, its
-/// pictures on their last frame, and How to use LidAwake.
+/// the list in focus and one row chosen, What's new with and without a made-up discount and
+/// with made-up missed versions, its pictures on their last frame, and How to use LidAwake, the
+/// last two in their own window.
 enum WindowSnapshot {
     static let flag = "--render-window"
 
@@ -63,30 +64,10 @@ enum WindowSnapshot {
                     print(file.path)
                 }
             }
-            for isDark in [false, true] {
-                let theme = isDark ? "dark" : "light"
-                for withOffer in [false, true] {
-                    let file = folder.appendingPathComponent("whats-new-\(withOffer ? "offer-" : "")\(theme).png")
-                    try renderPage(isDark: isDark) {
-                        WhatsNewContent(
-                            sections: WhatsNewSections(showsPro: true, offer: withOffer ? InfoShot.offer : nil),
-                            accent: Palette.accent(.blue),
-                            language: Bundle.main.preferredLocalizations.first,
-                            isStill: true,
-                            close: {}
-                        )
-                    }.write(to: file)
-                    print(file.path)
-                }
-                let file = folder.appendingPathComponent("how-to-use-\(theme).png")
-                try renderPage(isDark: isDark) {
-                    HelpContent(
-                        accent: Palette.accent(.blue),
-                        onAccent: Palette.onAccent(.blue),
-                        version: AppVersion.installedText,
-                        language: Bundle.main.preferredLocalizations.first,
-                        close: {}
-                    )
+            for shot in InfoShot.all {
+                let file = folder.appendingPathComponent(shot.fileName)
+                try renderPage(isDark: shot.isDark, visibleHeight: shot.visibleHeight) { close in
+                    shot.content(close: close)
                 }.write(to: file)
                 print(file.path)
             }
@@ -412,27 +393,22 @@ enum WindowSnapshot {
         return try png(of: host, appearance: appearance)
     }
 
-    /// What's new and How to use LidAwake, as tall as their content.
+    /// What's new and How to use LidAwake in their own window, title bar and window buttons
+    /// included, as tall as the window opens on a screen whose visible area is `visibleHeight`.
     @MainActor
-    private static func renderPage<Content: View>(isDark: Bool, @ViewBuilder content: () -> Content) throws -> Data {
+    private static func renderPage<Content: View>(
+        isDark: Bool,
+        visibleHeight: CGFloat,
+        @ViewBuilder content: @escaping (_ close: @escaping () -> Void) -> Content
+    ) throws -> Data {
         let appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)!
-        let host = NSHostingView(rootView: content().background(Color(nsColor: .windowBackgroundColor)))
-        let window = SnapshotWindow(
-            contentRect: NSRect(x: -10_000, y: -10_000, width: InfoWindowController.width, height: 100),
-            styleMask: .borderless,
-            backing: .buffered,
-            defer: false
-        )
-        window.isReleasedWhenClosed = false
-        window.appearance = appearance
-        window.contentView = host
-        window.setContentSize(host.fittingSize)
-        window.setFrameOrigin(NSPoint(x: -10_000, y: -10_000))
-        window.makeKeyAndOrderFront(nil)
+        let controller = InfoWindowController(title: "", content: content)
+        let window = controller.offscreenWindow(appearance: appearance, visibleHeight: visibleHeight)
         RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.5))
-        host.layoutSubtreeIfNeeded()
         defer { window.close() }
-        return try png(of: host, appearance: appearance)
+        guard let frame = window.contentView?.superview else { throw CocoaError(.fileWriteUnknown) }
+        frame.layoutSubtreeIfNeeded()
+        return try png(of: frame, appearance: appearance)
     }
 
     @MainActor
@@ -624,7 +600,21 @@ private final class Inert: PowerAssertion, HelperPreparing, HelperInstalling, Li
 }
 
 /// A made-up discount for the What's new shots.
-private enum InfoShot {
+/// What's new and How to use LidAwake. The screen is as tall as a 14-inch MacBook Pro's, or
+/// short enough for What's new to scroll.
+private struct InfoShot {
+    enum Page {
+        case whatsNew(withOffer: Bool, releases: [WhatsNewRelease], earlierCount: Int)
+        case howToUse
+    }
+
+    let name: String
+    let page: Page
+    let isDark: Bool
+    var visibleHeight: CGFloat = 1000
+
+    var fileName: String { "\(name)-\(isDark ? "dark" : "light").png" }
+
     static let offer = UpdateOffer(
         percent: 20,
         price: "9.99",
@@ -632,4 +622,52 @@ private enum InfoShot {
         until: "2026-12-03",
         url: "https://erstgebaut.de/lidawake/"
     )
+
+    static let current = Edition.whatsNewHistory
+    /// Made-up versions with features of their own, as after three missed updates and two more.
+    static let missed = [
+        WhatsNewRelease(version: "1.4.0", features: [.languages]),
+        WhatsNewRelease(version: "1.3.0", features: [.languages]),
+    ] + Edition.whatsNewHistory
+
+    static let all: [InfoShot] = [false, true].flatMap { isDark in
+        [
+            InfoShot(name: "whats-new", page: .whatsNew(withOffer: false, releases: current, earlierCount: 0), isDark: isDark),
+            InfoShot(name: "whats-new-offer", page: .whatsNew(withOffer: true, releases: current, earlierCount: 0), isDark: isDark),
+            InfoShot(name: "whats-new-three", page: .whatsNew(withOffer: true, releases: missed, earlierCount: 2), isDark: isDark),
+            InfoShot(name: "how-to-use", page: .howToUse, isDark: isDark),
+        ]
+    } + [
+        InfoShot(
+            name: "whats-new-three-short",
+            page: .whatsNew(withOffer: true, releases: missed, earlierCount: 2),
+            isDark: false,
+            visibleHeight: 700
+        ),
+    ]
+
+    @MainActor @ViewBuilder
+    func content(close: @escaping () -> Void) -> some View {
+        switch page {
+        case let .whatsNew(withOffer, releases, earlierCount):
+            WhatsNewContent(
+                releases: releases,
+                earlierCount: earlierCount,
+                sections: WhatsNewSections(showsPro: true, offer: withOffer ? Self.offer : nil),
+                accent: Palette.accent(.blue),
+                onAccent: Palette.onAccentText(.blue),
+                language: Bundle.main.preferredLocalizations.first,
+                isStill: true,
+                close: close
+            )
+        case .howToUse:
+            HelpContent(
+                accent: Palette.accent(.blue),
+                onAccent: Palette.onAccent(.blue),
+                version: AppVersion.installedText,
+                language: Bundle.main.preferredLocalizations.first,
+                close: close
+            )
+        }
+    }
 }

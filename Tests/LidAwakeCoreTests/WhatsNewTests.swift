@@ -127,3 +127,103 @@ final class ProjectLinkTests: XCTestCase {
         }
     }
 }
+
+final class WhatsNewSelectionTests: XCTestCase {
+    /// Out of order on purpose; the window sorts.
+    private let history = ["1.4.0", "1.2.0", "1.6.0", "1.3.0", "1.5.0"]
+
+    private func since(_ lastShown: String?, current: String = "1.6.0") -> WhatsNewSelection {
+        .sinceLastShown(history: history, current: current, lastShown: lastShown)
+    }
+
+    func testOneMissedVersion() {
+        XCTAssertEqual(since("1.5.0"), WhatsNewSelection(versions: ["1.6.0"], earlierCount: 0))
+    }
+
+    func testThreeMissedVersionsNewestFirst() {
+        XCTAssertEqual(since("1.3.0"), WhatsNewSelection(versions: ["1.6.0", "1.5.0", "1.4.0"], earlierCount: 0))
+    }
+
+    func testFiveMissedVersionsShowThreeAndCountTheRest() {
+        let selection = since("1.1.0")
+        XCTAssertEqual(selection.versions, ["1.6.0", "1.5.0", "1.4.0"])
+        XCTAssertEqual(selection.earlierCount, 2)
+    }
+
+    func testFirstInstallShowsOnlyTheCurrentVersion() {
+        XCTAssertEqual(since(nil), WhatsNewSelection(versions: ["1.6.0"], earlierCount: 0))
+    }
+
+    func testSameVersionShowsOnlyItself() {
+        XCTAssertEqual(since("1.6.0"), WhatsNewSelection(versions: ["1.6.0"], earlierCount: 0))
+    }
+
+    func testAnUnreadableOrLaterSavedVersionShowsOnlyTheCurrentOne() {
+        XCTAssertEqual(since("garbage"), WhatsNewSelection(versions: ["1.6.0"]))
+        XCTAssertEqual(since("2.0.0"), WhatsNewSelection(versions: ["1.6.0"]))
+    }
+
+    func testVersionsAfterTheCurrentOneAreLeftOut() {
+        XCTAssertEqual(since("1.2.0", current: "1.4.0"), WhatsNewSelection(versions: ["1.4.0", "1.3.0"]))
+    }
+
+    func testVersionsCompareAsNumbers() {
+        let selection = WhatsNewSelection.sinceLastShown(
+            history: ["1.9.0", "1.10.0", "1.8.0"], current: "1.10.0", lastShown: "1.8.0"
+        )
+        XCTAssertEqual(selection.versions, ["1.10.0", "1.9.0"])
+    }
+
+    func testCurrentVersionIsShownEvenWithoutAnEntry() {
+        let selection = WhatsNewSelection.sinceLastShown(history: ["1.2.0"], current: "1.3.0", lastShown: "1.1.0")
+        XCTAssertEqual(selection.versions, ["1.3.0", "1.2.0"])
+    }
+
+    func testFromTheRowTheCurrentVersionAndTwoBefore() {
+        XCTAssertEqual(
+            WhatsNewSelection.recent(history: history, current: "1.6.0"),
+            WhatsNewSelection(versions: ["1.6.0", "1.5.0", "1.4.0"], earlierCount: 0)
+        )
+        XCTAssertEqual(
+            WhatsNewSelection.recent(history: ["1.2.0"], current: "1.2.0"),
+            WhatsNewSelection(versions: ["1.2.0"])
+        )
+    }
+
+    func testLastShownVersionIsReadBack() throws {
+        let suiteName = "WhatsNewSelectionTests-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let launch = WhatsNewLaunch(defaults: defaults)
+        XCTAssertNil(launch.lastShownVersion)
+        launch.markShown(version: "1.2.0")
+        XCTAssertEqual(launch.lastShownVersion, "1.2.0")
+    }
+}
+
+final class PicturePaletteTests: XCTestCase {
+    /// The window and the tiles, light and dark.
+    private let backgrounds = ThemedRGB(light: 0xFFFFFF, dark: 0x1E1E1E)
+
+    func testSecondaryTextKeepsFourAndAHalfToOne() {
+        for isDark in [false, true] {
+            let ratio = Contrast.ratio(PicturePalette.secondaryText.value(isDark: isDark), backgrounds.value(isDark: isDark))
+            XCTAssertGreaterThanOrEqual(ratio, 4.5, "dark: \(isDark)")
+        }
+    }
+
+    func testBadgeTextKeepsFourAndAHalfToOneOnEveryFixedAccent() throws {
+        for theme in [AccentTheme.blue, .amber] {
+            let accent = try XCTUnwrap(theme.color)
+            for isDark in [false, true] {
+                let background = accent.value(isDark: isDark)
+                let ratio = Contrast.ratio(PicturePalette.text(on: background), background)
+                XCTAssertGreaterThanOrEqual(ratio, 4.5, "\(theme) dark: \(isDark)")
+            }
+        }
+    }
+
+    func testWaitBarsAreAmberWhateverTheAppearance() {
+        XCTAssertEqual(PicturePalette.waitBar, ThemedRGB(light: 0xE8A33A, dark: 0xE8A33A))
+    }
+}

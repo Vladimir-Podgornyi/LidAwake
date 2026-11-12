@@ -14,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let updates = UpdateChecker(source: UpdateBuild.source())
     let autoLogout = AutoLogoutMonitor()
     let activityLog = ActivityLog()
+    let whatsNewChoice = WhatsNewChoice()
     let sleepRecorder: SystemSleepRecorder
     let wakeScheduler: WakeScheduler
     private(set) lazy var activityLogWindow = ActivityLogWindowController(log: activityLog, accent: accent)
@@ -24,8 +25,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private(set) lazy var whatsNewWindow = InfoWindowController(
         title: String(localized: "What's new in LidAwake"),
         changes: updates.objectWillChange.map { _ in }.eraseToAnyPublisher()
-    ) { [updates, accent] close in
-        WhatsNewScreen(updates: updates, accent: accent, close: close)
+    ) { [updates, accent, whatsNewChoice] close in
+        WhatsNewScreen(updates: updates, accent: accent, choice: whatsNewChoice, close: close)
     }
     private(set) lazy var helpWindow = InfoWindowController(
         title: String(localized: "How to use LidAwake")
@@ -75,13 +76,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// On the first launch of a build with new news; a moment after launch, so the menu bar
-    /// icon is in place first.
+    /// On the first launch of a build with new news, with every version missed since the window
+    /// last opened; a moment after launch, so the menu bar icon is in place first.
     private func openWhatsNewOnFirstLaunch() {
         let launch = WhatsNewLaunch()
         guard launch.opensByItself(version: Edition.whatsNewVersion) else { return }
+        let lastShown = launch.lastShownVersion
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
             launch.markShown(version: Edition.whatsNewVersion)
+            self?.whatsNewChoice.sinceLastShown(lastShown)
             self?.whatsNewWindow.show()
         }
     }
@@ -135,6 +138,7 @@ struct LidAwakeApp: App {
                     if let window = NSApp.keyWindow {
                         MenuBarWindow.close(window)
                     }
+                    appDelegate.whatsNewChoice.recent()
                     appDelegate.whatsNewWindow.show()
                 },
                 openHowToUse: {

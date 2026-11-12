@@ -1,18 +1,20 @@
 import AppKit
 import Combine
+import LidAwakeCore
 import SwiftUI
 
 /// Owns one window of fixed width whose height follows its content, such as What's new: made on
-/// first use and kept, so the row brings the same window to the front every time. A window
-/// taller than the screen scrolls.
+/// first use and kept, so the row brings the same window to the front every time. The page's
+/// header and footer stay put; when the whole does not fit, only the middle scrolls.
 @MainActor
 final class InfoWindowController {
     nonisolated static let width: CGFloat = 520
-    /// Kept free above and below the window on a screen too short for it.
-    private static let screenMargin: CGFloat = 40
+    /// The tallest the window gets, as a part of the screen without the menu bar and the Dock.
+    static let maxScreenShare: CGFloat = 0.85
 
     private let title: String
     private let content: (_ close: @escaping () -> Void) -> AnyView
+    private let layout = InfoPageLayout()
     private var window: NSWindow?
     private var activation: NSObjectProtocol?
     private var changes: AnyCancellable?
@@ -55,23 +57,44 @@ final class InfoWindowController {
         window.makeFirstResponder(nil)
     }
 
+    /// The window as it opens, off screen, for `--render-window`. `visibleHeight` stands in for
+    /// the height of the screen's visible area.
+    func offscreenWindow(appearance: NSAppearance, visibleHeight: CGFloat) -> NSWindow {
+        let window = self.window ?? makeWindow()
+        self.window = window
+        window.appearance = appearance
+        fit(window, visibleHeight: visibleHeight)
+        window.setFrameOrigin(NSPoint(x: -10_000, y: -10_000))
+        window.orderFrontRegardless()
+        return window
+    }
+
     private func close() {
         window?.performClose(nil)
     }
 
-    /// Sets the height to the content's, keeping the top edge where it is.
-    private func fit(_ window: NSWindow) {
-        let measure = NSHostingView(rootView: content({}).frame(width: Self.width))
-        var height = measure.fittingSize.height
-        if let screen = window.screen ?? NSScreen.main {
-            let chrome = window.frame.height - window.contentLayoutRect.height
-            height = min(height, screen.visibleFrame.height - chrome - 2 * Self.screenMargin)
-        }
-        let top = window.frame.maxY
-        window.setContentSize(NSSize(width: Self.width, height: height.rounded(.up)))
-        if window.isVisible {
-            window.setFrameTopLeftPoint(NSPoint(x: window.frame.minX, y: top))
-        }
+    /// Sets the height to the content's, keeping the top edge where it is. The content fills the
+    /// whole window, title bar included.
+    private func fit(_ window: NSWindow, visibleHeight: CGFloat? = nil) {
+        let full = height(scrollHeight: nil)
+        let fixed = height(scrollHeight: 0)
+        let screenHeight = visibleHeight ?? (window.screen ?? NSScreen.main)?.visibleFrame.height
+        let maxHeight = screenHeight.map { ($0 * Self.maxScreenShare).rounded(.down) }
+        let scroll = WindowHeightLimit.scrollHeight(fixedHeight: fixed, contentHeight: full - fixed, maxHeight: maxHeight)
+        layout.scrollHeight = scroll
+        let height = scroll.map { fixed + $0 } ?? full
+        let top = window.isVisible ? window.frame.maxY : window.frame.minY + height
+        window.setFrame(
+            NSRect(x: window.frame.minX, y: top - height, width: Self.width, height: height),
+            display: window.isVisible
+        )
+    }
+
+    private func height(scrollHeight: CGFloat?) -> CGFloat {
+        let page = content({})
+            .environment(\.infoScrollHeight, scrollHeight)
+            .frame(width: Self.width)
+        return NSHostingView(rootView: page).fittingSize.height.rounded(.up)
     }
 
     private func makeKeyOnActivation(_ window: NSWindow) {
@@ -110,12 +133,7 @@ final class InfoWindowController {
         window.isMovableByWindowBackground = true
         window.isReleasedWhenClosed = false
         let page = content { [weak self] in self?.close() }
-        let host = NSHostingView(rootView: ViewThatFits(in: .vertical) {
-            page
-            ScrollView(.vertical) { page }
-        }
-        .frame(width: Self.width)
-        .background(Color(nsColor: .windowBackgroundColor)))
+        let host = NSHostingView(rootView: InfoPageHost(layout: layout, page: page))
         // The window sets the size; the content only fills it.
         host.sizingOptions = []
         window.contentView = host
@@ -136,6 +154,82 @@ private final class InfoNSWindow: NSWindow {
 
     override func cancelOperation(_ sender: Any?) {
         performClose(nil)
+    }
+}
+
+/// The height the middle of a page scrolls in; nil when the whole page fits.
+private struct InfoScrollHeightKey: EnvironmentKey {
+    static let defaultValue: CGFloat? = nil
+}
+
+extension EnvironmentValues {
+    var infoScrollHeight: CGFloat? {
+        get { self[InfoScrollHeightKey.self] }
+        set { self[InfoScrollHeightKey.self] = newValue }
+    }
+}
+
+@MainActor
+private final class InfoPageLayout: ObservableObject {
+    @Published var scrollHeight: CGFloat?
+}
+
+private struct InfoPageHost: View {
+    @ObservedObject var layout: InfoPageLayout
+    let page: AnyView
+
+    var body: some View {
+        page
+            .environment(\.infoScrollHeight, layout.scrollHeight)
+            .frame(width: InfoWindowController.width, alignment: .top)
+            .frame(maxHeight: .infinity, alignment: .top)
+            .background(Color(nsColor: .windowBackgroundColor))
+            // The page leaves room for the window buttons itself.
+            .ignoresSafeArea()
+    }
+}
+
+/// A window page: the header and the footer stay put, the middle scrolls when the window is too
+/// short for all of it.
+struct InfoPage<Header: View, Middle: View, Footer: View>: View {
+    static var sideMargin: CGFloat { 28 }
+
+    @ViewBuilder let header: Header
+    @ViewBuilder let middle: Middle
+    @ViewBuilder let footer: Footer
+
+    @Environment(\.infoScrollHeight) private var scrollHeight
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 0) { header }
+                .padding(.top, 28)
+                .padding(.horizontal, Self.sideMargin)
+                .padding(.bottom, scrollHeight == nil ? 20 : 12)
+            if let scrollHeight {
+                ScrollView(.vertical) {
+                    paddedMiddle
+                        .padding(.top, 14)
+                        .padding(.bottom, 16)
+                }
+                .frame(height: scrollHeight)
+                .overlay(alignment: .top) { Divider() }
+                .overlay(alignment: .bottom) { Divider() }
+            } else {
+                paddedMiddle
+            }
+            VStack(alignment: .leading, spacing: 0) { footer }
+                .padding(.top, 20)
+                .padding(.horizontal, Self.sideMargin)
+                .padding(.bottom, 20)
+        }
+        .frame(width: InfoWindowController.width, alignment: .leading)
+    }
+
+    private var paddedMiddle: some View {
+        VStack(alignment: .leading, spacing: 0) { middle }
+            .padding(.horizontal, Self.sideMargin)
+            .frame(width: InfoWindowController.width, alignment: .leading)
     }
 }
 
