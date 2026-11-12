@@ -32,6 +32,7 @@ public final class ModeController: ObservableObject, ScheduledModeStarting {
     private var renewalTask: Task<Void, Never>?
     private var timerTask: Task<Void, Never>?
     private var preferenceChanges: AnyCancellable?
+    private var modeChanges: AnyCancellable?
     private var requestedAuthorization = false
 
     public init(
@@ -70,6 +71,9 @@ public final class ModeController: ObservableObject, ScheduledModeStarting {
         self.now = now
         preferenceChanges = preferences.changes.sink { [weak self] in
             Task { @MainActor in await self?.safetyChanged() }
+        }
+        modeChanges = $mode.map { $0 != .off }.removeDuplicates().sink { [preferences] isOn in
+            MainActor.assumeIsolated { preferences.modeIsOn = isOn }
         }
         powerSourceMonitor.start { [weak self] in
             Task { @MainActor in await self?.powerSourceChanged() }

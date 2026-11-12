@@ -151,6 +151,7 @@
 "None" = "无";
 "While a watched app runs programs it started, such as a coding agent, a build or a script, Sleep when idle keeps counting it as work. Typing in the app and its own windows do not count." = "当被监视的应用正在运行由它启动的程序（例如编程助手、构建或脚本）时，“空闲时睡眠”会将其视为工作。在应用中打字以及应用自身的窗口不计入。";
 "Turn off after is set to 4 hours, so a stuck app can't keep the Mac awake forever. You can change it in Settings." = "“定时关闭”已设为 4 小时，以免卡住的应用让 Mac 一直保持唤醒。你可以在设置中更改。";
+"Turn off after will be set to 4 hours when LidAwake stops keeping the Mac awake. You can change it in Settings." = "LidAwake 停止让 Mac 保持唤醒后，“定时关闭”将设为 4 小时。你可以在设置中更改。";
 "Open now" = "当前打开";
 "Watched, not open" = "已监视，未打开";
 "Started programs are working now" = "已启动的程序正在运行";

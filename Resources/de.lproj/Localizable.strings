@@ -151,6 +151,7 @@
 "None" = "Keine";
 "While a watched app runs programs it started, such as a coding agent, a build or a script, Sleep when idle keeps counting it as work. Typing in the app and its own windows do not count." = "Solange eine beobachtete App Programme ausführt, die sie gestartet hat, etwa einen Coding-Agenten, einen Build oder ein Skript, zählt „Ruhezustand bei Leerlauf“ das als Arbeit. Tippen in der App und ihre eigenen Fenster zählen nicht.";
 "Turn off after is set to 4 hours, so a stuck app can't keep the Mac awake forever. You can change it in Settings." = "„Ausschalten nach“ ist auf 4 Stunden gestellt, damit eine hängende App den Mac nicht endlos wach hält. Du kannst das in den Einstellungen ändern.";
+"Turn off after will be set to 4 hours when LidAwake stops keeping the Mac awake. You can change it in Settings." = "„Ausschalten nach“ wird auf 4 Stunden gestellt, sobald LidAwake den Mac nicht mehr wach hält. Du kannst das in den Einstellungen ändern.";
 "Open now" = "Geöffnet";
 "Watched, not open" = "Beobachtet, nicht geöffnet";
 "Started programs are working now" = "Gestartete Programme arbeiten gerade";

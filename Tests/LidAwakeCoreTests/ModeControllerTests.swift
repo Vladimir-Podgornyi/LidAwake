@@ -648,6 +648,49 @@ final class ModeControllerTests: XCTestCase {
         )
     }
 
+    func testFirstWatchedAppDuringLongSessionKeepsItRunning() async throws {
+        let controller = makeController()
+        try await controller.select(.lidClosed)
+        time.now += 20_000
+
+        preferences.watchedAppPaths = ["/Applications/Editor.app"]
+        await settle { sessions.calls.count >= 2 }
+        XCTAssertEqual(sessions.calls, ["start 120", "renew 120"])
+        XCTAssertEqual(sessions.safety.last?.timerSeconds, 0)
+        await controller.checkTimer()
+        XCTAssertEqual(controller.mode, .lidClosed)
+        XCTAssertNil(controller.timerRemaining())
+
+        try await controller.select(.off)
+        XCTAssertTrue(preferences.timerEnabled)
+        XCTAssertEqual(preferences.timerSeconds, 14_400)
+
+        try await controller.select(.keepScreenOn)
+        XCTAssertEqual(controller.timerRemaining(), 14_400)
+    }
+
+    func testFirstWatchedAppInOffSetsTimerAtOnce() {
+        _ = makeController()
+        preferences.watchedAppPaths = ["/Applications/Editor.app"]
+        XCTAssertTrue(preferences.timerEnabled)
+        XCTAssertEqual(preferences.timerSeconds, 14_400)
+    }
+
+    func testPendingTimerIsSetWhenTheHelperEndsTheSession() async throws {
+        let controller = makeController()
+        try await controller.select(.lidClosed)
+        preferences.watchedAppPaths = ["/Applications/Editor.app"]
+        XCTAssertTrue(preferences.showsWatchedAppsTimerPendingNote)
+
+        sessions.stopRecord = StopRecord(reason: .thermal, time: Date())
+        sessions.renewError = HelperError.helper(.noSession, "No active session.")
+        await controller.renew()
+        XCTAssertEqual(controller.mode, .off)
+        XCTAssertTrue(preferences.timerEnabled)
+        XCTAssertEqual(preferences.timerSeconds, 14_400)
+        XCTAssertFalse(preferences.showsWatchedAppsTimerPendingNote)
+    }
+
     func testWatchedAppsChangeSendsRenewal() async throws {
         preferences.idleSleepEnabled = true
         let controller = makeController()

@@ -151,6 +151,7 @@
 "None" = "Нет";
 "While a watched app runs programs it started, such as a coding agent, a build or a script, Sleep when idle keeps counting it as work. Typing in the app and its own windows do not count." = "Пока программа под наблюдением выполняет запущенные ею программы — агента для кода, сборку или скрипт, — «Сон после простоя» считает это работой. Набор текста в самой программе и её окна не считаются.";
 "Turn off after is set to 4 hours, so a stuck app can't keep the Mac awake forever. You can change it in Settings." = "«Выключить через» стоит на 4 часа, чтобы зависшая программа не держала Mac без сна бесконечно. Это можно изменить в Настройках.";
+"Turn off after will be set to 4 hours when LidAwake stops keeping the Mac awake. You can change it in Settings." = "«Выключить через» встанет на 4 часа, когда LidAwake перестанет держать Mac без сна. Это можно изменить в Настройках.";
 "Open now" = "Открыты сейчас";
 "Watched, not open" = "Под наблюдением, не открыты";
 "Started programs are working now" = "Запущенные программы сейчас работают";
