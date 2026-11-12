@@ -51,6 +51,7 @@ final class Helper: NSObject, HelperProtocol {
         timerSeconds: Int,
         batteryLimitPercent: Int,
         thermalProtection: Bool,
+        thermalStopAtFair: Bool,
         chargingOnly: Bool,
         idleSleepMinutes: Int,
         watchedAppPaths: [String],
@@ -60,6 +61,7 @@ final class Helper: NSObject, HelperProtocol {
             timerSeconds: timerSeconds,
             batteryLimitPercent: batteryLimitPercent,
             thermalProtection: thermalProtection,
+            thermalStopAtFair: thermalStopAtFair,
             chargingOnly: chargingOnly,
             idleSleepMinutes: idleSleepMinutes,
             watchedAppPaths: watchedAppPaths
@@ -72,6 +74,7 @@ final class Helper: NSObject, HelperProtocol {
         timerSeconds: Int,
         batteryLimitPercent: Int,
         thermalProtection: Bool,
+        thermalStopAtFair: Bool,
         chargingOnly: Bool,
         idleSleepMinutes: Int,
         watchedAppPaths: [String],
@@ -81,6 +84,7 @@ final class Helper: NSObject, HelperProtocol {
             timerSeconds: timerSeconds,
             batteryLimitPercent: batteryLimitPercent,
             thermalProtection: thermalProtection,
+            thermalStopAtFair: thermalStopAtFair,
             chargingOnly: chargingOnly,
             idleSleepMinutes: idleSleepMinutes,
             watchedAppPaths: watchedAppPaths

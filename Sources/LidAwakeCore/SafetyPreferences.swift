@@ -181,6 +181,7 @@ public final class SafetyPreferences: ObservableObject {
             timerSeconds: timerEnabled ? timerSeconds : 0,
             batteryLimitPercent: batteryLimitApplies && batteryLimitEnabled ? batteryLimitPercent : 0,
             thermalProtection: thermalProtectionEnabled,
+            thermalStopAtFair: false,
             chargingOnly: chargingOnlyEnabled,
             idleSleepMinutes: idleSleepEnabled ? idleSleepMinutes : 0,
             watchedAppPaths: idleSleepEnabled ? Self.acceptedWatchedAppPaths(watchedAppPaths) : []

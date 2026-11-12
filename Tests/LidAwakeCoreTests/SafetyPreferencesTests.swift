@@ -58,6 +58,13 @@ final class SafetyPreferencesTests: XCTestCase {
         XCTAssertTrue(SafetyPreferences(defaults: defaults).helperSettings.isValid)
     }
 
+    func testThermalStopAtFairIsNeverSent() {
+        let preferences = SafetyPreferences(defaults: defaults)
+        preferences.thermalProtectionEnabled = true
+        XCTAssertTrue(preferences.helperSettings.thermalProtection)
+        XCTAssertFalse(preferences.helperSettings.thermalStopAtFair)
+    }
+
     func testIdleSleepIsSentOnlyWhenOn() {
         let preferences = SafetyPreferences(defaults: defaults)
         XCTAssertFalse(preferences.idleSleepEnabled)

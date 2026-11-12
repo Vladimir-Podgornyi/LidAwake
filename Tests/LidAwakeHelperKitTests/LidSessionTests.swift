@@ -487,12 +487,14 @@ final class LidSessionTests: XCTestCase {
         timer: Int = 0,
         battery: Int = 0,
         thermal: Bool = false,
+        stopAtFair: Bool = false,
         idleMinutes: Int = 0
     ) -> SafetySettings {
         SafetySettings(
             timerSeconds: timer,
             batteryLimitPercent: battery,
             thermalProtection: thermal,
+            thermalStopAtFair: stopAtFair,
             idleSleepMinutes: idleMinutes
         )
     }
@@ -946,6 +948,88 @@ final class LidSessionTests: XCTestCase {
             XCTAssertTrue(flag.value)
         }
         XCTAssertNil(stopReasons.record)
+    }
+
+    func testFairEndsSessionWhenStoppingAtFair() {
+        let session = makeSession()
+        XCTAssertEqual(session.start(lease: 120, safety: limits(thermal: true, stopAtFair: true)), .ok)
+
+        thermal.state = .nominal
+        XCTAssertNil(session.enforceLimits())
+        XCTAssertTrue(session.isActive)
+
+        thermal.state = .fair
+        XCTAssertEqual(session.enforceLimits(), .ok)
+        XCTAssertFalse(session.isActive)
+        XCTAssertFalse(flag.value)
+        XCTAssertFalse(marker.isSet)
+        XCTAssertEqual(stopReasons.record, StopRecord(reason: .thermal, time: wallTime))
+    }
+
+    func testFairKeepsSessionWithoutStoppingAtFair() {
+        let session = makeSession()
+        XCTAssertEqual(session.start(lease: 120, safety: limits(thermal: true, stopAtFair: false)), .ok)
+
+        thermal.state = .fair
+        XCTAssertNil(session.enforceLimits())
+        XCTAssertTrue(session.isActive)
+        XCTAssertTrue(flag.value)
+        XCTAssertNil(stopReasons.record)
+    }
+
+    func testStoppingAtFairNeedsThermalProtection() {
+        let session = makeSession()
+        XCTAssertEqual(session.start(lease: 120, safety: limits(thermal: false, stopAtFair: true)), .ok)
+
+        thermal.state = .fair
+        XCTAssertNil(session.enforceLimits())
+        thermal.state = .critical
+        XCTAssertNil(session.enforceLimits())
+        XCTAssertTrue(session.isActive)
+        XCTAssertNil(stopReasons.record)
+    }
+
+    func testStoppingAtFairStillStopsWhenSeriousCriticalOrUnknown() {
+        for (state, reason) in [(ThermalState.serious, StopReason.thermal), (.critical, .thermal), (.unknown, .thermalUnreadable)] {
+            flag = FakeFlag(false)
+            marker = FakeMarker()
+            stopReasons.record = nil
+            thermal.state = .nominal
+            let session = makeSession()
+            XCTAssertEqual(session.start(lease: 120, safety: limits(thermal: true, stopAtFair: true)), .ok)
+
+            thermal.state = state
+            XCTAssertEqual(session.enforceLimits(), .ok, "\(state)")
+            XCTAssertFalse(session.isActive, "\(state)")
+            XCTAssertEqual(stopReasons.record, StopRecord(reason: reason, time: wallTime), "\(state)")
+        }
+    }
+
+    func testRenewingWithStoppingAtFairEndsSessionAtFair() {
+        let session = makeSession()
+        XCTAssertEqual(session.start(lease: 120, safety: limits(thermal: true)), .ok)
+
+        thermal.state = .fair
+        XCTAssertNil(session.enforceLimits())
+        XCTAssertTrue(session.isActive)
+
+        XCTAssertEqual(session.renew(lease: 120, safety: limits(thermal: true, stopAtFair: true)), .ok)
+        XCTAssertTrue(session.safety.thermalStopAtFair)
+        XCTAssertEqual(session.enforceLimits(), .ok)
+        XCTAssertFalse(session.isActive)
+        XCTAssertFalse(flag.value)
+        XCTAssertEqual(stopReasons.record, StopRecord(reason: .thermal, time: wallTime))
+    }
+
+    func testStartRefusedAtFairWhenStoppingAtFair() {
+        thermal.state = .fair
+        let result = makeSession().start(lease: 120, safety: limits(thermal: true, stopAtFair: true))
+        XCTAssertEqual(result.code, .thermalLimitReached)
+        XCTAssertEqual(result.message, "The Mac is too hot (thermal state fair).")
+        XCTAssertFalse(marker.isSet)
+        XCTAssertEqual(flag.writes, [])
+
+        XCTAssertEqual(makeSession().start(lease: 120, safety: limits(thermal: true)), .ok)
     }
 
     func testThermalProtectionOffKeepsSessionWhenCritical() {

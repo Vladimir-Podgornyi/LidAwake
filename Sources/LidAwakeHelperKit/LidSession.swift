@@ -94,7 +94,7 @@ public final class LidSession {
         if isActive {
             return renew(lease: lease, safety: safety)
         }
-        if let stop = thermalStop(enabled: safety.thermalProtection) {
+        if let stop = thermalStop(safety) {
             return SessionResult(code: .thermalLimitReached, message: stop.message)
         }
         if let stop = batteryStop(limit: safety.batteryLimitPercent) {
@@ -215,7 +215,7 @@ public final class LidSession {
         if let remaining = timerRemaining, remaining <= 0 {
             return stop(.timer, batteryPercent: nil)
         }
-        if let thermal = thermalStop(enabled: safety.thermalProtection) {
+        if let thermal = thermalStop(safety) {
             return stop(thermal.reason, batteryPercent: nil)
         }
         if let battery = batteryStop(limit: safety.batteryLimitPercent) {
@@ -322,13 +322,15 @@ public final class LidSession {
         return TimeInterval(safety.timerSeconds) - (clock.now - startedAt)
     }
 
-    private func thermalStop(enabled: Bool) -> LimitStop? {
-        guard enabled else { return nil }
+    private func thermalStop(_ safety: SafetySettings) -> LimitStop? {
+        guard safety.thermalProtection else { return nil }
         let state = thermal.read()
         switch state {
-        case .nominal, .fair:
+        case .nominal:
             return nil
-        case .serious, .critical:
+        case .fair where !safety.thermalStopAtFair:
+            return nil
+        case .fair, .serious, .critical:
             return LimitStop(reason: .thermal, percent: nil, message: "The Mac is too hot (thermal state \(state.token)).")
         case .unknown:
             return LimitStop(reason: .thermalUnreadable, percent: nil, message: "The thermal state could not be read.")

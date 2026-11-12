@@ -12,6 +12,8 @@ public struct SafetySettings: Equatable {
     public let batteryLimitPercent: Int
     /// Ends the session when the Mac gets too hot.
     public let thermalProtection: Bool
+    /// With `thermalProtection`, ends the session already at the fair thermal state.
+    public let thermalStopAtFair: Bool
     /// Pauses the session while the Mac runs on battery.
     public let chargingOnly: Bool
     /// Minutes of an idle Mac that end the session; 0 turns it off.
@@ -23,6 +25,7 @@ public struct SafetySettings: Equatable {
         timerSeconds: Int,
         batteryLimitPercent: Int,
         thermalProtection: Bool,
+        thermalStopAtFair: Bool = false,
         chargingOnly: Bool = false,
         idleSleepMinutes: Int = 0,
         watchedAppPaths: [String] = []
@@ -30,6 +33,7 @@ public struct SafetySettings: Equatable {
         self.timerSeconds = timerSeconds
         self.batteryLimitPercent = batteryLimitPercent
         self.thermalProtection = thermalProtection
+        self.thermalStopAtFair = thermalStopAtFair
         self.chargingOnly = chargingOnly
         self.idleSleepMinutes = idleSleepMinutes
         self.watchedAppPaths = watchedAppPaths

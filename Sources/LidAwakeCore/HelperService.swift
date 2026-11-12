@@ -128,6 +128,7 @@ public struct XPCHelperConnection: HelperConnecting, LidSessionService, IdleStat
                 timerSeconds: safety.timerSeconds,
                 batteryLimitPercent: safety.batteryLimitPercent,
                 thermalProtection: safety.thermalProtection,
+                thermalStopAtFair: safety.thermalStopAtFair,
                 chargingOnly: safety.chargingOnly,
                 idleSleepMinutes: safety.idleSleepMinutes,
                 watchedAppPaths: safety.watchedAppPaths
@@ -142,6 +143,7 @@ public struct XPCHelperConnection: HelperConnecting, LidSessionService, IdleStat
                 timerSeconds: safety.timerSeconds,
                 batteryLimitPercent: safety.batteryLimitPercent,
                 thermalProtection: safety.thermalProtection,
+                thermalStopAtFair: safety.thermalStopAtFair,
                 chargingOnly: safety.chargingOnly,
                 idleSleepMinutes: safety.idleSleepMinutes,
                 watchedAppPaths: safety.watchedAppPaths
