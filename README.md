@@ -18,7 +18,7 @@
 - Stops by itself when the Mac gets hot, when the battery runs low, when the timer ends or when the work is done, and can run only while charging.
 - Can wake the Mac at a set time every day, keep it running while the work goes on and let it sleep when the work is done.
 - If the app quits unexpectedly or stops responding, normal sleep returns by itself within two minutes.
-- Open source (MIT), no account and no analytics. The only network activity is a daily update check, and it can be turned off.
+- Open source (MIT), no account and no analytics. The only network activity is a daily check for updates and offers, and it can be turned off.
 - The interface is in English, German, Russian and Simplified Chinese.
 
 LidAwake is an open-source alternative to apps like Amphetamine and to the `caffeinate` command for keeping a Mac awake, including with the lid closed and no external display.
@@ -168,9 +168,19 @@ LidAwake is developed and tested on a MacBook Air (M1) with macOS 26. Version 1.
 
 ## Updates
 
-Once a day LidAwake asks `github.com` for the number of the latest release. This is one request; the Intel build sends a second one to see whether that release has an Intel disk image. If `github.com` gives no answer the app can use, it asks `api.github.com` instead. The requests carry no data about you or your Mac; their User-Agent contains only the app version. Only the version number is read from the reply, and nothing is downloaded. If a newer version exists, the window shows Update available with a Download button that opens the releases page. A failed check is silent.
+Once a day the Apple silicon build reads one small file from this repository, [`update.json`](update.json), at `https://raw.githubusercontent.com/Vladimir-Podgornyi/LidAwake/main/update.json`. It holds the number of the latest version and, sometimes, an offer for LidAwake Pro:
 
-The check is turned off with the Check for updates toggle in Settings; when it is off, no requests are made. Updates are installed by hand: download the new DMG, choose Quit LidAwake, and drag LidAwake over the old copy in Applications. Finder does not replace the app while it is running.
+```json
+{"version": "1.1.1",
+ "offer": {"percent": 15, "price": "9.99", "sale": "8.49",
+           "until": "2026-12-03", "url": "https://buy.polar.sh/..."}}
+```
+
+`offer` is optional. From the file the app reads only the version number and, when present, the discount in percent, the old and new price in euros, the last day of the offer and the payment link. The link is accepted only on `buy.polar.sh` or `erstgebaut.de`; an offer that fails any check is ignored. All words in the window come from the app itself, never from the file. While an offer runs, until the end of its last day in your time zone, the LidAwake Pro card at the bottom of the window shows the discount; it is kept until then, so it stays visible offline, and is removed when a later file has no offer. The reply may be at most 4 KB and redirects are not followed.
+
+If the file cannot be read, the app asks `github.com` for the number of the latest release, and if that gives no answer the app can use, `api.github.com`; these replies carry no offer. The Intel build skips the file and the offers: it asks `github.com`, sends a second request to see whether that release has an Intel disk image, and falls back to `api.github.com`. The requests carry no data about you or your Mac; their User-Agent contains only the app version. Nothing is downloaded. If a newer version exists, the window shows Update available with a Download button that opens the releases page. A failed check is silent.
+
+The check is turned off with the Check for updates toggle in Settings; when it is off, no requests are made and no offer is shown. Updates are installed by hand: download the new DMG, choose Quit LidAwake, and drag LidAwake over the old copy in Applications. Finder does not replace the app while it is running.
 
 If LidAwake was installed with Homebrew, update it with:
 
@@ -180,7 +190,7 @@ brew upgrade --cask lidawake
 
 Homebrew quits LidAwake and unregisters its helper before replacing the app. LidAwake registers the helper again the next time you choose Run with Lid Closed.
 
-The bottom of the window shows a LidAwake Pro card. Clicking it opens erstgebaut.de/lidawake in the browser; the app makes no request for it.
+The bottom of the window shows a LidAwake Pro card. Clicking it opens erstgebaut.de/lidawake in the browser, or the payment link of a running offer; the app makes no request for it.
 
 LidAwake makes no other network requests and contains no analytics. The helper does not use the network.
 

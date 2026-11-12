@@ -309,7 +309,21 @@ struct ContentView: View {
         case .appearance: appearanceRow
         case .accent: accentRow
         case .activityLog: ActivityLogOpenRow(action: openActivityLog)
-        case .proOffer: ProOfferRow(accent: accentColor) { NSWorkspace.shared.open(ProOffer.page) }
+        case .proOffer: proOfferCard
+        }
+    }
+
+    @ViewBuilder
+    private var proOfferCard: some View {
+        switch ProOfferCard.card(isShown: ProOffer.isShown, offer: updates.offer) {
+        case .plain:
+            ProOfferRow(accent: accentColor) { NSWorkspace.shared.open(ProOffer.page) }
+        case .discount(let offer):
+            ProDiscountRow(offer: offer, language: Bundle.main.preferredLocalizations.first, accent: accentColor) {
+                NSWorkspace.shared.open(offer.url)
+            }
+        case nil:
+            EmptyView()
         }
     }
 
@@ -850,6 +864,84 @@ private struct ProOfferRow: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(verbatim: "LidAwake Pro, ") + Text("Movie on a TV, waits for downloads and exports"))
+    }
+}
+
+/// The LidAwake Pro card while an offer from the update file runs. Only the numbers, the date and
+/// the link come from the file.
+private struct ProDiscountRow: View {
+    let offer: UpdateOffer
+    let language: String?
+    let accent: Color
+    let action: () -> Void
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
+        Button(action: action) {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 6) {
+                        Text(verbatim: "LidAwake Pro")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Color.primary)
+                        Text("−\(offer.percent)%")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(Color.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 1)
+                            .background(Capsule().fill(accent))
+                    }
+                    Text("Movie on a TV, waits for downloads and exports")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(verbatim: oldPrice)
+                            .font(.system(size: 11))
+                            .strikethrough()
+                            .foregroundStyle(.secondary)
+                        Text(verbatim: newPrice)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Color.primary)
+                        if let lastDay {
+                            Text("until \(lastDay)")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(accent)
+                    .frame(width: 14)
+                    .accessibilityHidden(true)
+            }
+            .padding(.vertical, 12)
+            .padding(.horizontal, 13)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(shape.fill(accent.opacity(0.10)))
+            .overlay(shape.strokeBorder(accent.opacity(0.45), lineWidth: 1))
+            .contentShape(shape)
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityText)
+        .accessibilityAddTraits(.isButton)
+    }
+
+    private var oldPrice: String { OfferFormat.price(offer.priceAmount, language: language) }
+    private var newPrice: String { OfferFormat.price(offer.saleAmount, language: language) }
+    private var lastDay: String? { offer.lastDay().map { OfferFormat.day($0, language: language) } }
+
+    private var accessibilityText: Text {
+        var text = Text(verbatim: "LidAwake Pro, ") + Text("−\(offer.percent)%") + Text(verbatim: ", ")
+            + Text("Movie on a TV, waits for downloads and exports")
+            + Text(verbatim: ", \(oldPrice) → \(newPrice)")
+        if let lastDay {
+            text = text + Text(verbatim: ", ") + Text("until \(lastDay)")
+        }
+        return text
     }
 }
 

@@ -73,6 +73,14 @@ notarize() {
     fi
 }
 
+# The Apple silicon build reads the latest version from update.json in this repository.
+FILE_VERSION="$(plutil -extract version raw -o - update.json 2>/dev/null || true)"
+APP_VERSION="$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" Resources/Info.plist)"
+if [[ "$FILE_VERSION" != "$APP_VERSION" ]]; then
+    echo "ERROR: update.json says ${FILE_VERSION:-nothing}, the app is $APP_VERSION. Set \"version\" in update.json to $APP_VERSION." >&2
+    exit 1
+fi
+
 step "Building $APP"
 ARCH="$ARCH" ./scripts/build-app.sh
 

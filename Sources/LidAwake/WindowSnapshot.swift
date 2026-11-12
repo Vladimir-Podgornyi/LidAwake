@@ -243,7 +243,7 @@ enum WindowSnapshot {
             accent: AccentPreference(defaults: defaults),
             windowStyle: WindowAppearancePreference(defaults: defaults),
             disclosure: SettingsDisclosurePreference(defaults: defaults),
-            updates: UpdateChecker(defaults: defaults, source: inert),
+            updates: UpdateChecker(defaults: defaults, source: ReleaseOnlyUpdateSource(inert)),
             // The other shots do not depend on the setting of this Mac.
             autoLogout: AutoLogoutMonitor(
                 source: FixedAutoLogout(delay: shot.showsAutoLogout ? 3600 : nil),

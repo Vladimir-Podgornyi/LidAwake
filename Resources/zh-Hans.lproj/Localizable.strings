@@ -160,3 +160,6 @@
 
 /* LidAwake Pro */
 "Movie on a TV, waits for downloads and exports" = "电视观影，等待下载和导出完成";
+
+"−%lld%%" = "−%lld%%";
+"until %@" = "截至 %@";

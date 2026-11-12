@@ -161,7 +161,7 @@ struct GitHubRequest: Sendable {
 }
 
 /// Hands the redirect response itself back to the caller instead of following it.
-private final class RedirectRefusal: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
+final class RedirectRefusal: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
     func urlSession(
         _ session: URLSession,
         task: URLSessionTask,
@@ -307,6 +307,8 @@ public enum ReleaseOrigin: String, Sendable {
     case web
     /// api.github.com.
     case api
+    /// The update file in this repository.
+    case file
 }
 
 /// Reads the latest release from the redirect of the github.com release page, which has no
@@ -392,15 +394,17 @@ public struct WebFirstReleaseSource: ReleaseSource {
 /// The outcome of one --check-update run.
 public enum UpdateCheckReport {
     /// `intel` adds "files=intel", so the output shows that only Intel disk images were looked at;
-    /// `origin` adds "source=", the way that gave the answer.
+    /// `origin` adds "source=", the way that gave the answer; `offer` adds "offer=" and "until=".
     public static func line(
         result: Result<ReleaseLookup, Error>,
         current: String,
         intel: Bool = false,
-        origin: ReleaseOrigin? = nil
+        origin: ReleaseOrigin? = nil,
+        offer: UpdateOffer? = nil
     ) -> (text: String, exitCode: Int32) {
         let report = plainLine(result: result, current: current)
         var text = intel ? report.text + " files=intel" : report.text
+        if let offer { text += " offer=\(offer.percent)% until=\(offer.until)" }
         if let origin { text += " source=\(origin.rawValue)" }
         return (text, report.exitCode)
     }
@@ -438,6 +442,8 @@ public final class UpdateChecker: ObservableObject {
     public static let enabledKey = "updateCheckEnabled"
     public static let lastCheckKey = "updateLastCheck"
     public static let latestVersionKey = "updateLatestVersion"
+    /// The last offer read from the update file, kept so the window shows it offline until it ends.
+    public static let offerKey = "updateOffer"
 
     public static let interval: TimeInterval = 24 * 60 * 60
     public static let launchDelay: TimeInterval = 10
@@ -450,9 +456,10 @@ public final class UpdateChecker: ObservableObject {
     }
 
     @Published public private(set) var latestVersion: AppVersion?
+    @Published public private(set) var savedOffer: UpdateOffer?
 
     private let defaults: UserDefaults
-    private let source: ReleaseSource
+    private let source: UpdateSource
     private let currentText: String
     private let now: () -> Date
     private let sleep: (TimeInterval) async throws -> Void
@@ -460,7 +467,7 @@ public final class UpdateChecker: ObservableObject {
 
     public init(
         defaults: UserDefaults = .standard,
-        source: ReleaseSource = GitHubReleaseSource(),
+        source: UpdateSource = ReleaseOnlyUpdateSource(GitHubReleaseSource()),
         currentVersion: String = AppVersion.installedText,
         now: @escaping () -> Date = Date.init,
         sleep: @escaping (TimeInterval) async throws -> Void = { try await Task.sleep(nanoseconds: UInt64($0 * 1_000_000_000)) }
@@ -472,6 +479,13 @@ public final class UpdateChecker: ObservableObject {
         self.sleep = sleep
         isEnabled = defaults.object(forKey: Self.enabledKey) as? Bool ?? true
         latestVersion = defaults.string(forKey: Self.latestVersionKey).flatMap(AppVersion.init)
+        savedOffer = defaults.data(forKey: Self.offerKey).flatMap { try? JSONDecoder().decode(UpdateOffer.self, from: $0) }
+    }
+
+    /// The offer to show, or nil when the check is off, there is none or it is over.
+    public var offer: UpdateOffer? {
+        guard isEnabled, let savedOffer, savedOffer.isActive(at: now()) else { return nil }
+        return savedOffer
     }
 
     /// The banner to show, or nil when the check is off or the installed version is not older.
@@ -513,10 +527,21 @@ public final class UpdateChecker: ObservableObject {
     public func checkIfDue() async {
         guard isEnabled, isDue else { return }
         defaults.set(now(), forKey: Self.lastCheckKey)
-        guard case .tag(let tag)? = try? await source.latestRelease(), let latest = AppVersion(tag) else {
+        let answer = await source.answer()
+        guard case .tag(let tag)? = try? answer.result.get(), let latest = AppVersion(tag) else {
             return
         }
         defaults.set(latest.description, forKey: Self.latestVersionKey)
         latestVersion = latest
+        switch answer.offer {
+        case .notRead:
+            break
+        case .none:
+            defaults.removeObject(forKey: Self.offerKey)
+            savedOffer = nil
+        case .offer(let offer):
+            defaults.set(try? JSONEncoder().encode(offer), forKey: Self.offerKey)
+            savedOffer = offer
+        }
     }
 }

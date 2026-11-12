@@ -160,3 +160,6 @@
 
 /* LidAwake Pro */
 "Movie on a TV, waits for downloads and exports" = "Film auf dem Fernseher, wartet auf Downloads und Exporte";
+
+"−%lld%%" = "−%lld%%";
+"until %@" = "bis %@";

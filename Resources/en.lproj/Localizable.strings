@@ -160,3 +160,6 @@
 
 /* LidAwake Pro */
 "Movie on a TV, waits for downloads and exports" = "Movie on a TV, waits for downloads and exports";
+
+"−%lld%%" = "−%lld%%";
+"until %@" = "until %@";
