@@ -58,26 +58,43 @@ struct HelpContent: View {
         } footer: {
             Divider()
                 .padding(.bottom, 14)
-            HStack(alignment: .center, spacing: 14) {
-                Text(verbatim: (version.isEmpty ? Edition.name : "\(Edition.name) \(version)") + " · © 2026 Vladimir Podgornyi")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                ForEach(Edition.helpLinks, id: \.self) { link in
-                    Link(destination: link.url(language: language)) {
-                        Text(link.title)
-                            .font(.system(size: 12))
-                    }
-                    .foregroundStyle(accent)
-                }
-                Spacer(minLength: 0)
-                Button(action: close) {
-                    Text("Done")
-                        .frame(minWidth: 72)
-                }
-                .keyboardShortcut(.defaultAction)
+            // Without room the copyright goes under the name; the links and the button stay put.
+            ViewThatFits(in: .horizontal) {
+                footerRow(credit: "\(Self.versionName(version)) · \(Self.copyright)")
+                footerRow(credit: "\(Self.versionName(version))\n\(Self.copyright)")
             }
         }
         .tint(accent)
+    }
+
+    static let copyright = "© 2026 Vladimir Podgornyi"
+
+    static func versionName(_ version: String) -> String {
+        version.isEmpty ? Edition.name : "\(Edition.name) \(version)"
+    }
+
+    private func footerRow(credit: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 14) {
+            Text(verbatim: credit)
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .fixedSize()
+            ForEach(Edition.helpLinks, id: \.self) { link in
+                Link(destination: link.url(language: language)) {
+                    Text(link.title)
+                        .font(.system(size: 12))
+                }
+                .foregroundStyle(accent)
+                .fixedSize()
+            }
+            Spacer(minLength: 0)
+            Button(action: close) {
+                Text("Done")
+                    .frame(minWidth: 72)
+            }
+            .keyboardShortcut(.defaultAction)
+            .fixedSize()
+        }
     }
 }
 
