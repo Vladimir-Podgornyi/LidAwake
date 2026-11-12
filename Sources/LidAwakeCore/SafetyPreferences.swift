@@ -18,6 +18,7 @@ public final class SafetyPreferences: ObservableObject {
         public static let timerSetForWatchedApps = "timerSetForWatchedApps"
         public static let watchedAppsTimerPending = "watchedAppsTimerPending"
         public static let watchedAppsTimerConsidered = "watchedAppsTimerConsidered"
+        public static let watchedAppsTimerMigrated = "watchedAppsTimerMigrated"
     }
 
     public static let timerChoices = [1800, 3600, 7200, 14_400, 28_800]
@@ -152,6 +153,7 @@ public final class SafetyPreferences: ObservableObject {
         timerSetForWatchedApps = defaults.bool(forKey: Key.timerSetForWatchedApps)
         watchedAppsTimerPending = defaults.bool(forKey: Key.watchedAppsTimerPending)
         watchedAppsTimerConsidered = defaults.bool(forKey: Key.watchedAppsTimerConsidered)
+        migrateWatchedAppsTimer()
         // The app starts in Off; a mode that was on when it quit has ended.
         applyPendingWatchedAppsTimer()
     }
@@ -242,6 +244,17 @@ public final class SafetyPreferences: ObservableObject {
             sendsChanges = false
             setWatchedAppsTimer()
             sendsChanges = sends
+        }
+    }
+
+    /// A list kept from a version without the 4-hour timer was chosen without it, so the timer is
+    /// never set for that list. Runs once; an emptied and refilled list follows the usual rule.
+    private func migrateWatchedAppsTimer() {
+        guard !defaults.bool(forKey: Key.watchedAppsTimerMigrated) else { return }
+        defaults.set(true, forKey: Key.watchedAppsTimerMigrated)
+        if !watchedAppPaths.isEmpty {
+            watchedAppsTimerConsidered = true
+            defaults.set(true, forKey: Key.watchedAppsTimerConsidered)
         }
     }
 

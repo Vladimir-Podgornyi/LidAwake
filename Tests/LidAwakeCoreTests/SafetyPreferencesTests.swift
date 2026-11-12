@@ -367,6 +367,77 @@ final class SafetyPreferencesTests: XCTestCase {
         XCTAssertEqual(preferences.timerSeconds, 14_400)
     }
 
+    func testListKeptFromAnOlderVersionNeverGetsTheTimer() {
+        defaults.set(["/Applications/Editor.app"], forKey: "watchedAppPaths")
+        let preferences = SafetyPreferences(defaults: defaults)
+
+        preferences.idleSleepEnabled = true
+        XCTAssertFalse(preferences.timerEnabled)
+        XCTAssertFalse(preferences.showsWatchedAppsTimerNote)
+        XCTAssertFalse(preferences.showsWatchedAppsTimerPendingNote)
+
+        preferences.watchedAppPaths = ["/Applications/Editor.app", "/Applications/Utilities/Terminal.app"]
+        preferences.idleSleepEnabled = false
+        preferences.modeIsOn = true
+        preferences.idleSleepEnabled = true
+        XCTAssertFalse(preferences.showsWatchedAppsTimerPendingNote)
+        preferences.modeIsOn = false
+        XCTAssertFalse(preferences.timerEnabled)
+
+        let relaunched = SafetyPreferences(defaults: defaults)
+        relaunched.idleSleepEnabled = false
+        relaunched.idleSleepEnabled = true
+        XCTAssertFalse(relaunched.timerEnabled)
+        XCTAssertEqual(relaunched.timerSeconds, 7200)
+    }
+
+    func testListKeptFromAnOlderVersionWithSleepWhenIdleOnNeverGetsTheTimer() {
+        defaults.set(["/Applications/Editor.app"], forKey: "watchedAppPaths")
+        defaults.set(true, forKey: "idleSleepEnabled")
+        let preferences = SafetyPreferences(defaults: defaults)
+        XCTAssertFalse(preferences.timerEnabled)
+
+        let relaunched = SafetyPreferences(defaults: defaults)
+        relaunched.idleSleepEnabled = false
+        relaunched.idleSleepEnabled = true
+        XCTAssertFalse(relaunched.timerEnabled)
+    }
+
+    func testEmptyListFromAnOlderVersionFollowsTheUsualRule() {
+        defaults.set([String](), forKey: "watchedAppPaths")
+        defaults.set(true, forKey: "idleSleepEnabled")
+        let preferences = SafetyPreferences(defaults: defaults)
+
+        preferences.watchedAppPaths = ["/Applications/Editor.app"]
+        XCTAssertTrue(preferences.timerEnabled)
+        XCTAssertEqual(preferences.timerSeconds, 14_400)
+        XCTAssertTrue(preferences.showsWatchedAppsTimerNote)
+    }
+
+    func testListKeptFromAnOlderVersionThenRefilledFollowsTheUsualRule() {
+        defaults.set(["/Applications/Editor.app"], forKey: "watchedAppPaths")
+        let preferences = SafetyPreferences(defaults: defaults)
+        preferences.idleSleepEnabled = true
+        XCTAssertFalse(preferences.timerEnabled)
+
+        preferences.watchedAppPaths = []
+        preferences.watchedAppPaths = ["/Applications/Editor.app"]
+        XCTAssertTrue(preferences.timerEnabled)
+        XCTAssertEqual(preferences.timerSeconds, 14_400)
+        XCTAssertTrue(preferences.showsWatchedAppsTimerNote)
+    }
+
+    func testListFilledAfterTheFirstLaunchIsNotTakenForAnOldOne() {
+        let preferences = SafetyPreferences(defaults: defaults)
+        preferences.watchedAppPaths = ["/Applications/Editor.app"]
+        XCTAssertFalse(preferences.timerEnabled, "Sleep when idle is off")
+
+        let relaunched = SafetyPreferences(defaults: defaults)
+        relaunched.idleSleepEnabled = true
+        XCTAssertTrue(relaunched.timerEnabled)
+        XCTAssertEqual(relaunched.timerSeconds, 14_400)
+    }
+
     func testWatchedAppsAreStoredAndSentOnlyWithIdleSleep() {
         let preferences = SafetyPreferences(defaults: defaults)
         XCTAssertEqual(preferences.watchedAppPaths, [])

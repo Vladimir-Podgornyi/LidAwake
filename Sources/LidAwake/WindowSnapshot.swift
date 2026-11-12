@@ -210,6 +210,7 @@ enum WindowSnapshot {
         shotArguments[SafetyPreferences.Key.idleSleepMinutes] = 20
         shotArguments[WakePreferences.Key.wakeEnabled] = shot.wakeOn
         shotArguments[SafetyPreferences.Key.watchedAppPaths] = shot.watched
+        shotArguments[SafetyPreferences.Key.watchedAppsTimerMigrated] = true
         shotArguments[WakePreferences.Key.wakeMinuteOfDay] = WakePreferences.defaultMinuteOfDay
         UserDefaults.standard.setVolatileDomain(shotArguments, forName: UserDefaults.argumentDomain)
         defer { UserDefaults.standard.setVolatileDomain(arguments, forName: UserDefaults.argumentDomain) }
