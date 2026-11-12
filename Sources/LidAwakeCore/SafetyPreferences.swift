@@ -17,11 +17,12 @@ public final class SafetyPreferences: ObservableObject {
         public static let watchedAppPaths = "watchedAppPaths"
         public static let timerSetForWatchedApps = "timerSetForWatchedApps"
         public static let watchedAppsTimerPending = "watchedAppsTimerPending"
+        public static let watchedAppsTimerConsidered = "watchedAppsTimerConsidered"
     }
 
     public static let timerChoices = [1800, 3600, 7200, 14_400, 28_800]
-    /// Set when the first watched app is added with the timer off, so a stuck app cannot keep the Mac
-    /// awake forever.
+    /// Set the first time Sleep when idle is on with watched apps and the timer off, so a stuck app
+    /// cannot keep the Mac awake forever.
     public static let watchedAppsTimerSeconds = 14_400
     public static let batteryLimitChoices = [10, 20, 30, 40, 50]
     public static let idleSleepChoices = [10, 20, 30, 60]
@@ -52,7 +53,17 @@ public final class SafetyPreferences: ObservableObject {
         didSet { save(chargingOnlyEnabled, Key.chargingOnlyEnabled) }
     }
     @Published public var idleSleepEnabled: Bool {
-        didSet { save(idleSleepEnabled, Key.idleSleepEnabled) }
+        didSet {
+            if idleSleepEnabled != oldValue, !changesIdleSleepForSession {
+                idleSleepForSessionOnly = false
+                if idleSleepEnabled {
+                    considerWatchedAppsTimer()
+                } else {
+                    watchedAppsTimerPending = false
+                }
+            }
+            save(idleSleepEnabled, Key.idleSleepEnabled)
+        }
     }
     @Published public var idleSleepMinutes: Int {
         didSet { save(idleSleepMinutes, Key.idleSleepMinutes) }
@@ -63,18 +74,9 @@ public final class SafetyPreferences: ObservableObject {
             if watchedAppPaths.isEmpty {
                 timerSetForWatchedApps = false
                 watchedAppsTimerPending = false
-            } else if oldValue.isEmpty, !timerEnabled {
-                // The timer counts from the start of the mode, so turning it on now could end a long
-                // session at once.
-                if modeIsOn {
-                    watchedAppsTimerPending = true
-                } else {
-                    // The save below sends the one change for all three settings.
-                    let sends = sendsChanges
-                    sendsChanges = false
-                    setWatchedAppsTimer()
-                    sendsChanges = sends
-                }
+                watchedAppsTimerConsidered = false
+            } else if oldValue.isEmpty {
+                considerWatchedAppsTimer()
             }
             save(watchedAppPaths, Key.watchedAppPaths)
         }
@@ -84,10 +86,16 @@ public final class SafetyPreferences: ObservableObject {
     @Published public private(set) var timerSetForWatchedApps: Bool {
         didSet { defaults.set(timerSetForWatchedApps, forKey: Key.timerSetForWatchedApps) }
     }
-    /// The first watched app was added while a mode was on; the 4-hour timer is set when the mode ends.
-    /// Cleared when the timer is turned on or the list is emptied. Not sent to the helper.
+    /// Watched apps first met Sleep when idle while a mode was on; the 4-hour timer is set when the
+    /// mode ends. Cleared when the timer is turned on, Sleep when idle is turned off or the list is
+    /// emptied. Not sent to the helper.
     @Published public private(set) var watchedAppsTimerPending: Bool {
         didSet { defaults.set(watchedAppsTimerPending, forKey: Key.watchedAppsTimerPending) }
+    }
+    /// Sleep when idle and watched apps have met since the list was last empty, so the 4-hour timer
+    /// is not offered again. Not sent to the helper.
+    public private(set) var watchedAppsTimerConsidered: Bool {
+        didSet { defaults.set(watchedAppsTimerConsidered, forKey: Key.watchedAppsTimerConsidered) }
     }
     /// Set by the mode controller. Ending a mode sets a pending watched-apps timer.
     public var modeIsOn = false {
@@ -107,6 +115,9 @@ public final class SafetyPreferences: ObservableObject {
 
     private let defaults: UserDefaults
     private var sendsChanges = true
+    /// Sleep when idle was turned on by `beginIdleSleepSession`, not by the user.
+    private var idleSleepForSessionOnly = false
+    private var changesIdleSleepForSession = false
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -123,6 +134,7 @@ public final class SafetyPreferences: ObservableObject {
             Key.watchedAppPaths: [String](),
             Key.timerSetForWatchedApps: false,
             Key.watchedAppsTimerPending: false,
+            Key.watchedAppsTimerConsidered: false,
         ])
         timerEnabled = defaults.bool(forKey: Key.timerEnabled)
         timerSeconds = Self.clamp(defaults.integer(forKey: Key.timerSeconds), to: SafetySettings.timerRange)
@@ -139,6 +151,7 @@ public final class SafetyPreferences: ObservableObject {
         watchedAppPaths = defaults.stringArray(forKey: Key.watchedAppPaths) ?? []
         timerSetForWatchedApps = defaults.bool(forKey: Key.timerSetForWatchedApps)
         watchedAppsTimerPending = defaults.bool(forKey: Key.watchedAppsTimerPending)
+        watchedAppsTimerConsidered = defaults.bool(forKey: Key.watchedAppsTimerConsidered)
         // The app starts in Off; a mode that was on when it quit has ended.
         applyPendingWatchedAppsTimer()
     }
@@ -188,8 +201,13 @@ public final class SafetyPreferences: ObservableObject {
     public func beginIdleSleepSession() {
         guard !idleSleepEnabled else { return }
         sendsChanges = false
-        defer { sendsChanges = true }
+        changesIdleSleepForSession = true
+        defer {
+            sendsChanges = true
+            changesIdleSleepForSession = false
+        }
         idleSleepEnabled = true
+        idleSleepForSessionOnly = true
     }
 
     /// Sleep when idle lasts one Run with Lid Closed session. The session has already ended, so there is
@@ -197,8 +215,33 @@ public final class SafetyPreferences: ObservableObject {
     public func endIdleSleepSession() {
         guard idleSleepEnabled else { return }
         sendsChanges = false
-        defer { sendsChanges = true }
+        changesIdleSleepForSession = true
+        defer {
+            sendsChanges = true
+            changesIdleSleepForSession = false
+        }
         idleSleepEnabled = false
+        idleSleepForSessionOnly = false
+    }
+
+    /// Called when Sleep when idle is turned on or the first app is added. The caller's save sends
+    /// the one change for every setting touched here.
+    private func considerWatchedAppsTimer() {
+        guard idleSleepEnabled, !idleSleepForSessionOnly, !watchedAppPaths.isEmpty, !watchedAppsTimerConsidered else {
+            return
+        }
+        watchedAppsTimerConsidered = true
+        guard !timerEnabled else { return }
+        // The timer counts from the start of the mode, so turning it on now could end a long
+        // session at once.
+        if modeIsOn {
+            watchedAppsTimerPending = true
+        } else {
+            let sends = sendsChanges
+            sendsChanges = false
+            setWatchedAppsTimer()
+            sendsChanges = sends
+        }
     }
 
     private func setWatchedAppsTimer() {

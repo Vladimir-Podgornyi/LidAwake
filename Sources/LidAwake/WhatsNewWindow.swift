@@ -30,7 +30,7 @@ enum WhatsNewFeature: Hashable {
         case .downloads: return Text("Stays awake until a big download is done, then sleeps.")
         case .exports: return Text("Stays awake while a video renders, then sleeps.")
         case .inABag: return Text("One switch with stricter protections for a Mac in a bag.")
-        case .updates: return Text("The Update button opens your purchases, where the new version is ready to download.")
+        case .updates: return Text("The Download button opens your purchases, where the new version is ready.")
         }
     }
 
@@ -356,8 +356,8 @@ struct FeaturePicture: View {
 private struct FeatureLoop {
     let period: Double
     let stillTime: Double
-    /// The words fade into each other themselves; the other pictures fade out at the end of a
-    /// round and in at the start of the next, so they do not jump back.
+    /// The words fade out and in themselves; the other pictures fade out at the end of a round
+    /// and in at the start of the next, so they do not jump back.
     let fadesAround: Bool
 
     init(_ feature: WhatsNewFeature) {
@@ -395,7 +395,7 @@ private enum Ease {
     }
 }
 
-/// One word a second, each fading into the next.
+/// One word a second: each fades out before the next fades in, so two are never seen at once.
 private struct GreetingPicture: View {
     static let words = ["Hello", "こんにちは", "Bonjour", "Hola", "Olá", "안녕하세요", "Ciao"]
 
@@ -403,11 +403,9 @@ private struct GreetingPicture: View {
 
     var body: some View {
         let index = Int(time) % Self.words.count
-        let blend = Ease.step(time - floor(time), from: 0.75, to: 1)
-        ZStack {
-            word(Self.words[index]).opacity(1 - blend)
-            word(Self.words[(index + 1) % Self.words.count]).opacity(blend)
-        }
+        let part = time - floor(time)
+        word(Self.words[index])
+            .opacity(Ease.step(part, from: 0, to: 0.15) * (1 - Ease.step(part, from: 0.85, to: 1)))
     }
 
     private func word(_ text: String) -> some View {
@@ -533,7 +531,7 @@ private struct BagPicture: View {
     }
 }
 
-/// The Update button is pressed, the new version comes down, and a green check shows it is there.
+/// The Download button is pressed, the new version comes down, and a green check shows it is there.
 private struct UpdatePicture: View {
     let time: Double
     let accent: Color
@@ -544,7 +542,8 @@ private struct UpdatePicture: View {
         let check = Ease.step(time, from: 2.8, to: 3.1)
         let shape = RoundedRectangle(cornerRadius: 6, style: .continuous)
         VStack(spacing: 8) {
-            Text("Update")
+            // The same word as on the update banner's button.
+            Text("Download")
                 .font(.system(size: 11, weight: .semibold))
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)

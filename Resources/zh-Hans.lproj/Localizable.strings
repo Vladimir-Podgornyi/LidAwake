@@ -184,8 +184,7 @@
 "One switch with stricter protections for a Mac in a bag." = "一个开关，为包里的 Mac 启用更严格的保护。";
 "New" = "新";
 "Updates in one click" = "一键更新";
-"The Update button opens your purchases, where the new version is ready to download." = "“更新”按钮会打开你的购买记录，新版本已在那里等待下载。";
-"Update" = "更新";
+"The Download button opens your purchases, where the new version is ready." = "“下载”按钮会打开你的购买记录，新版本已在那里准备好。";
 "−%lld%% on LidAwake Pro" = "LidAwake Pro 优惠 %lld%%";
 "one-time" = "一次性购买";
 "one-time · until %@" = "一次性购买 · 截至 %@";
@@ -196,7 +195,7 @@
 "Allow the helper once" = "允许辅助程序（仅需一次）";
 "The first time you choose Run with Lid Closed, allow LidAwake in System Settings › General › Login Items & Extensions. No password is needed." = "首次选择“合盖运行”时，请在“系统设置 › 通用 › 登录项与扩展”中允许 LidAwake。无需输入密码。";
 "Let it end by itself" = "让它自动结束";
-"In Settings, Sleep when idle lets the Mac sleep once the work is done, and Turn off after ends the mode after a set time. The mode also stops when the Mac gets hot or the battery runs low." = "在设置中，“空闲时睡眠”会在工作完成后让 Mac 睡眠，“定时关闭”会在设定时间后结束模式。Mac 过热或电量不足时，模式也会停止。";
+"In Settings, Sleep when idle lets the Mac sleep once the work is done, and Turn off after ends the mode after a set time. With Sleep when idle on, adding the first watched app sets Turn off after to 4 hours, so a stuck app can't keep the Mac awake forever. The mode also stops when the Mac gets hot or the battery runs low." = "在设置中，“空闲时睡眠”会在工作完成后让 Mac 睡眠，“定时关闭”会在设定时间后结束模式。开启“空闲时睡眠”后，添加第一个监视的应用会将“定时关闭”设为 4 小时，以免卡住的应用让 Mac 一直保持唤醒。Mac 过热或电量不足时，模式也会停止。";
 "Avoid packing a running Mac in a closed bag" = "不要把运行中的 Mac 放进封闭的包里";
 "A closed laptop in a bag cools poorly. The protections reduce the risk; they do not remove it. If you must carry it running, prefer a short session and keep an eye on the temperature. You use LidAwake at your own risk." = "合上的笔记本放在包里散热很差。保护功能可以降低风险，但无法消除风险。如果必须在运行状态下携带，请尽量缩短时间并留意温度。使用 LidAwake 的风险由你自行承担。";
 "Website" = "网站";

@@ -184,8 +184,7 @@
 "One switch with stricter protections for a Mac in a bag." = "One switch with stricter protections for a Mac in a bag.";
 "New" = "New";
 "Updates in one click" = "Updates in one click";
-"The Update button opens your purchases, where the new version is ready to download." = "The Update button opens your purchases, where the new version is ready to download.";
-"Update" = "Update";
+"The Download button opens your purchases, where the new version is ready." = "The Download button opens your purchases, where the new version is ready.";
 "−%lld%% on LidAwake Pro" = "−%lld%% on LidAwake Pro";
 "one-time" = "one-time";
 "one-time · until %@" = "one-time · until %@";
@@ -196,7 +195,7 @@
 "Allow the helper once" = "Allow the helper once";
 "The first time you choose Run with Lid Closed, allow LidAwake in System Settings › General › Login Items & Extensions. No password is needed." = "The first time you choose Run with Lid Closed, allow LidAwake in System Settings › General › Login Items & Extensions. No password is needed.";
 "Let it end by itself" = "Let it end by itself";
-"In Settings, Sleep when idle lets the Mac sleep once the work is done, and Turn off after ends the mode after a set time. The mode also stops when the Mac gets hot or the battery runs low." = "In Settings, Sleep when idle lets the Mac sleep once the work is done, and Turn off after ends the mode after a set time. The mode also stops when the Mac gets hot or the battery runs low.";
+"In Settings, Sleep when idle lets the Mac sleep once the work is done, and Turn off after ends the mode after a set time. With Sleep when idle on, adding the first watched app sets Turn off after to 4 hours, so a stuck app can't keep the Mac awake forever. The mode also stops when the Mac gets hot or the battery runs low." = "In Settings, Sleep when idle lets the Mac sleep once the work is done, and Turn off after ends the mode after a set time. With Sleep when idle on, adding the first watched app sets Turn off after to 4 hours, so a stuck app can't keep the Mac awake forever. The mode also stops when the Mac gets hot or the battery runs low.";
 "Avoid packing a running Mac in a closed bag" = "Avoid packing a running Mac in a closed bag";
 "A closed laptop in a bag cools poorly. The protections reduce the risk; they do not remove it. If you must carry it running, prefer a short session and keep an eye on the temperature. You use LidAwake at your own risk." = "A closed laptop in a bag cools poorly. The protections reduce the risk; they do not remove it. If you must carry it running, prefer a short session and keep an eye on the temperature. You use LidAwake at your own risk.";
 "Website" = "Website";

@@ -184,8 +184,7 @@
 "One switch with stricter protections for a Mac in a bag." = "Ein Schalter mit strengeren Schutzfunktionen für einen Mac in der Tasche.";
 "New" = "Neu";
 "Updates in one click" = "Updates mit einem Klick";
-"The Update button opens your purchases, where the new version is ready to download." = "Die Taste „Aktualisieren“ öffnet deine Käufe, dort liegt die neue Version zum Laden bereit.";
-"Update" = "Aktualisieren";
+"The Download button opens your purchases, where the new version is ready." = "Die Taste „Laden“ öffnet deine Käufe, dort liegt die neue Version bereit.";
 "−%lld%% on LidAwake Pro" = "−%lld%% auf LidAwake Pro";
 "one-time" = "einmalig";
 "one-time · until %@" = "einmalig · bis %@";
@@ -196,7 +195,7 @@
 "Allow the helper once" = "Hilfsprogramm einmal erlauben";
 "The first time you choose Run with Lid Closed, allow LidAwake in System Settings › General › Login Items & Extensions. No password is needed." = "Wenn du „Mit geschlossenem Deckel“ zum ersten Mal wählst, erlaube LidAwake unter Systemeinstellungen › Allgemein › Anmeldeobjekte & Erweiterungen. Ein Passwort ist nicht nötig.";
 "Let it end by itself" = "Von selbst enden lassen";
-"In Settings, Sleep when idle lets the Mac sleep once the work is done, and Turn off after ends the mode after a set time. The mode also stops when the Mac gets hot or the battery runs low." = "In den Einstellungen lässt „Ruhezustand bei Leerlauf“ den Mac schlafen, sobald die Arbeit erledigt ist, und „Ausschalten nach“ beendet den Modus nach einer festen Zeit. Der Modus endet auch, wenn der Mac zu heiß wird oder der Akku schwach ist.";
+"In Settings, Sleep when idle lets the Mac sleep once the work is done, and Turn off after ends the mode after a set time. With Sleep when idle on, adding the first watched app sets Turn off after to 4 hours, so a stuck app can't keep the Mac awake forever. The mode also stops when the Mac gets hot or the battery runs low." = "In den Einstellungen lässt „Ruhezustand bei Leerlauf“ den Mac schlafen, sobald die Arbeit erledigt ist, und „Ausschalten nach“ beendet den Modus nach einer festen Zeit. Ist „Ruhezustand bei Leerlauf“ an, stellt die erste beobachtete App „Ausschalten nach“ auf 4 Stunden, damit eine hängende App den Mac nicht endlos wach hält. Der Modus endet auch, wenn der Mac zu heiß wird oder der Akku schwach ist.";
 "Avoid packing a running Mac in a closed bag" = "Einen laufenden Mac nicht in eine geschlossene Tasche packen";
 "A closed laptop in a bag cools poorly. The protections reduce the risk; they do not remove it. If you must carry it running, prefer a short session and keep an eye on the temperature. You use LidAwake at your own risk." = "Ein zugeklappter Laptop in einer Tasche kühlt schlecht. Die Schutzfunktionen verringern das Risiko, beseitigen es aber nicht. Wenn du ihn unbedingt laufend tragen musst, halte die Sitzung kurz und behalte die Temperatur im Blick. Du nutzt LidAwake auf eigenes Risiko.";
 "Website" = "Website";

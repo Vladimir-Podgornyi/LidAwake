@@ -649,6 +649,7 @@ final class ModeControllerTests: XCTestCase {
     }
 
     func testFirstWatchedAppDuringLongSessionKeepsItRunning() async throws {
+        preferences.idleSleepEnabled = true
         let controller = makeController()
         try await controller.select(.lidClosed)
         time.now += 20_000
@@ -670,6 +671,7 @@ final class ModeControllerTests: XCTestCase {
     }
 
     func testFirstWatchedAppInOffSetsTimerAtOnce() {
+        preferences.idleSleepEnabled = true
         _ = makeController()
         preferences.watchedAppPaths = ["/Applications/Editor.app"]
         XCTAssertTrue(preferences.timerEnabled)
@@ -677,6 +679,7 @@ final class ModeControllerTests: XCTestCase {
     }
 
     func testPendingTimerIsSetWhenTheHelperEndsTheSession() async throws {
+        preferences.idleSleepEnabled = true
         let controller = makeController()
         try await controller.select(.lidClosed)
         preferences.watchedAppPaths = ["/Applications/Editor.app"]
@@ -1785,6 +1788,18 @@ final class ModeControllerTests: XCTestCase {
             .modeOnBySchedule(.lidClosed),
             .modeOff(.lidClosed, .user),
         ])
+    }
+
+    func testFirstWatchedAppInScheduledSessionLeavesTimerAlone() async throws {
+        let controller = makeController()
+        await controller.turnOnBySchedule()
+        XCTAssertTrue(preferences.idleSleepEnabled)
+
+        preferences.watchedAppPaths = ["/Applications/Editor.app"]
+        XCTAssertFalse(preferences.showsWatchedAppsTimerPendingNote)
+        try await controller.select(.off)
+        XCTAssertFalse(preferences.timerEnabled)
+        XCTAssertEqual(preferences.timerSeconds, 7200)
     }
 
     func testScheduledTurnOnDoesNotSendTheSettingTwice() async {

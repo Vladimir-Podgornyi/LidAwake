@@ -184,8 +184,7 @@
 "One switch with stricter protections for a Mac in a bag." = "Один переключатель с более строгими защитами для Mac в сумке.";
 "New" = "Новое";
 "Updates in one click" = "Обновление в один клик";
-"The Update button opens your purchases, where the new version is ready to download." = "Кнопка «Обновить» открывает ваши покупки, где новая версия уже готова к загрузке.";
-"Update" = "Обновить";
+"The Download button opens your purchases, where the new version is ready." = "Кнопка «Скачать» открывает ваши покупки, где новая версия уже готова.";
 "−%lld%% on LidAwake Pro" = "−%lld%% на LidAwake Pro";
 "one-time" = "разовая покупка";
 "one-time · until %@" = "разовая покупка · до %@";
@@ -196,7 +195,7 @@
 "Allow the helper once" = "Один раз разрешите помощника";
 "The first time you choose Run with Lid Closed, allow LidAwake in System Settings › General › Login Items & Extensions. No password is needed." = "Когда вы впервые выберете «С закрытой крышкой», разрешите LidAwake: «Системные настройки» › «Основные» › «Объекты входа и расширения». Пароль не нужен.";
 "Let it end by itself" = "Пусть режим заканчивается сам";
-"In Settings, Sleep when idle lets the Mac sleep once the work is done, and Turn off after ends the mode after a set time. The mode also stops when the Mac gets hot or the battery runs low." = "В настройках «Сон после простоя» даёт Mac заснуть, когда работа закончена, а «Выключить через» завершает режим через заданное время. Режим также останавливается при перегреве или низком заряде.";
+"In Settings, Sleep when idle lets the Mac sleep once the work is done, and Turn off after ends the mode after a set time. With Sleep when idle on, adding the first watched app sets Turn off after to 4 hours, so a stuck app can't keep the Mac awake forever. The mode also stops when the Mac gets hot or the battery runs low." = "В настройках «Сон после простоя» даёт Mac заснуть, когда работа закончена, а «Выключить через» завершает режим через заданное время. Когда «Сон после простоя» включён, первая программа, добавленная под наблюдение, ставит «Выключить через» на 4 часа, чтобы зависшая программа не держала Mac без сна бесконечно. Режим также останавливается при перегреве или низком заряде.";
 "Avoid packing a running Mac in a closed bag" = "Не кладите работающий Mac в закрытую сумку";
 "A closed laptop in a bag cools poorly. The protections reduce the risk; they do not remove it. If you must carry it running, prefer a short session and keep an eye on the temperature. You use LidAwake at your own risk." = "Закрытый ноутбук в сумке плохо охлаждается. Защиты снижают риск, но не устраняют его. Если всё же нужно нести его включённым, пусть сеанс будет коротким, и следите за температурой. Вы пользуетесь LidAwake на свой страх и риск.";
 "Website" = "Сайт";

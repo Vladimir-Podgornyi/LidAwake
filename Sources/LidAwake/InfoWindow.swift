@@ -18,6 +18,9 @@ final class InfoWindowController {
     private var window: NSWindow?
     private var activation: NSObjectProtocol?
     private var changes: AnyCancellable?
+    /// The height of the header and footer with the middle scrolled to nothing, and the tallest
+    /// the window may get, as of the last fit.
+    private var fitted: (fixed: CGFloat, maxHeight: CGFloat?)?
 
     /// `changes` tells of anything that may change the content's height while the window is open.
     init<Content: View>(
@@ -81,8 +84,31 @@ final class InfoWindowController {
         let screenHeight = visibleHeight ?? (window.screen ?? NSScreen.main)?.visibleFrame.height
         let maxHeight = screenHeight.map { ($0 * Self.maxScreenShare).rounded(.down) }
         let scroll = WindowHeightLimit.scrollHeight(fixedHeight: fixed, contentHeight: full - fixed, maxHeight: maxHeight)
+        fitted = (fixed, maxHeight)
         layout.scrollHeight = scroll
-        let height = scroll.map { fixed + $0 } ?? full
+        setHeight(scroll.map { fixed + $0 } ?? full, of: window)
+        // The page measured on its own comes out a few points off its height in the window, as
+        // stretchy parts take a different size; laid out in the window, it decides the height.
+        window.contentView?.layoutSubtreeIfNeeded()
+        matchPage(window)
+    }
+
+    /// Makes the window as tall as the page laid out in it, so the space under the footer is the
+    /// footer's own. A hosting view inside the window can't measure it: it counts the title bar
+    /// in, which the page covers.
+    private func matchPage(_ window: NSWindow) {
+        let page = layout.pageHeight
+        guard page > 0, let fitted else { return }
+        if layout.scrollHeight == nil, let maxHeight = fitted.maxHeight, page > maxHeight {
+            layout.scrollHeight = max(0, maxHeight - fitted.fixed)
+            return
+        }
+        if abs(page - window.frame.height) >= 0.5 {
+            setHeight(page, of: window)
+        }
+    }
+
+    private func setHeight(_ height: CGFloat, of window: NSWindow) {
         let top = window.isVisible ? window.frame.maxY : window.frame.minY + height
         window.setFrame(
             NSRect(x: window.frame.minX, y: top - height, width: Self.width, height: height),
@@ -137,6 +163,10 @@ final class InfoWindowController {
         // The window sets the size; the content only fills it.
         host.sizingOptions = []
         window.contentView = host
+        layout.pageHeightChanged = { [weak self, weak window] in
+            guard let window else { return }
+            self?.matchPage(window)
+        }
         return window
     }
 }
@@ -172,6 +202,17 @@ extension EnvironmentValues {
 @MainActor
 private final class InfoPageLayout: ObservableObject {
     @Published var scrollHeight: CGFloat?
+    /// The page's height as laid out in the window; 0 until it is.
+    var pageHeight: CGFloat = 0
+    var pageHeightChanged: (() -> Void)?
+}
+
+private struct InfoPageHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
 }
 
 private struct InfoPageHost: View {
@@ -181,6 +222,15 @@ private struct InfoPageHost: View {
     var body: some View {
         page
             .environment(\.infoScrollHeight, layout.scrollHeight)
+            .background(GeometryReader { proxy in
+                Color.clear.preference(key: InfoPageHeightKey.self, value: proxy.size.height)
+            })
+            .onPreferenceChange(InfoPageHeightKey.self) { height in
+                guard height != layout.pageHeight else { return }
+                layout.pageHeight = height
+                // Not in the middle of the view update that reported it.
+                DispatchQueue.main.async { [layout] in layout.pageHeightChanged?() }
+            }
             .frame(width: InfoWindowController.width, alignment: .top)
             .frame(maxHeight: .infinity, alignment: .top)
             .background(Color(nsColor: .windowBackgroundColor))
@@ -193,6 +243,10 @@ private struct InfoPageHost: View {
 /// short for all of it.
 struct InfoPage<Header: View, Middle: View, Footer: View>: View {
     static var sideMargin: CGFloat { 28 }
+    static var topMargin: CGFloat { 28 }
+    /// The empty space above the capitals in the line of the 20 point bold title, so the space
+    /// under the footer looks as tall as the space above the title.
+    static var titleInset: CGFloat { 3 }
 
     @ViewBuilder let header: Header
     @ViewBuilder let middle: Middle
@@ -203,7 +257,7 @@ struct InfoPage<Header: View, Middle: View, Footer: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 0) { header }
-                .padding(.top, 28)
+                .padding(.top, Self.topMargin)
                 .padding(.horizontal, Self.sideMargin)
                 .padding(.bottom, scrollHeight == nil ? 20 : 12)
             if let scrollHeight {
@@ -221,7 +275,7 @@ struct InfoPage<Header: View, Middle: View, Footer: View>: View {
             VStack(alignment: .leading, spacing: 0) { footer }
                 .padding(.top, 20)
                 .padding(.horizontal, Self.sideMargin)
-                .padding(.bottom, 20)
+                .padding(.bottom, Self.topMargin + Self.titleInset)
         }
         .frame(width: InfoWindowController.width, alignment: .leading)
     }

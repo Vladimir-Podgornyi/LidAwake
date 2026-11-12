@@ -48,7 +48,7 @@ struct HelpContent: View {
                 HelpStep(
                     number: 3,
                     title: "Let it end by itself",
-                    text: "In Settings, Sleep when idle lets the Mac sleep once the work is done, and Turn off after ends the mode after a set time. The mode also stops when the Mac gets hot or the battery runs low.",
+                    text: "In Settings, Sleep when idle lets the Mac sleep once the work is done, and Turn off after ends the mode after a set time. With Sleep when idle on, adding the first watched app sets Turn off after to 4 hours, so a stuck app can't keep the Mac awake forever. The mode also stops when the Mac gets hot or the battery runs low.",
                     accent: accent,
                     onAccent: onAccent
                 )
