@@ -360,6 +360,7 @@ enum WindowSnapshot {
             list: list,
             busy: WatchedAppsShot.busy,
             canAdd: true,
+            showsTimerNote: false,
             accent: Palette.accent(.blue),
             // The made-up apps have no icons of their own.
             icon: { _ in NSWorkspace.shared.icon(for: .applicationBundle) },

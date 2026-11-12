@@ -15,14 +15,23 @@ public final class SafetyPreferences: ObservableObject {
         public static let idleSleepEnabled = "idleSleepEnabled"
         public static let idleSleepMinutes = "idleSleepMinutes"
         public static let watchedAppPaths = "watchedAppPaths"
+        public static let timerSetForWatchedApps = "timerSetForWatchedApps"
     }
 
     public static let timerChoices = [1800, 3600, 7200, 14_400, 28_800]
+    /// Set when the first watched app is added with the timer off, so a stuck app cannot keep the Mac
+    /// awake forever.
+    public static let watchedAppsTimerSeconds = 14_400
     public static let batteryLimitChoices = [10, 20, 30, 40, 50]
     public static let idleSleepChoices = [10, 20, 30, 60]
 
     @Published public var timerEnabled: Bool {
-        didSet { save(timerEnabled, Key.timerEnabled) }
+        didSet {
+            save(timerEnabled, Key.timerEnabled)
+            if !timerEnabled {
+                timerSetForWatchedApps = false
+            }
+        }
     }
     @Published public var timerSeconds: Int {
         didSet { save(timerSeconds, Key.timerSeconds) }
@@ -47,7 +56,25 @@ public final class SafetyPreferences: ObservableObject {
     }
     /// Apps whose started programs count as work for Sleep when idle.
     @Published public var watchedAppPaths: [String] {
-        didSet { save(watchedAppPaths, Key.watchedAppPaths) }
+        didSet {
+            if watchedAppPaths.isEmpty {
+                timerSetForWatchedApps = false
+            } else if oldValue.isEmpty, !timerEnabled {
+                // The save below sends the one change for all three settings.
+                let sends = sendsChanges
+                sendsChanges = false
+                timerSeconds = Self.watchedAppsTimerSeconds
+                timerEnabled = true
+                sendsChanges = sends
+                timerSetForWatchedApps = true
+            }
+            save(watchedAppPaths, Key.watchedAppPaths)
+        }
+    }
+    /// The timer was turned on by adding the first watched app; cleared when the timer is turned off
+    /// or the list is emptied. Not sent to the helper.
+    @Published public private(set) var timerSetForWatchedApps: Bool {
+        didSet { defaults.set(timerSetForWatchedApps, forKey: Key.timerSetForWatchedApps) }
     }
     /// Not sent to the helper, so changing it does not fire `changes`.
     @Published public var lockOnLidCloseEnabled: Bool {
@@ -73,6 +100,7 @@ public final class SafetyPreferences: ObservableObject {
             Key.idleSleepEnabled: false,
             Key.idleSleepMinutes: 20,
             Key.watchedAppPaths: [String](),
+            Key.timerSetForWatchedApps: false,
         ])
         timerEnabled = defaults.bool(forKey: Key.timerEnabled)
         timerSeconds = Self.clamp(defaults.integer(forKey: Key.timerSeconds), to: SafetySettings.timerRange)
@@ -87,6 +115,12 @@ public final class SafetyPreferences: ObservableObject {
         idleSleepEnabled = defaults.bool(forKey: Key.idleSleepEnabled)
         idleSleepMinutes = Self.clamp(defaults.integer(forKey: Key.idleSleepMinutes), to: SafetySettings.idleSleepRange)
         watchedAppPaths = defaults.stringArray(forKey: Key.watchedAppPaths) ?? []
+        timerSetForWatchedApps = defaults.bool(forKey: Key.timerSetForWatchedApps)
+    }
+
+    /// The note under the Watched Apps list.
+    public var showsWatchedAppsTimerNote: Bool {
+        timerSetForWatchedApps && timerEnabled && !watchedAppPaths.isEmpty
     }
 
     /// The timer applies in both modes; the other protections only in Run with Lid Closed.

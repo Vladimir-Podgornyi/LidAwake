@@ -72,6 +72,67 @@ final class SafetyPreferencesTests: XCTestCase {
         XCTAssertEqual(preferences.idleSleepMinutes, 30)
     }
 
+    func testFirstWatchedAppTurnsTimerOnForFourHours() {
+        let preferences = SafetyPreferences(defaults: defaults)
+        XCTAssertFalse(preferences.timerEnabled)
+
+        preferences.watchedAppPaths = ["/Applications/Editor.app"]
+        XCTAssertTrue(preferences.timerEnabled)
+        XCTAssertEqual(preferences.timerSeconds, 14_400)
+        XCTAssertTrue(preferences.showsWatchedAppsTimerNote)
+        XCTAssertEqual(preferences.helperSettings.timerSeconds, 14_400)
+
+        let reread = SafetyPreferences(defaults: defaults)
+        XCTAssertTrue(reread.timerEnabled)
+        XCTAssertEqual(reread.timerSeconds, 14_400)
+        XCTAssertTrue(reread.showsWatchedAppsTimerNote)
+    }
+
+    func testFirstWatchedAppKeepsTimerThatIsAlreadyOn() {
+        let preferences = SafetyPreferences(defaults: defaults)
+        preferences.timerEnabled = true
+        preferences.timerSeconds = 3600
+
+        preferences.watchedAppPaths = ["/Applications/Editor.app"]
+        XCTAssertTrue(preferences.timerEnabled)
+        XCTAssertEqual(preferences.timerSeconds, 3600)
+        XCTAssertFalse(preferences.showsWatchedAppsTimerNote)
+    }
+
+    func testTimerTurnedOffByUserStaysOffWhenMoreAppsAreAdded() {
+        let preferences = SafetyPreferences(defaults: defaults)
+        preferences.watchedAppPaths = ["/Applications/Editor.app"]
+        preferences.timerEnabled = false
+        XCTAssertFalse(preferences.showsWatchedAppsTimerNote)
+
+        preferences.watchedAppPaths = ["/Applications/Editor.app", "/Applications/Utilities/Terminal.app"]
+        XCTAssertFalse(preferences.timerEnabled)
+        XCTAssertFalse(preferences.showsWatchedAppsTimerNote)
+
+        preferences.watchedAppPaths = ["/Applications/Utilities/Terminal.app"]
+        XCTAssertFalse(preferences.timerEnabled)
+    }
+
+    func testEmptiedListTurnsTimerOnAgainForTheNextFirstApp() {
+        let preferences = SafetyPreferences(defaults: defaults)
+        preferences.watchedAppPaths = ["/Applications/Editor.app"]
+        preferences.timerEnabled = false
+        preferences.timerSeconds = 1800
+
+        preferences.watchedAppPaths = []
+        XCTAssertFalse(preferences.timerEnabled)
+        XCTAssertFalse(preferences.showsWatchedAppsTimerNote)
+
+        preferences.watchedAppPaths = ["/Applications/Utilities/Terminal.app"]
+        XCTAssertTrue(preferences.timerEnabled)
+        XCTAssertEqual(preferences.timerSeconds, 14_400)
+        XCTAssertTrue(preferences.showsWatchedAppsTimerNote)
+
+        preferences.watchedAppPaths = []
+        XCTAssertTrue(preferences.timerEnabled)
+        XCTAssertFalse(preferences.showsWatchedAppsTimerNote)
+    }
+
     func testWatchedAppsAreStoredAndSentOnlyWithIdleSleep() {
         let preferences = SafetyPreferences(defaults: defaults)
         XCTAssertEqual(preferences.watchedAppPaths, [])

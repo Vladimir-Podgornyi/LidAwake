@@ -52,7 +52,7 @@ Each protection is turned on separately in Settings.
 | Stop when the Mac gets hot | Ends the mode when macOS reports the thermal state as serious or critical | on |
 | Stop on low battery | Ends the mode when the Mac runs on battery and the charge is at or below the limit (10 to 50 %). Not used while Only while charging is on, because the mode is already paused on battery | on, 20 % |
 | Only while charging | Pauses the mode on battery power and resumes it when power is connected | off |
-| Turn off after | Ends the mode after the chosen time (30 min to 8 hours), counted from the moment it was switched on | off, 2 hours |
+| Turn off after | Ends the mode after the chosen time (30 min to 8 hours), counted from the moment it was switched on | off, 2 hours; 4 hours when the first watched app is added |
 | Sleep when idle | Ends the mode when nothing has been working on the Mac for the chosen time (10 to 60 min) | off, 20 min; turns itself off when the mode ends |
 
 The timer applies to both modes; the other four protections apply only to Run with Lid Closed.
@@ -89,7 +89,7 @@ caffeinate -i make release
 
 ### Watched apps
 
-A coding agent in an editor thinks on a server and barely uses the processor, so on its own it can look idle. Watched apps in Settings fixes that: choose the editor or terminal you run it in, and while that app runs programs it started, LidAwake counts it as work. The app's own windows, and typing in it, do not count. The window lists the apps that are open now and the watched apps that are not, and marks the ones whose started programs are working.
+A coding agent in an editor thinks on a server and barely uses the processor, so on its own it can look idle. Watched apps in Settings fixes that: choose the editor or terminal you run it in, and while that app runs programs it started, LidAwake counts it as work. The app's own windows, and typing in it, do not count. The window lists the apps that are open now and the watched apps that are not, and marks the ones whose started programs are working. If Turn off after is off when you add the first watched app, it is set to 4 hours, so a stuck app can't keep the Mac awake forever; you can change it in Settings.
 
 <p align="center">
   <img src="docs/images/settings-blue.png" width="377" alt="The LidAwake window in Off with the settings expanded and the Blue accent">

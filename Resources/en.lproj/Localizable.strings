@@ -150,6 +150,7 @@
 "Watched Apps" = "Watched Apps";
 "None" = "None";
 "While a watched app runs programs it started, such as a coding agent, a build or a script, Sleep when idle keeps counting it as work. Typing in the app and its own windows do not count." = "While a watched app runs programs it started, such as a coding agent, a build or a script, Sleep when idle keeps counting it as work. Typing in the app and its own windows do not count.";
+"Turn off after is set to 4 hours, so a stuck app can't keep the Mac awake forever. You can change it in Settings." = "Turn off after is set to 4 hours, so a stuck app can't keep the Mac awake forever. You can change it in Settings.";
 "Open now" = "Open now";
 "Watched, not open" = "Watched, not open";
 "Started programs are working now" = "Started programs are working now";

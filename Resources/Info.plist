@@ -31,6 +31,8 @@
 	<string>7</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>13.0</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>© 2026 Vladimir Podgornyi</string>
 	<key>LSUIElement</key>
 	<true/>
 </dict>
