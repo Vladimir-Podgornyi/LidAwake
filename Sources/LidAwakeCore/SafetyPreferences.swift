@@ -111,13 +111,14 @@ public final class SafetyPreferences: ObservableObject {
         didSet { defaults.set(lockOnLidCloseEnabled, forKey: Key.lockOnLidCloseEnabled) }
     }
 
+    /// Sleep when idle was turned on by `beginIdleSleepSession`, not by the user.
+    @Published public private(set) var idleSleepForSessionOnly = false
+
     /// Fires after any setting has changed.
     public let changes = PassthroughSubject<Void, Never>()
 
     private let defaults: UserDefaults
     private var sendsChanges = true
-    /// Sleep when idle was turned on by `beginIdleSleepSession`, not by the user.
-    private var idleSleepForSessionOnly = false
     private var changesIdleSleepForSession = false
 
     public init(defaults: UserDefaults = .standard) {

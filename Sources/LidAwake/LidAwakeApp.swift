@@ -14,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let updates = UpdateChecker(source: UpdateBuild.source())
     let autoLogout = AutoLogoutMonitor()
     let activityLog = ActivityLog()
+    let powerStatus = PowerStatus()
     let whatsNewChoice = WhatsNewChoice()
     let sleepRecorder: SystemSleepRecorder
     let wakeScheduler: WakeScheduler
@@ -120,6 +121,7 @@ struct LidAwakeApp: App {
                 autoLogout: appDelegate.autoLogout,
                 wake: appDelegate.wakeScheduler,
                 wakePreferences: appDelegate.wakeScheduler.preferences,
+                powerStatus: appDelegate.powerStatus,
                 idleSource: XPCHelperConnection(),
                 openActivityLog: {
                     // The row is in the menu bar window, which is key while it is open.

@@ -15,6 +15,7 @@ struct ContentView: View {
     @ObservedObject var autoLogout: AutoLogoutMonitor
     @ObservedObject var wake: WakeScheduler
     @ObservedObject var wakePreferences: WakePreferences
+    @ObservedObject var powerStatus: PowerStatus
     let idleSource: IdleStatusReading
     let openActivityLog: () -> Void
     let openWatchedApps: () -> Void
@@ -82,6 +83,7 @@ struct ContentView: View {
             guard isKey else { return }
             launchAtLogin.refresh()
             autoLogout.refresh()
+            powerStatus.refresh()
             // After AppKit has given focus to the first card as the window opens.
             DispatchQueue.main.async {
                 followedMode = controller.mode
@@ -244,6 +246,7 @@ struct ContentView: View {
             helperForWake: helperSetup.isPromptForWake,
             mode: controller.message,
             isPausedOnBattery: controller.mode == .lidClosed && controller.isPaused,
+            timerIsOn: preferences.timerEnabled,
             autoLogout: autoLogout.notice(
                 mode: controller.mode,
                 timerSeconds: preferences.timerEnabled ? preferences.timerSeconds : nil
@@ -335,7 +338,9 @@ struct ContentView: View {
 
     // Off and Run with Lid Closed.
     private var safetySection: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        let hasBattery = !SettingNotice.hasNoBattery(powerStatus.reading.battery)
+        let batteryLimitUsable = preferences.batteryLimitApplies && hasBattery
+        return VStack(alignment: .leading, spacing: 4) {
             SectionHeader(title: "Safety")
             SettingRow(title: "Stop when the Mac gets hot", detail: "Ends the session under thermal pressure") {
                 thermalToggle
@@ -349,10 +354,17 @@ struct ContentView: View {
                 batteryValue
                 batteryToggle
             }
-            .opacity(preferences.batteryLimitApplies ? 1 : 0.45)
-            .disabled(!preferences.batteryLimitApplies)
-            SettingRow(title: "Only while charging", detail: "Pauses on battery, resumes on power") {
-                chargingToggle
+            .opacity(batteryLimitUsable ? 1 : 0.45)
+            .disabled(!batteryLimitUsable)
+            VStack(alignment: .leading, spacing: 2) {
+                SettingRow(title: "Only while charging", detail: "Pauses on battery, resumes on power") {
+                    chargingToggle
+                }
+                .opacity(hasBattery ? 1 : 0.45)
+                .disabled(!hasBattery)
+                if !hasBattery {
+                    NoticeLine(text: SettingNotice.noBattery)
+                }
             }
             timerRow
         }
@@ -403,28 +415,45 @@ struct ContentView: View {
                     .opacity(0.45)
                     .disabled(true)
                 case .watchedApps:
-                    WatchedAppsOpenRow(
-                        summary: WatchedAppsSummary.text(paths: preferences.watchedAppPaths, name: AppDisplayName.of),
-                        action: openWatchedApps
-                    )
+                    watchedAppsRow
                 }
             }
         }
     }
 
-    private var wakeRow: some View {
-        SettingRow(title: "Wake at", detail: wakeDetail) {
-            WakeTimePill(minuteOfDay: $wakePreferences.wakeMinuteOfDay)
-            SwitchToggle(
-                title: "Wake at",
-                isOn: Binding(get: { wakePreferences.wakeEnabled }, set: setWakeEnabled)
+    // The window opens as before; dimming only tells that the list is not used now.
+    private var watchedAppsRow: some View {
+        let applies = SettingNotice.watchedAppsApply(mode: controller.mode, idleSleepEnabled: preferences.idleSleepEnabled)
+        return VStack(alignment: .leading, spacing: 2) {
+            WatchedAppsOpenRow(
+                summary: WatchedAppsSummary.text(paths: preferences.watchedAppPaths, name: AppDisplayName.of),
+                action: openWatchedApps
             )
+            .opacity(applies ? 1 : 0.45)
+            if !applies {
+                NoticeLine(text: SettingNotice.watchedAppsUnused)
+            }
+        }
+    }
+
+    private var wakeRow: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            SettingRow(title: "Wake at", detail: wakeDetail) {
+                WakeTimePill(minuteOfDay: $wakePreferences.wakeMinuteOfDay)
+                SwitchToggle(
+                    title: "Wake at",
+                    isOn: Binding(get: { wakePreferences.wakeEnabled }, set: setWakeEnabled)
+                )
+            }
+            if SettingNotice.showsWakeOnBattery(wakeEnabled: wakePreferences.wakeEnabled, power: powerStatus.reading.source) {
+                NoticeLine(text: SettingNotice.wakeOnBattery)
+            }
         }
     }
 
     private var wakeDetail: LocalizedStringKey {
         switch WakeRow.detail(lastError: wake.lastError) {
-        case .everyDay: return "Every day, on power only"
+        case .everyDay: return "If the Mac is asleep, every day, on power only"
         case .couldNotSet: return "Could not set the wake"
         }
     }
@@ -439,22 +468,38 @@ struct ContentView: View {
     }
 
     private var timerRow: some View {
-        SettingRow(title: "Turn off after", detail: "Counts from the moment you switch on") {
-            ValueMenu(
-                label: "Turn off after",
-                selection: $preferences.timerSeconds,
-                choices: MenuChoices.list(SafetyPreferences.timerChoices, current: preferences.timerSeconds),
-                title: DurationFormat.choice
-            )
-            SwitchToggle(title: "Turn off after", isOn: $preferences.timerEnabled)
+        VStack(alignment: .leading, spacing: 2) {
+            SettingRow(title: "Turn off after", detail: "Counts from the moment you switch on") {
+                ValueMenu(
+                    label: "Turn off after",
+                    selection: $preferences.timerSeconds,
+                    choices: MenuChoices.list(SafetyPreferences.timerChoices, current: preferences.timerSeconds),
+                    title: DurationFormat.choice
+                )
+                SwitchToggle(title: "Turn off after", isOn: $preferences.timerEnabled)
+            }
+            if let notice = SettingNotice.timer(
+                setForWatchedApps: preferences.showsWatchedAppsTimerNote,
+                pendingForWatchedApps: preferences.showsWatchedAppsTimerPendingNote
+            ) {
+                NoticeLine(text: notice)
+            }
         }
     }
 
     private var idleRow: some View {
         let note = idleNote
-        return SettingRow(title: "Sleep when idle", note: note.text, noteDot: note.dot.map(idleDotColor)) {
-            idleValue
-            idleToggle
+        return VStack(alignment: .leading, spacing: 2) {
+            SettingRow(title: "Sleep when idle", note: note.text, noteDot: note.dot.map(idleDotColor)) {
+                idleValue
+                idleToggle
+            }
+            if SettingNotice.showsIdleSleepByWake(
+                idleSleepEnabled: preferences.idleSleepEnabled,
+                forSessionOnly: preferences.idleSleepForSessionOnly
+            ) {
+                NoticeLine(text: SettingNotice.idleSleepByWake)
+            }
         }
     }
 
@@ -1011,6 +1056,18 @@ private struct WatchedAppsOpenRow: View {
         .buttonStyle(.plain)
         .accessibilityLabel(Text("Watched apps"))
         .accessibilityValue(Text(verbatim: summary))
+    }
+}
+
+/// A line under a setting that does nothing now or was changed by another one.
+private struct NoticeLine: View {
+    let text: String
+
+    var body: some View {
+        Text(verbatim: text)
+            .font(.system(size: 11))
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
     }
 }
 

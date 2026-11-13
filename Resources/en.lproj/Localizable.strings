@@ -41,13 +41,13 @@
 "Turn off after" = "Turn off after";
 "Counts from the moment you switch on" = "Counts from the moment you switch on";
 "Sleep when idle" = "Sleep when idle";
-"After the work is done" = "After the work is done";
+"After the work is done · for one session" = "After the work is done · for one session";
 "Kept awake by %@" = "Kept awake by %@";
 "Kept awake by CPU load" = "Kept awake by CPU load";
 "Kept awake by keyboard or mouse" = "Kept awake by keyboard or mouse";
 "Idle for %lld of %lld min" = "Idle for %lld of %lld min";
 "Wake at" = "Wake at";
-"Every day, on power only" = "Every day, on power only";
+"If the Mac is asleep, every day, on power only" = "If the Mac is asleep, every day, on power only";
 "Could not set the wake" = "Could not set the wake";
 "Lock screen when the lid closes" = "Lock screen when the lid closes";
 "Screen lock is not available on this macOS version." = "Screen lock is not available on this macOS version.";
@@ -201,3 +201,10 @@
 "A closed laptop in a bag cools poorly. The protections reduce the risk; they do not remove it. If you must carry it running, prefer a short session and keep an eye on the temperature. You use LidAwake at your own risk." = "A closed laptop in a bag cools poorly. The protections reduce the risk; they do not remove it. If you must carry it running, prefer a short session and keep an eye on the temperature. You use LidAwake at your own risk.";
 "Website" = "Website";
 "Source code" = "Source code";
+"Works only with Sleep when idle in Run with Lid Closed." = "Works only with Sleep when idle in Run with Lid Closed.";
+"The Mac is on battery, so the wake will not turn the mode on." = "The Mac is on battery, so the wake will not turn the mode on.";
+"On for this session, turned on by Wake at." = "On for this session, turned on by Wake at.";
+"This Mac has no battery." = "This Mac has no battery.";
+"Set to 4 hours for watched apps." = "Set to 4 hours for watched apps.";
+"Will be set to 4 hours for watched apps when the mode ends." = "Will be set to 4 hours for watched apps when the mode ends.";
+"%@ The timer keeps counting." = "%@ The timer keeps counting.";

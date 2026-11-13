@@ -87,6 +87,8 @@ public enum PauseNotice {
     public static let body = String(localized: "Running on battery. It resumes when you plug in.")
     /// The window's banner while the pause lasts.
     public static let windowText = String(localized: "Only while charging is on, so Run with Lid Closed waits until power is connected.")
+    /// The helper counts the timer from the start of the session, pause included.
+    public static let windowTextWithTimer = String(localized: "\(windowText) The timer keeps counting.")
 }
 
 public enum ScreenLockNotice {

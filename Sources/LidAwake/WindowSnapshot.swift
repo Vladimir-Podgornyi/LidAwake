@@ -10,7 +10,10 @@ import UniformTypeIdentifiers
 /// to 600 points, Keep Screen On expanded with both banners, Run with Lid Closed expanded with
 /// Only while charging on, Run with Lid Closed collapsed and paused on battery, Run with Lid
 /// Closed expanded with Sleep when idle on and a made-up idle state, Run with Lid Closed expanded with Wake at on as well, and Run with Lid Closed expanded
-/// with made-up watched apps, without touching the helper, the login item, the display, the network or the saved settings.
+/// with made-up watched apps, and the lines under settings that do nothing now or were changed by
+/// another one: Watched apps dimmed, Wake at on battery, Sleep when idle turned on by Wake at, the
+/// 4-hour timer for watched apps set and waiting, a Mac without a battery and the pause banner with
+/// the timer on, without touching the helper, the login item, the display, the network or the saved settings.
 /// It also draws the content of the wake time popover, the activity log window from made-up
 /// entries, with the log file left alone, the Watched Apps window with made-up apps, also with
 /// the list in focus and one row chosen, What's new with and without a made-up discount and
@@ -91,6 +94,15 @@ enum WindowSnapshot {
         var watched: [String] = []
         /// Turns Sleep when idle on and stands in for the helper's answer.
         var idle: IdleStatus?
+        var timerOn = false
+        /// Turn off after was set to 4 hours by adding the first watched app.
+        var timerForWatchedApps = false
+        /// Sleep when idle is turned on with watched apps while the mode runs, so the 4 hours wait.
+        var timerPending = false
+        /// Sleep when idle is turned on for this session, as by Wake at.
+        var idleByWake = false
+        /// Stands in for the power source, so the shots do not depend on this Mac.
+        var power = PowerReading(battery: .percent(82), source: .ac)
         var maxHeight: CGFloat?
         var name: String?
 
@@ -177,6 +189,71 @@ enum WindowSnapshot {
                 watched: WatchedAppsShot.watched,
                 name: "lid-expanded-watched-dark.png"
             ),
+            Shot(
+                mode: .keepScreenOn,
+                isExpanded: true,
+                isDark: false,
+                watched: WatchedAppsShot.watched,
+                idle: idleStatus(.counting, counted: 7),
+                name: "screen-expanded-watched-dimmed-light.png"
+            ),
+            Shot(
+                mode: .off,
+                isExpanded: true,
+                isDark: false,
+                wakeOn: true,
+                power: PowerReading(battery: .percent(82), source: .battery),
+                name: "off-expanded-wake-battery-light.png"
+            ),
+            Shot(
+                mode: .lidClosed,
+                isExpanded: true,
+                isDark: false,
+                wakeOn: true,
+                idleByWake: true,
+                name: "lid-expanded-idle-by-wake-light.png"
+            ),
+            Shot(
+                mode: .off,
+                isExpanded: true,
+                isDark: false,
+                watched: WatchedAppsShot.watched,
+                idle: idleStatus(.counting, counted: 7),
+                timerOn: true,
+                timerForWatchedApps: true,
+                name: "off-expanded-timer-watched-light.png"
+            ),
+            Shot(
+                mode: .lidClosed,
+                isExpanded: true,
+                isDark: false,
+                watched: WatchedAppsShot.watched,
+                timerPending: true,
+                name: "lid-expanded-timer-pending-light.png"
+            ),
+            Shot(
+                mode: .off,
+                isExpanded: true,
+                isDark: false,
+                power: PowerReading(battery: .none, source: .ac),
+                name: "off-expanded-no-battery-light.png"
+            ),
+            Shot(
+                mode: .off,
+                isExpanded: true,
+                isDark: true,
+                power: PowerReading(battery: .none, source: .ac),
+                name: "off-expanded-no-battery-dark.png"
+            ),
+            Shot(
+                mode: .lidClosed,
+                isExpanded: false,
+                isDark: false,
+                chargingOnly: true,
+                paused: true,
+                timerOn: true,
+                name: "lid-paused-timer-light.png"
+            ),
         ]
 
         private static func idleStatus(_ state: IdleState, counted: Int = 0, holders: [String] = []) -> IdleStatus {
@@ -209,11 +286,13 @@ enum WindowSnapshot {
         }
     }
 
+    private static let snapshotSuite = "com.vladimirpodgornyi.LidAwake.window-snapshot"
+
     @MainActor
     private static func render(_ shot: Shot) throws -> Data {
         let appearance = shot.appearance
         // Only read: register(defaults:) stays in memory, so nothing is saved.
-        let defaults = UserDefaults(suiteName: "com.vladimirpodgornyi.LidAwake.window-snapshot")!
+        let defaults = UserDefaults(suiteName: snapshotSuite)!
         // An empty string is not a version, so the other shots have no update banner.
         defaults.register(defaults: [
             SettingsDisclosurePreference.key: shot.isExpanded,
@@ -229,10 +308,17 @@ enum WindowSnapshot {
         shotArguments[WakePreferences.Key.wakeEnabled] = shot.wakeOn
         shotArguments[SafetyPreferences.Key.watchedAppPaths] = shot.watched
         shotArguments[SafetyPreferences.Key.watchedAppsTimerMigrated] = true
+        shotArguments[SafetyPreferences.Key.timerEnabled] = shot.timerOn
+        shotArguments[SafetyPreferences.Key.timerSeconds] = shot.timerForWatchedApps
+            ? SafetyPreferences.watchedAppsTimerSeconds
+            : 7200
+        shotArguments[SafetyPreferences.Key.timerSetForWatchedApps] = shot.timerForWatchedApps
+        shotArguments[SafetyPreferences.Key.watchedAppsTimerPending] = false
+        shotArguments[SafetyPreferences.Key.watchedAppsTimerConsidered] = shot.timerForWatchedApps
         shotArguments[WakePreferences.Key.wakeMinuteOfDay] = WakePreferences.defaultMinuteOfDay
         UserDefaults.standard.setVolatileDomain(shotArguments, forName: UserDefaults.argumentDomain)
         defer { UserDefaults.standard.setVolatileDomain(arguments, forName: UserDefaults.argumentDomain) }
-        let inert = Inert(paused: shot.paused)
+        let inert = Inert(paused: shot.paused, renews: shot.timerPending)
         let controller = ModeController(
             displayAssertion: inert,
             helper: inert,
@@ -243,6 +329,11 @@ enum WindowSnapshot {
             powerSourceMonitor: inert,
             lidMonitor: inert
         )
+        // Setting changes made below are written to the shots' own suite; it is removed afterwards.
+        defer { UserDefaults.standard.removePersistentDomain(forName: snapshotSuite) }
+        if shot.idleByWake {
+            controller.preferences.beginIdleSleepSession()
+        }
         // The display assertion and the helper are inert, so selecting a mode keeps nothing awake.
         Task { try? await controller.select(shot.mode) }
         let deadline = Date(timeIntervalSinceNow: 2)
@@ -250,6 +341,10 @@ enum WindowSnapshot {
             RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.01))
         }
         guard controller.mode == shot.mode else { throw CocoaError(.fileWriteUnknown) }
+        if shot.timerPending {
+            controller.preferences.idleSleepEnabled = true
+            RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.2))
+        }
         // The helper is never ready here, so the scheduler makes no call.
         let wake = WakeScheduler(
             preferences: WakePreferences(defaults: defaults),
@@ -279,6 +374,7 @@ enum WindowSnapshot {
             ),
             wake: wake,
             wakePreferences: wake.preferences,
+            powerStatus: PowerStatus(source: FixedPower(reading: shot.power), monitor: inert),
             idleSource: FixedIdleStatus(status: shot.idle),
             openActivityLog: {},
             openWatchedApps: {},
@@ -563,6 +659,12 @@ private final class ActiveLookingApplication: NSApplication {
     override var isActive: Bool { true }
 }
 
+private struct FixedPower: PowerSourceReading {
+    let reading: PowerReading
+
+    func read() -> PowerReading { reading }
+}
+
 /// A borderless window cannot become key by default.
 private final class SnapshotWindow: NSWindow {
     override var canBecomeKey: Bool { true }
@@ -574,9 +676,12 @@ private final class Inert: PowerAssertion, HelperPreparing, HelperInstalling, Li
     ActivityHolding, PowerSourceMonitoring, LidMonitoring, LoginItemService, LaunchAtLoginStore, ReleaseSource,
     ScheduledWakeService, ActivityLogging, ClockChangeMonitoring {
     nonisolated let paused: Bool
+    /// A setting changed while the mode runs is sent with a renewal, which would end the mode if it failed.
+    nonisolated let renews: Bool
 
-    init(paused: Bool = false) {
+    init(paused: Bool = false, renews: Bool = false) {
         self.paused = paused
+        self.renews = renews
     }
 
     nonisolated var isHeld: Bool { false }
@@ -593,7 +698,9 @@ private final class Inert: PowerAssertion, HelperPreparing, HelperInstalling, Li
     func openSystemSettings() {}
 
     nonisolated func startSession(leaseSeconds: Int, safety: SafetySettings) async throws {}
-    nonisolated func renewSession(leaseSeconds: Int, safety: SafetySettings) async throws { throw CancellationError() }
+    nonisolated func renewSession(leaseSeconds: Int, safety: SafetySettings) async throws {
+        guard renews else { throw CancellationError() }
+    }
     nonisolated func endSession() async throws {}
     nonisolated func clearLeftover() async throws {}
     nonisolated func sessionStatus() async throws -> HelperSessionStatus {

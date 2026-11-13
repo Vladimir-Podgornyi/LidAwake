@@ -207,6 +207,7 @@ public struct WindowMessage: Equatable, Identifiable {
         helperForWake: Bool = false,
         mode: ModeMessage?,
         isPausedOnBattery: Bool = false,
+        timerIsOn: Bool = false,
         autoLogout: AutoLogoutNotice? = nil,
         update: UpdateNotice? = nil
     ) -> [WindowMessage] {
@@ -237,7 +238,7 @@ public struct WindowMessage: Equatable, Identifiable {
                 source: .mode,
                 kind: .info,
                 title: PauseNotice.title,
-                text: PauseNotice.windowText,
+                text: timerIsOn ? PauseNotice.windowTextWithTimer : PauseNotice.windowText,
                 hint: nil,
                 action: nil,
                 actionTitle: nil
@@ -334,7 +335,7 @@ public struct IdleSleepNote: Equatable {
 
     /// `status` is nil until the helper has answered, or when it could not be asked.
     public static func make(mode: Mode, isEnabled: Bool, isPaused: Bool, status: IdleStatus?) -> IdleSleepNote {
-        let plain = IdleSleepNote(text: String(localized: "After the work is done"), dot: nil)
+        let plain = IdleSleepNote(text: String(localized: "After the work is done · for one session"), dot: nil)
         guard mode == .lidClosed, isEnabled, !isPaused, let status else { return plain }
         // The watched apps come right after the programs that ask macOS not to sleep, as in the count.
         if status.state != .off, status.state != .busyApp,

@@ -1204,6 +1204,49 @@ final class LidSessionTests: XCTestCase {
         XCTAssertEqual(flag.writes, [true, false])
     }
 
+    func testTimerKeepsCountingWhilePaused() {
+        let session = makeSession()
+        XCTAssertEqual(session.start(lease: 120, safety: chargingOnly(timer: 3600)), .ok)
+        for _ in 0..<6 {
+            advance(100)
+            XCTAssertEqual(session.renew(lease: 120, safety: chargingOnly(timer: 3600)), .ok)
+            XCTAssertNil(session.enforceLimits())
+        }
+
+        power.reading = onBattery
+        XCTAssertEqual(session.enforceLimits(), .ok)
+        XCTAssertTrue(session.isPaused)
+        for _ in 0..<20 {
+            advance(100)
+            XCTAssertEqual(session.renew(lease: 120, safety: chargingOnly(timer: 3600)), .ok)
+            XCTAssertNil(session.enforceLimits())
+        }
+        XCTAssertTrue(session.isPaused)
+        XCTAssertEqual(session.status().timerRemaining, 1000, "2000 seconds of pause counted")
+
+        power.reading = onAC
+        XCTAssertEqual(session.enforceLimits(), .ok)
+        XCTAssertFalse(session.isPaused)
+        XCTAssertEqual(session.status().timerRemaining, 1000)
+    }
+
+    func testTimerEndsSessionDuringThePause() {
+        let session = makeSession()
+        XCTAssertEqual(session.start(lease: 120, safety: chargingOnly(timer: 1800)), .ok)
+        power.reading = onBattery
+        XCTAssertEqual(session.enforceLimits(), .ok)
+        XCTAssertTrue(session.isPaused)
+        for _ in 0..<17 {
+            advance(100)
+            XCTAssertEqual(session.renew(lease: 120, safety: chargingOnly(timer: 1800)), .ok)
+            XCTAssertNil(session.enforceLimits())
+        }
+        advance(100)
+        XCTAssertEqual(session.enforceLimits(), .ok)
+        XCTAssertFalse(session.isActive)
+        XCTAssertEqual(stopReasons.record?.reason, .timer)
+    }
+
     func testACPowerResumesOwnSessionMarkerBeforeFlag() {
         power.reading = onBattery
         let session = makeSession()

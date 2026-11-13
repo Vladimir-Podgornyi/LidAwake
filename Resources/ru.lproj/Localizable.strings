@@ -41,13 +41,13 @@
 "Turn off after" = "Выключить через";
 "Counts from the moment you switch on" = "Отсчёт с момента включения";
 "Sleep when idle" = "Сон после простоя";
-"After the work is done" = "Когда работа закончена";
+"After the work is done · for one session" = "Когда работа закончена · на один сеанс";
 "Kept awake by %@" = "Не даёт уснуть: %@";
 "Kept awake by CPU load" = "Не даёт уснуть: нагрузка процессора";
 "Kept awake by keyboard or mouse" = "Не даёт уснуть: клавиатура или мышь";
 "Idle for %lld of %lld min" = "Простой: %lld из %lld мин";
 "Wake at" = "Проснуться в";
-"Every day, on power only" = "Каждый день, только от сети";
+"If the Mac is asleep, every day, on power only" = "Если Mac спит, каждый день, только от сети";
 "Could not set the wake" = "Не удалось назначить пробуждение";
 "Lock screen when the lid closes" = "Блокировать при закрытии крышки";
 "Screen lock is not available on this macOS version." = "Блокировка экрана недоступна в этой версии macOS.";
@@ -201,3 +201,10 @@
 "A closed laptop in a bag cools poorly. The protections reduce the risk; they do not remove it. If you must carry it running, prefer a short session and keep an eye on the temperature. You use LidAwake at your own risk." = "Закрытый ноутбук в сумке плохо охлаждается. Защиты снижают риск, но не устраняют его. Если всё же нужно нести его включённым, пусть сеанс будет коротким, и следите за температурой. Вы пользуетесь LidAwake на свой страх и риск.";
 "Website" = "Сайт";
 "Source code" = "Исходный код";
+"Works only with Sleep when idle in Run with Lid Closed." = "Действует только при «Сон после простоя» в режиме «С закрытой крышкой».";
+"The Mac is on battery, so the wake will not turn the mode on." = "Mac работает от батареи, поэтому пробуждение не включит режим.";
+"On for this session, turned on by Wake at." = "Включён на этот сеанс через «Проснуться в».";
+"This Mac has no battery." = "У этого Mac нет батареи.";
+"Set to 4 hours for watched apps." = "Стоит на 4 часа для программ под наблюдением.";
+"Will be set to 4 hours for watched apps when the mode ends." = "Встанет на 4 часа для программ под наблюдением, когда режим выключится.";
+"%@ The timer keeps counting." = "%@ Таймер продолжает считать.";

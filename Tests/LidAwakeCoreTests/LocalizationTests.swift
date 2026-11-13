@@ -161,10 +161,10 @@ final class LocalizationTests: XCTestCase {
                 "ru": "Сон после простоя",
                 "zh-Hans": "空闲时睡眠",
             ],
-            "After the work is done": [
-                "de": "Wenn die Arbeit erledigt ist",
-                "ru": "Когда работа закончена",
-                "zh-Hans": "任务完成后",
+            "After the work is done · for one session": [
+                "de": "Wenn die Arbeit erledigt ist · für eine Sitzung",
+                "ru": "Когда работа закончена · на один сеанс",
+                "zh-Hans": "任务完成后 · 仅限一次会话",
             ],
             "Kept awake by %@": [
                 "de": "Wach gehalten von %@",
@@ -281,6 +281,60 @@ final class LocalizationTests: XCTestCase {
                 XCTAssertEqual(try table(language)[key], value, "\(language): \(key)")
             }
         }
+    }
+
+    func testSettingNoticeStrings() throws {
+        let expected: [String: [String: String]] = [
+            "Works only with Sleep when idle in Run with Lid Closed.": [
+                "de": "Wirkt nur mit „Ruhezustand bei Leerlauf“ in „Mit geschlossenem Deckel“.",
+                "ru": "Действует только при «Сон после простоя» в режиме «С закрытой крышкой».",
+                "zh-Hans": "仅在“合盖运行”中开启“空闲时睡眠”时生效。",
+            ],
+            "The Mac is on battery, so the wake will not turn the mode on.": [
+                "de": "Der Mac läuft mit Akku, daher schaltet das Aufwachen den Modus nicht ein.",
+                "ru": "Mac работает от батареи, поэтому пробуждение не включит режим.",
+                "zh-Hans": "Mac 正在使用电池，唤醒后不会开启该模式。",
+            ],
+            "If the Mac is asleep, every day, on power only": [
+                "de": "Wenn der Mac schläft, täglich, nur am Netzteil",
+                "ru": "Если Mac спит, каждый день, только от сети",
+                "zh-Hans": "如果 Mac 处于睡眠，每天，仅在接通电源时",
+            ],
+            "On for this session, turned on by Wake at.": [
+                "de": "Für diese Sitzung an, eingeschaltet durch „Aufwachen um“.",
+                "ru": "Включён на этот сеанс через «Проснуться в».",
+                "zh-Hans": "已由“唤醒时间”为本次会话开启。",
+            ],
+            "%@ The timer keeps counting.": [
+                "de": "%@ Der Timer läuft weiter.",
+                "ru": "%@ Таймер продолжает считать.",
+                "zh-Hans": "%@计时器会继续计时。",
+            ],
+            "Set to 4 hours for watched apps.": [
+                "de": "Für beobachtete Apps auf 4\u{00A0}Stunden gestellt.",
+                "ru": "Стоит на 4\u{00A0}часа для программ под наблюдением.",
+                "zh-Hans": "已因监视的应用设为 4 小时。",
+            ],
+            "Will be set to 4 hours for watched apps when the mode ends.": [
+                "de": "Wird für beobachtete Apps auf 4\u{00A0}Stunden gestellt, wenn der Modus endet.",
+                "ru": "Встанет на 4\u{00A0}часа для программ под наблюдением, когда режим выключится.",
+                "zh-Hans": "模式结束后，将因监视的应用设为 4 小时。",
+            ],
+            "This Mac has no battery.": [
+                "de": "Dieser Mac hat keinen Akku.",
+                "ru": "У этого Mac нет батареи.",
+                "zh-Hans": "此 Mac 没有电池。",
+            ],
+        ]
+        let english = try table("en")
+        for (key, translations) in expected {
+            XCTAssertEqual(english[key], key)
+            for (language, value) in translations {
+                XCTAssertEqual(try table(language)[key], value, "\(language): \(key)")
+            }
+        }
+        XCTAssertNil(english["Every day, on power only"])
+        XCTAssertNil(english["After the work is done"])
     }
 
     func testBatteryLimitNoticeWithOnlyWhileCharging() throws {

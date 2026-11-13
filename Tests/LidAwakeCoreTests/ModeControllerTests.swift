@@ -1794,6 +1794,21 @@ final class ModeControllerTests: XCTestCase {
         ])
     }
 
+    func testScheduledTurnOnMarksSleepWhenIdleAsTurnedOnByWake() async throws {
+        let controller = makeController()
+        await controller.turnOnBySchedule()
+        XCTAssertTrue(SettingNotice.showsIdleSleepByWake(
+            idleSleepEnabled: preferences.idleSleepEnabled,
+            forSessionOnly: preferences.idleSleepForSessionOnly
+        ))
+
+        try await controller.select(.off)
+        XCTAssertFalse(SettingNotice.showsIdleSleepByWake(
+            idleSleepEnabled: preferences.idleSleepEnabled,
+            forSessionOnly: preferences.idleSleepForSessionOnly
+        ))
+    }
+
     func testFirstWatchedAppInScheduledSessionLeavesTimerAlone() async throws {
         let controller = makeController()
         await controller.turnOnBySchedule()
