@@ -177,11 +177,8 @@ final class WindowBlockGroupTests: XCTestCase {
             for expanded in [false, true] {
                 let blocks = WindowBlock.list(mode: mode, isExpanded: expanded, showsAppearance: true, showsProOffer: true)
                 let groups = WindowBlockGroup.groups(blocks)
-                XCTAssertEqual(
-                    Array(groups.suffix(2)),
-                    [.block(.proOffer), .compactRows([.closingDivider, .whatsNew, .howToUse, .quit])],
-                    "\(mode) \(expanded)"
-                )
+                XCTAssertEqual(groups.first, .block(.proOffer), "\(mode) \(expanded)")
+                XCTAssertEqual(groups.last.flatMap(Self.rows)?.suffix(4), [.closingDivider, .whatsNew, .howToUse, .quit], "\(mode) \(expanded)")
                 for group in groups {
                     if case .compactRows(let rows) = group {
                         XCTAssertFalse(rows.contains(.proOffer), "\(mode) \(expanded)")
@@ -191,18 +188,46 @@ final class WindowBlockGroupTests: XCTestCase {
         }
     }
 
+    func testProOfferLeavesTheOtherGroupsAsWithoutIt() {
+        for mode in Mode.allCases {
+            for expanded in [false, true] {
+                for general in [false, true] {
+                    let with = WindowBlock.list(mode: mode, isExpanded: expanded, showsAppearance: true, showsProOffer: true, isGeneralExpanded: general)
+                    let without = WindowBlock.list(mode: mode, isExpanded: expanded, showsAppearance: true, isGeneralExpanded: general)
+                    XCTAssertEqual(
+                        WindowBlockGroup.groups(with),
+                        [.block(.proOffer)] + WindowBlockGroup.groups(without),
+                        "\(mode) \(expanded) \(general)"
+                    )
+                }
+            }
+        }
+    }
+
     func testExpandedProOfferLeavesTheGeneralRowsTogether() {
         for mode in Mode.allCases {
             let blocks = WindowBlock.list(mode: mode, isExpanded: true, showsAppearance: true, showsProOffer: true)
-            let compact = WindowBlockGroup.groups(blocks).compactMap { group -> [WindowBlock]? in
-                if case .compactRows(let rows) = group { return rows }
-                return nil
-            }
-            XCTAssertEqual(compact.count, 2, "\(mode)")
+            let compact = WindowBlockGroup.groups(blocks).compactMap(Self.rows)
+            XCTAssertEqual(compact.count, 1, "\(mode)")
             XCTAssertEqual(compact.first?.prefix(2), [.settingsDivider, .generalHeader], "\(mode)")
-            XCTAssertEqual(compact.first?.last, .activityLog, "\(mode)")
-            XCTAssertEqual(compact.last, [.closingDivider, .whatsNew, .howToUse, .quit], "\(mode)")
+            XCTAssertEqual(compact.first?.suffix(5), [.activityLog, .closingDivider, .whatsNew, .howToUse, .quit], "\(mode)")
         }
+    }
+
+    func testCollapsedGeneralKeepsItsHeaderBetweenTheDividers() {
+        for mode in Mode.allCases {
+            let blocks = WindowBlock.list(mode: mode, isExpanded: true, showsAppearance: true, showsProOffer: true, isGeneralExpanded: false)
+            XCTAssertEqual(
+                WindowBlockGroup.groups(blocks).last,
+                .compactRows([.settingsDivider, .generalHeader, .closingDivider, .whatsNew, .howToUse, .quit]),
+                "\(mode)"
+            )
+        }
+    }
+
+    private static func rows(_ group: WindowBlockGroup) -> [WindowBlock]? {
+        if case .compactRows(let rows) = group { return rows }
+        return nil
     }
 
     func testEveryHeaderIsDrawnInTheMeasuredContent() {

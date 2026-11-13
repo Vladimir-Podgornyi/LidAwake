@@ -1,6 +1,6 @@
 import Foundation
 
-/// The card at the bottom of the window.
+/// The LidAwake Pro card above the settings.
 public enum ProOfferCard: Equatable {
     case plain
     case discount(UpdateOffer)

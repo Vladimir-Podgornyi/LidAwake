@@ -11,7 +11,8 @@ import UniformTypeIdentifiers
 /// to 600 points, Keep Screen On expanded with both banners, Run with Lid Closed expanded with
 /// Only while charging on, Run with Lid Closed collapsed and paused on battery, Run with Lid
 /// Closed expanded with Sleep when idle on and a made-up idle state, Run with Lid Closed expanded with Wake at on as well, and Run with Lid Closed expanded
-/// with made-up watched apps, and the lines under settings that do nothing now or were changed by
+/// with made-up watched apps, Off expanded with a made-up discount, Run with Lid Closed expanded with
+/// SLEEP AND WAKE or GENERAL collapsed, and the lines under settings that do nothing now or were changed by
 /// another one: Watched apps dimmed, Wake at on battery, Sleep when idle turned on by Wake at, the
 /// 4-hour timer for watched apps set and waiting, a Mac without a battery and the pause banner with
 /// the timer on, without touching the helper, the login item, the display, the network or the saved settings.
@@ -105,6 +106,10 @@ enum WindowSnapshot {
         /// Stands in for the power source, so the shots do not depend on this Mac.
         var power = PowerReading(battery: .percent(82), source: .ac)
         var maxHeight: CGFloat?
+        var sleepAndWakeExpanded = true
+        var generalExpanded = true
+        /// Shows the made-up discount on the LidAwake Pro card.
+        var showsOffer = false
         var name: String?
 
         static let all = [
@@ -259,7 +264,27 @@ enum WindowSnapshot {
                 timerOn: true,
                 name: "lid-paused-timer-light.png"
             ),
-        ]
+        ] + [false, true].flatMap { isDark -> [Shot] in
+            let look = isDark ? "dark" : "light"
+            return [
+                Shot(mode: .off, isExpanded: true, isDark: isDark, showsOffer: true, name: "off-expanded-offer-\(look).png"),
+                Shot(mode: .lidClosed, isExpanded: true, isDark: isDark, name: "lid-expanded-\(look).png"),
+                Shot(
+                    mode: .lidClosed,
+                    isExpanded: true,
+                    isDark: isDark,
+                    sleepAndWakeExpanded: false,
+                    name: "lid-expanded-sleep-collapsed-\(look).png"
+                ),
+                Shot(
+                    mode: .lidClosed,
+                    isExpanded: true,
+                    isDark: isDark,
+                    generalExpanded: false,
+                    name: "lid-expanded-general-collapsed-\(look).png"
+                ),
+            ]
+        }
 
         private static func idleStatus(_ state: IdleState, counted: Int = 0, holders: [String] = []) -> IdleStatus {
             IdleStatus(
@@ -299,10 +324,15 @@ enum WindowSnapshot {
         // Only read: register(defaults:) stays in memory, so nothing is saved.
         let defaults = UserDefaults(suiteName: snapshotSuite)!
         // An empty string is not a version, so the other shots have no update banner.
-        defaults.register(defaults: [
+        var registered: [String: Any] = [
             SettingsDisclosurePreference.key: shot.isExpanded,
+            SettingsDisclosurePreference.sleepAndWakeKey: shot.sleepAndWakeExpanded,
+            SettingsDisclosurePreference.generalKey: shot.generalExpanded,
             UpdateChecker.latestVersionKey: shot.showsUpdate ? "9.9.9" : "",
-        ])
+        ]
+        // Registered values stay for the next shots, so an empty one stands for no offer.
+        registered[UpdateChecker.offerKey] = shot.showsOffer ? (try? JSONEncoder().encode(InfoShot.offer)) ?? Data() : Data()
+        defaults.register(defaults: registered)
         // SafetyPreferences registers its own defaults over these, so the setting goes in the
         // argument domain, which is searched first and kept only in memory.
         let arguments = UserDefaults.standard.volatileDomain(forName: UserDefaults.argumentDomain)

@@ -10,8 +10,10 @@ public enum SleepAndWakeRow: Hashable {
     /// Opens the Watched Apps window; works in every position.
     case watchedApps
 
-    public static func list(mode: Mode) -> [SleepAndWakeRow] {
-        [.wakeAt, .sleepWhenIdle(isDimmed: SafetyLayout(mode: mode) == .timerOnly), .watchedApps]
+    /// None while the section is collapsed; its header stays.
+    public static func list(mode: Mode, isExpanded: Bool = true) -> [SleepAndWakeRow] {
+        guard isExpanded else { return [] }
+        return [.wakeAt, .sleepWhenIdle(isDimmed: SafetyLayout(mode: mode) == .timerOnly), .watchedApps]
     }
 }
 

@@ -293,7 +293,8 @@ struct ContentView: View {
             mode: controller.mode,
             isExpanded: disclosure.isExpanded,
             showsAppearance: WindowLook.showsStyleSetting(isSystem26OrLater: isSystem26OrLater),
-            showsProOffer: ProOffer.isShown
+            showsProOffer: ProOffer.isShown,
+            isGeneralExpanded: disclosure.isGeneralExpanded
         )
     }
 
@@ -307,7 +308,9 @@ struct ContentView: View {
         case .sleepAndWake: sleepAndWakeSection
         // Among compact rows the stack has no spacing, so the dividers and the header keep their own gap.
         case .settingsDivider: Divider().padding(.bottom, isCompact ? 8 : 0)
-        case .generalHeader: SectionHeader(title: "General").padding(.bottom, isCompact ? 4 : 0)
+        case .generalHeader:
+            SectionToggleHeader(title: "General", isExpanded: $disclosure.isGeneralExpanded)
+                .padding(.bottom, isCompact ? 4 : 0)
         // At the top of its group the divider has the spacing between the blocks above it.
         case .closingDivider: Divider().padding(.top, isCompact && !isFirst ? 8 : 0).padding(.bottom, isCompact ? 4 : 0)
         case .lockScreen: lockRow(minHeight: 36)
@@ -357,15 +360,12 @@ struct ContentView: View {
             }
             .opacity(batteryLimitUsable ? 1 : 0.45)
             .disabled(!batteryLimitUsable)
-            VStack(alignment: .leading, spacing: 2) {
+            NoticedRow(notice: hasBattery ? nil : SettingNotice.noBattery) {
                 SettingRow(title: "Only while charging", detail: "Pauses on battery, resumes on power") {
                     chargingToggle
                 }
                 .opacity(hasBattery ? 1 : 0.45)
                 .disabled(!hasBattery)
-                if !hasBattery {
-                    NoticeLine(text: SettingNotice.noBattery)
-                }
             }
             timerRow
         }
@@ -401,8 +401,8 @@ struct ContentView: View {
     // Wake at and Watched apps work in every position; Sleep when idle not in Keep Screen On.
     private var sleepAndWakeSection: some View {
         VStack(alignment: .leading, spacing: 4) {
-            SectionHeader(title: "Sleep and wake")
-            ForEach(SleepAndWakeRow.list(mode: controller.mode), id: \.self) { row in
+            SectionToggleHeader(title: "Sleep and wake", isExpanded: $disclosure.isSleepAndWakeExpanded)
+            ForEach(SleepAndWakeRow.list(mode: controller.mode, isExpanded: disclosure.isSleepAndWakeExpanded), id: \.self) { row in
                 switch row {
                 case .wakeAt:
                     wakeRow
@@ -425,29 +425,27 @@ struct ContentView: View {
     // The window opens as before; dimming only tells that the list is not used now.
     private var watchedAppsRow: some View {
         let applies = SettingNotice.watchedAppsApply(mode: controller.mode, idleSleepEnabled: preferences.idleSleepEnabled)
-        return VStack(alignment: .leading, spacing: 2) {
+        return NoticedRow(notice: applies ? nil : SettingNotice.watchedAppsUnused) {
             WatchedAppsOpenRow(
                 summary: WatchedAppsSummary.text(paths: preferences.watchedAppPaths, name: AppDisplayName.of),
                 action: openWatchedApps
             )
             .opacity(applies ? 1 : 0.45)
-            if !applies {
-                NoticeLine(text: SettingNotice.watchedAppsUnused)
-            }
         }
     }
 
     private var wakeRow: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        NoticedRow(
+            notice: SettingNotice.showsWakeOnBattery(wakeEnabled: wakePreferences.wakeEnabled, power: powerStatus.reading.source)
+                ? SettingNotice.wakeOnBattery
+                : nil
+        ) {
             SettingRow(title: "Wake at", detail: wakeDetail) {
                 WakeTimePill(minuteOfDay: $wakePreferences.wakeMinuteOfDay)
                 SwitchToggle(
                     title: "Wake at",
                     isOn: Binding(get: { wakePreferences.wakeEnabled }, set: setWakeEnabled)
                 )
-            }
-            if SettingNotice.showsWakeOnBattery(wakeEnabled: wakePreferences.wakeEnabled, power: powerStatus.reading.source) {
-                NoticeLine(text: SettingNotice.wakeOnBattery)
             }
         }
     }
@@ -469,7 +467,12 @@ struct ContentView: View {
     }
 
     private var timerRow: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        NoticedRow(
+            notice: SettingNotice.timer(
+                setForWatchedApps: preferences.showsWatchedAppsTimerNote,
+                pendingForWatchedApps: preferences.showsWatchedAppsTimerPendingNote
+            )
+        ) {
             SettingRow(title: "Turn off after", detail: "Counts from the moment you switch on") {
                 ValueMenu(
                     label: "Turn off after",
@@ -479,27 +482,19 @@ struct ContentView: View {
                 )
                 SwitchToggle(title: "Turn off after", isOn: $preferences.timerEnabled)
             }
-            if let notice = SettingNotice.timer(
-                setForWatchedApps: preferences.showsWatchedAppsTimerNote,
-                pendingForWatchedApps: preferences.showsWatchedAppsTimerPendingNote
-            ) {
-                NoticeLine(text: notice)
-            }
         }
     }
 
     private var idleRow: some View {
         let note = idleNote
-        return VStack(alignment: .leading, spacing: 2) {
+        let byWake = SettingNotice.showsIdleSleepByWake(
+            idleSleepEnabled: preferences.idleSleepEnabled,
+            forSessionOnly: preferences.idleSleepForSessionOnly
+        )
+        return NoticedRow(notice: byWake ? SettingNotice.idleSleepByWake : nil) {
             SettingRow(title: "Sleep when idle", note: note.text, noteDot: note.dot.map(idleDotColor)) {
                 idleValue
                 idleToggle
-            }
-            if SettingNotice.showsIdleSleepByWake(
-                idleSleepEnabled: preferences.idleSleepEnabled,
-                forSessionOnly: preferences.idleSleepForSessionOnly
-            ) {
-                NoticeLine(text: SettingNotice.idleSleepByWake)
             }
         }
     }
@@ -1077,6 +1072,57 @@ private struct NoticeLine: View {
     }
 }
 
+/// A row with a line under it. The line takes the row's bottom inset, so the gap below the
+/// line is the gap below a row without one.
+private struct NoticedRow<Row: View>: View {
+    let notice: String?
+    @ViewBuilder let row: Row
+
+    var body: some View {
+        if let notice {
+            VStack(alignment: .leading, spacing: 2) {
+                row.padding(.bottom, -SettingRowLayout.inset)
+                NoticeLine(text: notice)
+            }
+            .padding(.bottom, SettingRowLayout.inset)
+        } else {
+            row
+        }
+    }
+}
+
+/// A section header that collapses and expands its section, with the arrow of the Settings row.
+private struct SectionToggleHeader: View {
+    let title: LocalizedStringKey
+    @Binding var isExpanded: Bool
+
+    var body: some View {
+        Button {
+            isExpanded.toggle()
+        } label: {
+            HStack {
+                Text(title)
+                    .font(.system(size: 11, weight: .semibold))
+                    .kerning(0.6)
+                    .textCase(.uppercase)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer()
+                Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 14)
+                    .accessibilityHidden(true)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(title))
+        .accessibilityValue(Text(isExpanded ? "Expanded" : "Collapsed"))
+        .accessibilityAddTraits(.isHeader)
+    }
+}
+
 private struct SectionHeader: View {
     let title: LocalizedStringKey
 
@@ -1141,6 +1187,10 @@ private struct SettingRow<Controls: View>: View {
 /// width left of them. Sizing and placing use the same widths, so the row is always as tall
 /// as the wrapped text, and the text wraps only where it meets the controls.
 private struct SettingRowLayout: Layout {
+    /// Kept free above and below the text however tall it gets: the space a 44-point row
+    /// leaves around a title and a detail line.
+    static let inset: CGFloat = 6
+
     var minHeight: CGFloat
     var spacing: CGFloat = 12
 
@@ -1168,7 +1218,7 @@ private struct SettingRowLayout: Layout {
         let rowWidth = width ?? (subviews[0].sizeThatFits(.unspecified).width + spacing + controls.width)
         let textWidth = max(0, rowWidth - spacing - controls.width)
         let textHeight = subviews[0].sizeThatFits(ProposedViewSize(width: textWidth, height: nil)).height
-        let height = max(minHeight, textHeight, controls.height)
+        let height = max(minHeight, textHeight + 2 * Self.inset, controls.height)
         return (rowWidth, height, textWidth, textHeight, controls)
     }
 }
