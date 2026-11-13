@@ -19,7 +19,7 @@
 - Can wake the Mac at a set time every day, keep it running while the work goes on and let it sleep when the work is done.
 - If the app quits unexpectedly or stops responding, normal sleep returns by itself within two minutes.
 - Open source (MIT), no account and no analytics. The only network activity is a daily check for updates and offers, and it can be turned off.
-- The interface is in English, German, Russian and Simplified Chinese.
+- The interface is in English, German, Russian, Simplified Chinese, Japanese, French, Spanish, Brazilian Portuguese, Korean and Italian.
 
 LidAwake is an open-source alternative to apps like Amphetamine and to the `caffeinate` command for keeping a Mac awake, including with the lid closed and no external display.
 
@@ -269,7 +269,7 @@ You need macOS and Xcode; the scripts call `swift build`, `xcrun actool` and `co
 scripts/build-app.sh                # builds build/LidAwake.app
 ARCH=x86_64 scripts/build-app.sh    # builds an Intel app in build/x86_64/LidAwake.app
 scripts/install-app.sh              # quits a running LidAwake and copies the app to /Applications
-scripts/check-localizations.sh      # checks that every interface string exists in all four languages
+scripts/check-localizations.sh      # checks that every interface string exists in all ten languages
 ```
 
 `build-app.sh` signs with a Developer ID Application certificate of team `ZW984867UC` from the keychain, or with the identity in `SIGN_IDENTITY`. Without such a certificate it signs ad hoc and prints a warning that the privileged helper will not work in this build. The app and the helper accept each other only with a Developer ID signature of that team. Run with Lid Closed has not been tested in a build signed any other way.
@@ -280,7 +280,7 @@ scripts/check-localizations.sh      # checks that every interface string exists 
 
 ## Languages
 
-The interface is in English, German, Russian and Simplified Chinese. The language follows the system settings. To use Simplified Chinese for this app only, choose LidAwake in System Settings > General > Language & Region > Applications and select Simplified Chinese.
+The interface is in English, German, Russian, Simplified Chinese, Japanese, French, Spanish, Brazilian Portuguese, Korean and Italian. The language follows the system settings. To use another of these languages for this app only, choose LidAwake in System Settings > General > Language & Region > Applications and select the language.
 
 ## License
 

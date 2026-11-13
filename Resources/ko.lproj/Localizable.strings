@@ -1,0 +1,210 @@
+/* Modes */
+"Off" = "끔";
+"Keep Screen On" = "화면 켜두기";
+"Run with Lid Closed" = "덮개 닫고 실행";
+"The Mac sleeps as usual." = "Mac이 평소처럼 잠자기 상태로 전환됩니다.";
+"For stepping away from the desk. Closing the lid still puts the Mac to sleep." = "자리를 비울 때 사용합니다. 덮개를 닫으면 Mac은 잠자기 상태로 전환됩니다.";
+"For the road. Keeps working with the lid shut or the screen locked." = "이동 중에 사용합니다. 덮개를 닫거나 화면이 잠겨도 계속 작동합니다.";
+
+/* Status line */
+"%@ left" = "%@ 남음";
+"Screen stays on" = "화면이 계속 켜져 있음";
+"Paused · on battery" = "일시 정지됨 · 배터리 사용 중";
+"Battery %lld%%" = "배터리 %lld%%";
+"Battery unknown" = "배터리 알 수 없음";
+
+/* Durations and values */
+"%lld min" = "%lld분";
+"%lld h" = "%lld시간";
+"%lld h %lld min" = "%lld시간 %lld분";
+"30 min" = "30분";
+"1 hour" = "1시간";
+"2 hours" = "2시간";
+"4 hours" = "4⁠시간";
+"8 hours" = "8시간";
+"%lld%%" = "%lld%%";
+
+/* Settings */
+"Safety" = "보호";
+"Timer" = "타이머";
+"Safety · lid closed only" = "보호 · 덮개를 닫았을 때만";
+"Sleep and wake" = "잠자기 및 깨우기";
+"General" = "일반";
+"Stop when the Mac gets hot" = "과열 시 중지";
+"Ends the session under thermal pressure" = "Mac이 너무 뜨거워질 때";
+"Stop on low battery" = "배터리 부족 시 중지";
+"When the charge drops below the limit" = "충전량이 한도 아래로 내려갈 때";
+"Not used with Only while charging" = "‘전원 연결 시에만’이 켜져 있으면 사용되지 않음";
+"Battery limit" = "배터리 한도";
+"Only while charging" = "전원 연결 시에만";
+"Pauses on battery, resumes on power" = "배터리에서 일시 정지, 전원 연결 시 재개";
+"Turn off after" = "자동 끄기";
+"Counts from the moment you switch on" = "켠 시점부터 계산";
+"Sleep when idle" = "유휴 시 잠자기";
+"After the work is done · for one session" = "작업이 끝나면 · 한 세션 동안";
+"Kept awake by %@" = "%@ 때문에 깨어 있음";
+"Kept awake by CPU load" = "CPU 부하 때문에 깨어 있음";
+"Kept awake by keyboard or mouse" = "키보드 또는 마우스 때문에 깨어 있음";
+"Idle for %lld of %lld min" = "유휴 %lld/%lld분";
+"Wake at" = "깨우기 시각";
+"If the Mac is asleep, every day, on power only" = "Mac이 잠자기 상태이면 매일, 전원 연결 시에만";
+"Could not set the wake" = "깨우기를 설정할 수 없음";
+"Lock screen when the lid closes" = "덮개를 닫으면 화면 잠금";
+"Screen lock is not available on this macOS version." = "이 macOS 버전에서는 화면 잠금을 사용할 수 없습니다.";
+"Launch at login" = "로그인 시 열기";
+"Turn it on in System Settings > General > Login Items & Extensions." = "시스템 설정 > 일반 > 로그인 항목 및 확장 프로그램에서 켜세요.";
+"Move LidAwake to the Applications folder to launch it at login." = "로그인 시 열려면 LidAwake를 응용 프로그램 폴더로 옮기세요.";
+"Appearance" = "화면 모드";
+"Glass" = "유리";
+"Solid" = "불투명";
+"Accent" = "강조 색상";
+"Blue" = "파란색";
+"System" = "시스템";
+"Amber" = "앰버";
+"Settings" = "설정";
+"Collapsed" = "접힘";
+"Expanded" = "펼침";
+"Quit LidAwake" = "LidAwake 종료";
+
+/* Helper messages */
+"Permission needed" = "권한 필요";
+"Allow LidAwake in System Settings > General > Login Items & Extensions. The mode turns on as soon as you do." = "시스템 설정 > 일반 > 로그인 항목 및 확장 프로그램에서 LidAwake를 허용하세요. 허용하면 바로 모드가 켜집니다.";
+"Allow LidAwake in System Settings > General > Login Items & Extensions, then choose %@ again." = "시스템 설정 > 일반 > 로그인 항목 및 확장 프로그램에서 LidAwake를 허용한 다음 ‘%@’ 모드를 다시 선택하세요.";
+"Allow LidAwake in System Settings > General > Login Items & Extensions." = "시스템 설정 > 일반 > 로그인 항목 및 확장 프로그램에서 LidAwake를 허용하세요.";
+"Move LidAwake to Applications" = "LidAwake를 응용 프로그램으로 옮기기";
+"%@ needs the app in the Applications folder." = "‘%@’ 모드를 사용하려면 앱이 응용 프로그램 폴더에 있어야 합니다.";
+"LidAwake must be in /Applications to install the helper." = "도우미를 설치하려면 LidAwake가 응용 프로그램 폴더에 있어야 합니다.";
+"The helper did not start" = "도우미가 시작되지 않음";
+"Install the helper to run with the lid closed." = "덮개를 닫은 채 실행하려면 도우미를 설치하세요.";
+"The helper could not be installed." = "도우미를 설치할 수 없습니다.";
+"The helper could not be updated." = "도우미를 업데이트할 수 없습니다.";
+"The helper did not respond." = "도우미가 응답하지 않았습니다.";
+"Unexpected helper reply." = "도우미가 예상치 못한 응답을 보냈습니다.";
+"Unexpected helper interface." = "도우미 인터페이스가 예상과 다릅니다.";
+"The helper reported error %lld." = "도우미가 오류(%lld)를 보고했습니다.";
+"Open System Settings" = "시스템 설정 열기";
+"Try Again" = "다시 시도";
+
+/* Mode messages and notifications */
+"Could not turn on" = "켤 수 없음";
+"Something went wrong" = "문제가 발생함";
+"LidAwake turned off" = "LidAwake가 꺼짐";
+"LidAwake was restarted. Turn the mode on again if you need it." = "LidAwake가 다시 시작되었습니다. 필요하면 모드를 다시 켜세요.";
+"The timer ran out." = "타이머가 종료되었습니다.";
+"The battery dropped below the limit." = "배터리가 한도 아래로 내려갔습니다.";
+"The battery dropped to %lld%%." = "배터리가 %lld%%까지 내려갔습니다.";
+"The battery level could not be read." = "배터리 잔량을 읽을 수 없습니다.";
+"The Mac got too hot." = "Mac이 너무 뜨거워졌습니다.";
+"The thermal state could not be read." = "발열 상태를 읽을 수 없습니다.";
+"The power source could not be read." = "전원 상태를 읽을 수 없습니다.";
+"The battery is at %lld%%, at or below the %lld%% limit." = "배터리 잔량이 %lld%%이며 한도 %lld%% 이하입니다.";
+"LidAwake closed unexpectedly, so normal sleep was restored." = "LidAwake가 예기치 않게 종료되어 일반 잠자기가 복원되었습니다.";
+"Nothing was working for %lld minutes." = "%lld분 동안 아무 작업도 없었습니다.";
+"Nothing was working for a while." = "한동안 아무 작업도 없었습니다.";
+"LidAwake paused" = "LidAwake 일시 정지됨";
+"Running on battery. It resumes when you plug in." = "배터리로 작동 중입니다. 전원을 연결하면 재개됩니다.";
+"Only while charging is on, so %@ waits until power is connected." = "‘전원 연결 시에만’이 켜져 있어 ‘%@’ 모드는 전원이 연결될 때까지 기다립니다.";
+
+/* Updates */
+"Check for updates" = "업데이트 확인";
+"Update available" = "업데이트 사용 가능";
+"LidAwake %@ is available. You have %@." = "LidAwake %@ 버전을 사용할 수 있습니다. 현재 버전은 %@입니다.";
+"Download" = "다운로드";
+
+/* Automatic logout */
+"macOS will log you out" = "macOS가 자동으로 로그아웃합니다";
+"Dismiss" = "닫기";
+"Privacy & Security > Advanced… > Log out automatically after inactivity" = "개인정보 보호 및 보안 > 고급… > 비활성 상태 후 자동으로 로그아웃";
+"Automatic logout after %@ of inactivity is on. The mode ends when macOS logs you out." = "%@ 동안 비활성 상태이면 자동으로 로그아웃하도록 설정되어 있습니다. macOS가 로그아웃하면 모드도 종료됩니다.";
+
+/* Activity log */
+"Activity log" = "활동 기록";
+"Activity Log" = "활동 기록";
+"Today" = "오늘";
+"Yesterday" = "어제";
+"Last 200 events · kept only on this Mac" = "최근 200개 이벤트 · 이 Mac에만 보관";
+"Clear" = "지우기";
+"No events yet" = "아직 이벤트 없음";
+"Run with Lid Closed turned on" = "‘덮개 닫고 실행’ 켜짐";
+"Run with Lid Closed turned off" = "‘덮개 닫고 실행’ 꺼짐";
+"Keep Screen On turned on" = "‘화면 켜두기’ 켜짐";
+"Keep Screen On turned off" = "‘화면 켜두기’ 꺼짐";
+"Paused" = "일시 정지됨";
+"Resumed" = "재개됨";
+"Idle" = "유휴";
+"Mac went to sleep" = "Mac이 잠자기 상태로 전환됨";
+"Mac woke up" = "Mac이 깨어남";
+"By you" = "사용자가 직접";
+"On schedule" = "일정에 따라";
+"Run with Lid Closed not turned on" = "‘덮개 닫고 실행’이 켜지지 않음";
+"Not on power" = "전원에 연결되지 않음";
+"Mac was on battery or turned off" = "Mac이 배터리로 작동 중이었거나 꺼져 있었음";
+"The timer ended after %@." = "%@ 후 타이머가 종료되었습니다.";
+"Running on battery" = "배터리로 작동 중";
+"Power connected" = "전원 연결됨";
+"The app asked macOS not to sleep." = "앱이 macOS에 잠자기를 하지 않도록 요청했습니다.";
+"Busiest app: %@" = "가장 바쁜 앱: %@";
+"Started programs are working" = "시작된 프로그램이 작업 중";
+"No work detected, counting %lld minutes" = "작업이 감지되지 않음, %lld분 카운트 중";
+"LidAwake was restarted." = "LidAwake가 다시 시작되었습니다.";
+"Watched apps" = "지켜보는 앱";
+"Watched Apps" = "지켜보는 앱";
+"None" = "없음";
+"While a watched app runs programs it started, such as a coding agent, a build or a script, Sleep when idle keeps counting it as work. Typing in the app and its own windows do not count." = "지켜보는 앱이 직접 시작한 프로그램(코딩 에이전트, 빌드, 스크립트 등)을 실행하는 동안 ‘유휴 시 잠자기’는 이를 작업으로 계산합니다. 앱에서의 입력과 앱 자체의 윈도우는 계산하지 않습니다.";
+"Turn off after is set to 4 hours, so a stuck app can't keep the Mac awake forever. You can change it in Settings." = "멈춘 앱이 Mac을 계속 깨어 있게 하지 않도록 ‘자동 끄기’가 4⁠시간으로 설정되었습니다. 설정에서 변경할 수 있습니다.";
+"Turn off after will be set to 4 hours when LidAwake stops keeping the Mac awake. You can change it in Settings." = "LidAwake가 Mac을 깨어 있게 하는 것을 멈추면 ‘자동 끄기’가 4⁠시간으로 설정됩니다. 설정에서 변경할 수 있습니다.";
+"Open now" = "현재 열림";
+"Watched, not open" = "지켜보는 중, 열려 있지 않음";
+"Started programs are working now" = "시작된 프로그램이 지금 작업 중";
+"Nothing running" = "실행 중인 항목 없음";
+"Not open" = "열려 있지 않음";
+"Add Other App…" = "다른 앱 추가…";
+"Done" = "완료";
+
+/* LidAwake Pro */
+"Movie on a TV, waits for downloads and exports" = "TV로 영화 보기, 다운로드 및 내보내기 대기";
+
+"−%lld%%" = "−%lld%%";
+"until %@" = "%@까지";
+
+/* What's new and How to use LidAwake */
+"What's new" = "새로운 기능";
+"How to use LidAwake" = "LidAwake 사용 방법";
+"What's new in %@" = "%@의 새로운 기능";
+"Version %@" = "버전 %@";
+"and %lld earlier updates" = "이전 업데이트 %lld개 더";
+"Six new languages" = "6개의 새로운 언어";
+"Only in LidAwake Pro %@" = "LidAwake Pro %@에서만";
+"Movie on a TV" = "TV로 영화 보기";
+"Close the lid and the movie keeps playing on the TV." = "덮개를 닫아도 TV에서 영화가 계속 재생됩니다.";
+"Waits for downloads" = "다운로드 대기";
+"Stays awake until a big download is done, then sleeps." = "큰 다운로드가 끝날 때까지 깨어 있다가 잠자기 상태로 전환합니다.";
+"Waits for video exports" = "비디오 내보내기 대기";
+"Stays awake while a video renders, then sleeps." = "비디오를 렌더링하는 동안 깨어 있다가 잠자기 상태로 전환합니다.";
+"In a Bag" = "가방 속";
+"One switch with stricter protections for a Mac in a bag." = "가방 속 Mac을 위한 더 엄격한 보호 기능을 스위치 하나로.";
+"New" = "신규";
+"Updates in one click" = "클릭 한 번으로 업데이트";
+"The Download button opens your purchases, where the new version is ready." = "‘다운로드’ 버튼을 누르면 구입 내역이 열리고 새 버전을 받을 수 있습니다.";
+"−%lld%% on LidAwake Pro" = "LidAwake Pro %lld%% 할인";
+"one-time" = "일회성 구입";
+"one-time · until %@" = "일회성 구입 · %@까지";
+"Get Pro" = "Pro 받기";
+"Continue" = "계속";
+"Pick a mode" = "모드 선택";
+"Keep Screen On when you step away from the desk. Run with Lid Closed when the Mac should keep working with the lid shut. Only one mode is on at a time; Off brings normal sleep back." = "자리를 비울 때는 ‘화면 켜두기’, 덮개를 닫은 채로 Mac이 계속 작업해야 할 때는 ‘덮개 닫고 실행’을 선택하세요. 한 번에 하나의 모드만 켜지며, ‘끔’을 선택하면 일반 잠자기로 돌아갑니다.";
+"Allow the helper once" = "도우미를 한 번 허용하기";
+"The first time you choose Run with Lid Closed, allow LidAwake in System Settings › General › Login Items & Extensions. No password is needed." = "처음 ‘덮개 닫고 실행’을 선택할 때 시스템 설정 › 일반 › 로그인 항목 및 확장 프로그램에서 LidAwake를 허용하세요. 암호는 필요하지 않습니다.";
+"Let it end by itself" = "스스로 끝나게 하기";
+"In Settings, Sleep when idle lets the Mac sleep once the work is done, and Turn off after ends the mode after a set time. With Sleep when idle on, adding the first watched app sets Turn off after to 4 hours, so a stuck app can't keep the Mac awake forever. The mode also stops when the Mac gets hot or the battery runs low." = "설정에서 ‘유휴 시 잠자기’는 작업이 끝나면 Mac을 잠자기 상태로 전환하고, ‘자동 끄기’는 정한 시간이 지나면 모드를 종료합니다. ‘유휴 시 잠자기’가 켜져 있을 때 처음으로 지켜보는 앱을 추가하면, 멈춘 앱이 Mac을 계속 깨어 있게 하지 않도록 ‘자동 끄기’가 4⁠시간으로 설정됩니다. Mac이 너무 뜨거워지거나 배터리가 부족해도 모드가 중지됩니다.";
+"Avoid packing a running Mac in a closed bag" = "작동 중인 Mac을 닫힌 가방에 넣지 마세요";
+"A closed laptop in a bag cools poorly. The protections reduce the risk; they do not remove it. If you must carry it running, prefer a short session and keep an eye on the temperature. You use LidAwake at your own risk." = "가방 속에 닫아 둔 노트북은 잘 식지 않습니다. 보호 기능은 위험을 줄이지만 없애지는 못합니다. 꼭 작동 중인 상태로 들고 다녀야 한다면 세션을 짧게 하고 온도를 확인하세요. LidAwake 사용에 따른 책임은 사용자에게 있습니다.";
+"Website" = "웹사이트";
+"Source code" = "소스 코드";
+"Works only with Sleep when idle in Run with Lid Closed." = "‘덮개 닫고 실행’에서 ‘유휴 시 잠자기’가 켜져 있을 때만 작동합니다.";
+"The Mac is on battery, so the wake will not turn the mode on." = "Mac이 배터리로 작동 중이어서 깨어나도 모드가 켜지지 않습니다.";
+"On for this session, turned on by Wake at." = "‘깨우기 시각’에 의해 이번 세션에 켜졌습니다.";
+"This Mac has no battery." = "이 Mac에는 배터리가 없습니다.";
+"Set to 4 hours for watched apps." = "지켜보는 앱 때문에 4⁠시간으로 설정됨.";
+"Will be set to 4 hours for watched apps when the mode ends." = "모드가 끝나면 지켜보는 앱 때문에 4⁠시간으로 설정됩니다.";
+"%@ The timer keeps counting." = "%@ 타이머는 계속 카운트됩니다.";

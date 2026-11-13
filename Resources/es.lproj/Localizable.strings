@@ -1,0 +1,210 @@
+/* Modes */
+"Off" = "Desactivado";
+"Keep Screen On" = "Mantener la pantalla encendida";
+"Run with Lid Closed" = "Con la tapa cerrada";
+"The Mac sleeps as usual." = "El Mac entra en reposo como siempre.";
+"For stepping away from the desk. Closing the lid still puts the Mac to sleep." = "Para cuando te alejas del escritorio. Al cerrar la tapa, el Mac sigue entrando en reposo.";
+"For the road. Keeps working with the lid shut or the screen locked." = "Para llevarlo contigo. Sigue funcionando con la tapa cerrada o la pantalla bloqueada.";
+
+/* Status line */
+"%@ left" = "Quedan %@";
+"Screen stays on" = "La pantalla sigue encendida";
+"Paused · on battery" = "En pausa · con batería";
+"Battery %lld%%" = "Batería %lld %%";
+"Battery unknown" = "Batería desconocida";
+
+/* Durations and values */
+"%lld min" = "%lld min";
+"%lld h" = "%lld h";
+"%lld h %lld min" = "%lld h %lld min";
+"30 min" = "30 min";
+"1 hour" = "1 hora";
+"2 hours" = "2 horas";
+"4 hours" = "4 horas";
+"8 hours" = "8 horas";
+"%lld%%" = "%lld %%";
+
+/* Settings */
+"Safety" = "Protecciones";
+"Timer" = "Temporizador";
+"Safety · lid closed only" = "Protecciones · solo con la tapa cerrada";
+"Sleep and wake" = "Reposo y activación";
+"General" = "General";
+"Stop when the Mac gets hot" = "Detener si el Mac se calienta";
+"Ends the session under thermal pressure" = "Cuando el Mac se calienta demasiado";
+"Stop on low battery" = "Detener con batería baja";
+"When the charge drops below the limit" = "Cuando la carga baja del límite";
+"Not used with Only while charging" = "Sin efecto con «Solo con corriente»";
+"Battery limit" = "Límite de batería";
+"Only while charging" = "Solo con corriente";
+"Pauses on battery, resumes on power" = "Pausa con batería, sigue con corriente";
+"Turn off after" = "Desactivar tras";
+"Counts from the moment you switch on" = "Desde el momento en que lo activas";
+"Sleep when idle" = "Reposo por inactividad";
+"After the work is done · for one session" = "Cuando termina el trabajo · para una sesión";
+"Kept awake by %@" = "Mantenido activo por %@";
+"Kept awake by CPU load" = "Mantenido activo por la carga de CPU";
+"Kept awake by keyboard or mouse" = "Mantenido activo por el teclado o el ratón";
+"Idle for %lld of %lld min" = "Inactivo: %lld de %lld min";
+"Wake at" = "Activar a las";
+"If the Mac is asleep, every day, on power only" = "Si el Mac está en reposo, cada día, solo con corriente";
+"Could not set the wake" = "No se pudo programar la activación";
+"Lock screen when the lid closes" = "Bloquear al cerrar la tapa";
+"Screen lock is not available on this macOS version." = "El bloqueo de pantalla no está disponible en esta versión de macOS.";
+"Launch at login" = "Abrir al iniciar sesión";
+"Turn it on in System Settings > General > Login Items & Extensions." = "Actívalo en Ajustes del Sistema > General > Ítems de inicio y extensiones.";
+"Move LidAwake to the Applications folder to launch it at login." = "Mueve LidAwake a la carpeta Aplicaciones para abrirlo al iniciar sesión.";
+"Appearance" = "Aspecto";
+"Glass" = "Cristal";
+"Solid" = "Opaco";
+"Accent" = "Acento";
+"Blue" = "Azul";
+"System" = "Sistema";
+"Amber" = "Ámbar";
+"Settings" = "Ajustes";
+"Collapsed" = "Contraído";
+"Expanded" = "Expandido";
+"Quit LidAwake" = "Salir de LidAwake";
+
+/* Helper messages */
+"Permission needed" = "Se necesita permiso";
+"Allow LidAwake in System Settings > General > Login Items & Extensions. The mode turns on as soon as you do." = "Permite LidAwake en Ajustes del Sistema > General > Ítems de inicio y extensiones. El modo se activará en cuanto lo hagas.";
+"Allow LidAwake in System Settings > General > Login Items & Extensions, then choose %@ again." = "Permite LidAwake en Ajustes del Sistema > General > Ítems de inicio y extensiones y vuelve a elegir «%@».";
+"Allow LidAwake in System Settings > General > Login Items & Extensions." = "Permite LidAwake en Ajustes del Sistema > General > Ítems de inicio y extensiones.";
+"Move LidAwake to Applications" = "Mover LidAwake a Aplicaciones";
+"%@ needs the app in the Applications folder." = "«%@» necesita la app en la carpeta Aplicaciones.";
+"LidAwake must be in /Applications to install the helper." = "LidAwake debe estar en la carpeta Aplicaciones para instalar la herramienta auxiliar.";
+"The helper did not start" = "La herramienta auxiliar no se inició";
+"Install the helper to run with the lid closed." = "Instala la herramienta auxiliar para usar el Mac con la tapa cerrada.";
+"The helper could not be installed." = "No se pudo instalar la herramienta auxiliar.";
+"The helper could not be updated." = "No se pudo actualizar la herramienta auxiliar.";
+"The helper did not respond." = "La herramienta auxiliar no respondió.";
+"Unexpected helper reply." = "Respuesta inesperada de la herramienta auxiliar.";
+"Unexpected helper interface." = "Interfaz inesperada de la herramienta auxiliar.";
+"The helper reported error %lld." = "La herramienta auxiliar informó del error %lld.";
+"Open System Settings" = "Abrir Ajustes del Sistema";
+"Try Again" = "Reintentar";
+
+/* Mode messages and notifications */
+"Could not turn on" = "No se pudo activar";
+"Something went wrong" = "Algo ha fallado";
+"LidAwake turned off" = "LidAwake se ha desactivado";
+"LidAwake was restarted. Turn the mode on again if you need it." = "LidAwake se ha reiniciado. Vuelve a activar el modo si lo necesitas.";
+"The timer ran out." = "El temporizador ha terminado.";
+"The battery dropped below the limit." = "La batería ha bajado del límite.";
+"The battery dropped to %lld%%." = "La batería ha bajado al %lld %%.";
+"The battery level could not be read." = "No se pudo leer el nivel de la batería.";
+"The Mac got too hot." = "El Mac se ha calentado demasiado.";
+"The thermal state could not be read." = "No se pudo leer el estado térmico.";
+"The power source could not be read." = "No se pudo leer la fuente de alimentación.";
+"The battery is at %lld%%, at or below the %lld%% limit." = "La batería está al %lld %%, en el límite del %lld %% o por debajo.";
+"LidAwake closed unexpectedly, so normal sleep was restored." = "LidAwake se cerró de forma inesperada, así que se ha restablecido el reposo normal.";
+"Nothing was working for %lld minutes." = "No hubo actividad durante %lld minutos.";
+"Nothing was working for a while." = "No hubo actividad durante un rato.";
+"LidAwake paused" = "LidAwake en pausa";
+"Running on battery. It resumes when you plug in." = "Funcionando con batería. Seguirá cuando lo conectes a la corriente.";
+"Only while charging is on, so %@ waits until power is connected." = "«Solo con corriente» está activado, así que «%@» espera hasta que se conecte la corriente.";
+
+/* Updates */
+"Check for updates" = "Buscar actualizaciones";
+"Update available" = "Actualización disponible";
+"LidAwake %@ is available. You have %@." = "LidAwake %@ está disponible. Tienes la %@.";
+"Download" = "Descargar";
+
+/* Automatic logout */
+"macOS will log you out" = "macOS cerrará tu sesión";
+"Dismiss" = "Ocultar";
+"Privacy & Security > Advanced… > Log out automatically after inactivity" = "Privacidad y seguridad > Avanzado… > Cerrar sesión automáticamente tras un tiempo de inactividad";
+"Automatic logout after %@ of inactivity is on. The mode ends when macOS logs you out." = "El cierre de sesión automático tras %@ de inactividad está activado. El modo terminará cuando macOS cierre tu sesión.";
+
+/* Activity log */
+"Activity log" = "Registro de actividad";
+"Activity Log" = "Registro de actividad";
+"Today" = "Hoy";
+"Yesterday" = "Ayer";
+"Last 200 events · kept only on this Mac" = "Últimos 200 eventos · guardados solo en este Mac";
+"Clear" = "Borrar";
+"No events yet" = "Aún no hay eventos";
+"Run with Lid Closed turned on" = "«Con la tapa cerrada» activado";
+"Run with Lid Closed turned off" = "«Con la tapa cerrada» desactivado";
+"Keep Screen On turned on" = "«Mantener la pantalla encendida» activado";
+"Keep Screen On turned off" = "«Mantener la pantalla encendida» desactivado";
+"Paused" = "En pausa";
+"Resumed" = "Reanudado";
+"Idle" = "Inactivo";
+"Mac went to sleep" = "El Mac entró en reposo";
+"Mac woke up" = "El Mac se activó";
+"By you" = "Por ti";
+"On schedule" = "Según el horario";
+"Run with Lid Closed not turned on" = "«Con la tapa cerrada» no activado";
+"Not on power" = "Sin corriente";
+"Mac was on battery or turned off" = "El Mac estaba con batería o apagado";
+"The timer ended after %@." = "El temporizador terminó tras %@.";
+"Running on battery" = "Funcionando con batería";
+"Power connected" = "Corriente conectada";
+"The app asked macOS not to sleep." = "La app pidió a macOS que no entrara en reposo.";
+"Busiest app: %@" = "App más activa: %@";
+"Started programs are working" = "Los programas iniciados están trabajando";
+"No work detected, counting %lld minutes" = "No se detecta trabajo, contando %lld minutos";
+"LidAwake was restarted." = "LidAwake se ha reiniciado.";
+"Watched apps" = "Apps vigiladas";
+"Watched Apps" = "Apps vigiladas";
+"None" = "Ninguna";
+"While a watched app runs programs it started, such as a coding agent, a build or a script, Sleep when idle keeps counting it as work. Typing in the app and its own windows do not count." = "Mientras una app vigilada ejecuta programas que ella inició, como un agente de programación, una compilación o un script, «Reposo por inactividad» lo cuenta como trabajo. Escribir en la app y sus propias ventanas no cuentan.";
+"Turn off after is set to 4 hours, so a stuck app can't keep the Mac awake forever. You can change it in Settings." = "«Desactivar tras» está en 4 horas para que una app bloqueada no mantenga el Mac activo para siempre. Puedes cambiarlo en Ajustes.";
+"Turn off after will be set to 4 hours when LidAwake stops keeping the Mac awake. You can change it in Settings." = "«Desactivar tras» se pondrá en 4 horas cuando LidAwake deje de mantener el Mac activo. Puedes cambiarlo en Ajustes.";
+"Open now" = "Abiertas ahora";
+"Watched, not open" = "Vigiladas, no abiertas";
+"Started programs are working now" = "Los programas iniciados están trabajando ahora";
+"Nothing running" = "Nada en ejecución";
+"Not open" = "No abierta";
+"Add Other App…" = "Añadir otra app…";
+"Done" = "Aceptar";
+
+/* LidAwake Pro */
+"Movie on a TV, waits for downloads and exports" = "Película en la tele, espera descargas y exportaciones";
+
+"−%lld%%" = "−%lld %%";
+"until %@" = "hasta el %@";
+
+/* What's new and How to use LidAwake */
+"What's new" = "Novedades";
+"How to use LidAwake" = "Cómo usar LidAwake";
+"What's new in %@" = "Novedades de %@";
+"Version %@" = "Versión %@";
+"and %lld earlier updates" = "y %lld actualizaciones anteriores";
+"Six new languages" = "Seis idiomas nuevos";
+"Only in LidAwake Pro %@" = "Solo en LidAwake Pro %@";
+"Movie on a TV" = "Película en la tele";
+"Close the lid and the movie keeps playing on the TV." = "Cierra la tapa y la película sigue en la tele.";
+"Waits for downloads" = "Espera las descargas";
+"Stays awake until a big download is done, then sleeps." = "Se mantiene activo hasta que termina una descarga grande y luego entra en reposo.";
+"Waits for video exports" = "Espera las exportaciones";
+"Stays awake while a video renders, then sleeps." = "Se mantiene activo mientras se exporta un vídeo y luego entra en reposo.";
+"In a Bag" = "En la mochila";
+"One switch with stricter protections for a Mac in a bag." = "Un solo interruptor con protecciones más estrictas para un Mac en la mochila.";
+"New" = "Nuevo";
+"Updates in one click" = "Actualizaciones en un clic";
+"The Download button opens your purchases, where the new version is ready." = "El botón «Descargar» abre tus compras, donde te espera la nueva versión.";
+"−%lld%% on LidAwake Pro" = "−%lld %% en LidAwake Pro";
+"one-time" = "pago único";
+"one-time · until %@" = "pago único · hasta el %@";
+"Get Pro" = "Obtener Pro";
+"Continue" = "Continuar";
+"Pick a mode" = "Elige un modo";
+"Keep Screen On when you step away from the desk. Run with Lid Closed when the Mac should keep working with the lid shut. Only one mode is on at a time; Off brings normal sleep back." = "«Mantener la pantalla encendida» cuando te alejas del escritorio. «Con la tapa cerrada» cuando el Mac debe seguir trabajando con la tapa cerrada. Solo hay un modo activo a la vez; «Desactivado» devuelve el reposo normal.";
+"Allow the helper once" = "Permite la herramienta auxiliar una vez";
+"The first time you choose Run with Lid Closed, allow LidAwake in System Settings › General › Login Items & Extensions. No password is needed." = "La primera vez que elijas «Con la tapa cerrada», permite LidAwake en Ajustes del Sistema › General › Ítems de inicio y extensiones. No se necesita contraseña.";
+"Let it end by itself" = "Deja que termine solo";
+"In Settings, Sleep when idle lets the Mac sleep once the work is done, and Turn off after ends the mode after a set time. With Sleep when idle on, adding the first watched app sets Turn off after to 4 hours, so a stuck app can't keep the Mac awake forever. The mode also stops when the Mac gets hot or the battery runs low." = "En Ajustes, «Reposo por inactividad» deja que el Mac entre en reposo cuando termina el trabajo, y «Desactivar tras» termina el modo tras un tiempo fijado. Con «Reposo por inactividad» activado, añadir la primera app vigilada pone «Desactivar tras» en 4 horas, para que una app bloqueada no mantenga el Mac activo para siempre. El modo también se detiene si el Mac se calienta demasiado o la batería está baja.";
+"Avoid packing a running Mac in a closed bag" = "No guardes un Mac en marcha en una mochila cerrada";
+"A closed laptop in a bag cools poorly. The protections reduce the risk; they do not remove it. If you must carry it running, prefer a short session and keep an eye on the temperature. You use LidAwake at your own risk." = "Un portátil cerrado dentro de una mochila se refrigera mal. Las protecciones reducen el riesgo, pero no lo eliminan. Si tienes que llevarlo en marcha, mejor una sesión corta y vigila la temperatura. Usas LidAwake bajo tu propia responsabilidad.";
+"Website" = "Sitio web";
+"Source code" = "Código fuente";
+"Works only with Sleep when idle in Run with Lid Closed." = "Solo funciona con «Reposo por inactividad» en «Con la tapa cerrada».";
+"The Mac is on battery, so the wake will not turn the mode on." = "El Mac está con batería, así que la activación no encenderá el modo.";
+"On for this session, turned on by Wake at." = "Activado en esta sesión por «Activar a las».";
+"This Mac has no battery." = "Este Mac no tiene batería.";
+"Set to 4 hours for watched apps." = "Puesto en 4 horas para las apps vigiladas.";
+"Will be set to 4 hours for watched apps when the mode ends." = "Se pondrá en 4 horas para las apps vigiladas cuando termine el modo.";
+"%@ The timer keeps counting." = "%@ El temporizador sigue contando.";
