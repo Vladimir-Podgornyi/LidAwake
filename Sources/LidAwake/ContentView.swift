@@ -22,6 +22,10 @@ struct ContentView: View {
     let openWhatsNew: () -> Void
     let openHowToUse: () -> Void
     var heightLimit: HeightLimit = .screen
+    /// Switches modes without animation, as with Reduce motion on.
+    var reducesMotion = false
+    /// Told the height of each mode card each time it changes, for `--measure-mode-switch`.
+    var reportCardHeight: ((Mode, CGFloat) -> Void)?
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -75,7 +79,7 @@ struct ContentView: View {
         .background(look.drawsOwnBackground ? Palette.solidWindowBackground : .clear)
         .tint(accentColor)
         // The cards fold and unfold together, and the window follows them.
-        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: controller.shownMode)
+        .animation(reduceMotion || reducesMotion ? nil : .easeInOut(duration: 0.2), value: controller.shownMode)
         .onAppear {
             launchAtLogin.refresh()
             autoLogout.refresh()
@@ -165,7 +169,7 @@ struct ContentView: View {
             if !messages.isEmpty {
                 messageBlock
             }
-            ForEach(WindowBlockGroup.groups(blocks), id: \.self) { group in
+            ForEach(WindowBlockGroup.groups(blocks.filter { $0 != .timer }), id: \.self) { group in
                 switch group {
                 case .block(let block):
                     view(for: block)
@@ -241,6 +245,15 @@ struct ContentView: View {
                     Task { await helperSetup.select(mode) }
                 }
                 .focused($focusedCard, equals: mode)
+                .background {
+                    if let reportCardHeight {
+                        GeometryReader { proxy in
+                            Color.clear
+                                .onAppear { reportCardHeight(mode, proxy.size.height) }
+                                .onChange(of: proxy.size.height) { reportCardHeight(mode, $0) }
+                        }
+                    }
+                }
             }
         }
         .disabled(controller.isBusy)
@@ -307,8 +320,16 @@ struct ContentView: View {
     @ViewBuilder
     private func view(for block: WindowBlock, isCompact: Bool = false, isFirst: Bool = false) -> some View {
         switch block {
-        case .timer: timerSection
-        case .settingsToggle: SettingsToggleRow(isExpanded: $disclosure.isExpanded)
+        // Drawn with the settings toggle, so that it folds with the mode cards.
+        case .timer: EmptyView()
+        case .settingsToggle:
+            VStack(alignment: .leading, spacing: 0) {
+                timerSection
+                    .padding(.bottom, 12)
+                    .unfolded(blocks.contains(.timer))
+                    .disabled(!blocks.contains(.timer))
+                SettingsToggleRow(isExpanded: $disclosure.isExpanded)
+            }
         case .safety: safetySection
         case .dimmedSafety: dimmedSafetySection
         case .sleepAndWake: sleepAndWakeSection
@@ -700,9 +721,11 @@ private struct ModeCard: View {
                 ModeIconView(mode: mode)
                     .frame(width: 22, height: 22)
                     .foregroundStyle(isSelected ? accent : Color.primary)
-                VStack(alignment: .leading, spacing: 0) {
+                // As tall as the icon at least.
+                TitleWithDetail(isShown: isSelected, minHeight: 22) {
                     Text(mode.title)
                         .font(.system(size: 13, weight: .semibold))
+                } detail: {
                     // Only the chosen mode is described, to keep the window short; the others
                     // tell it on hover.
                     Text(mode.summary)
@@ -711,7 +734,6 @@ private struct ModeCard: View {
                         .fixedSize(horizontal: false, vertical: true)
                         .keepingWidthOfCheckmark(isShown: isSelected)
                         .padding(.top, 2)
-                        .unfolded(isSelected)
                 }
                 .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)

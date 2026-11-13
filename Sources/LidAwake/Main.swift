@@ -12,6 +12,10 @@ enum Main {
         case nil:
             break
         }
+        if CommandLine.arguments.contains(ModeSwitchMeasure.flag) {
+            ModeSwitchMeasureApp.main()
+            return
+        }
         if CommandLine.arguments.contains(InfoWindowMeasure.flag) {
             InfoWindowMeasureApp.main()
             return

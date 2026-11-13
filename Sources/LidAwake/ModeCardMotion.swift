@@ -26,6 +26,63 @@ private struct RevealLayout: Layout {
     }
 }
 
+/// A title with a detail under it that unfolds and folds. The height goes evenly from the folded
+/// height to the unfolded one, each at least `minHeight` with the content centered in it, so a card
+/// unfolds at the pace another card folds at; in a stack beside something `minHeight` tall, the
+/// first points of the detail would be hidden by it and the card would start growing late.
+struct TitleWithDetail<Title: View, Detail: View>: View {
+    let isShown: Bool
+    let minHeight: CGFloat
+    @ViewBuilder let title: Title
+    @ViewBuilder let detail: Detail
+
+    var body: some View {
+        TitleDetailLayout(progress: isShown ? 1 : 0, minHeight: minHeight) {
+            title
+            detail
+                .opacity(isShown ? 1 : 0)
+                .accessibilityHidden(!isShown)
+        }
+        .clipShape(BelowCut())
+    }
+}
+
+private struct TitleDetailLayout: Layout {
+    var progress: Double
+    let minHeight: CGFloat
+
+    var animatableData: Double {
+        get { progress }
+        set { progress = newValue }
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard subviews.count == 2 else { return .zero }
+        let sizes = subviews.map { $0.sizeThatFits(ProposedViewSize(width: proposal.width, height: nil)) }
+        return CGSize(width: max(sizes[0].width, sizes[1].width), height: frame(sizes).height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        guard subviews.count == 2 else { return }
+        let width = ProposedViewSize(width: bounds.width, height: nil)
+        let sizes = subviews.map { $0.sizeThatFits(width) }
+        let titleTop = bounds.minY + frame(sizes).titleTop
+        subviews[0].place(at: CGPoint(x: bounds.minX, y: titleTop), anchor: .topLeading, proposal: width)
+        subviews[1].place(at: CGPoint(x: bounds.minX, y: titleTop + sizes[0].height), anchor: .topLeading, proposal: width)
+    }
+
+    private func frame(_ sizes: [CGSize]) -> (height: CGFloat, titleTop: CGFloat) {
+        let folded = sizes[0].height
+        let unfolded = folded + sizes[1].height
+        let foldedHeight = max(minHeight, folded)
+        let unfoldedHeight = max(minHeight, unfolded)
+        let height = foldedHeight + (unfoldedHeight - foldedHeight) * progress
+        let foldedTop = (foldedHeight - folded) / 2
+        let unfoldedTop = (unfoldedHeight - unfolded) / 2
+        return (height, foldedTop + (unfoldedTop - foldedTop) * progress)
+    }
+}
+
 extension View {
     /// The view at its full height when `isShown`, folded to no height otherwise. Spacing above
     /// it belongs inside, so that it folds away too.

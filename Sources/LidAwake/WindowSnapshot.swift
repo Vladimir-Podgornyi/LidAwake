@@ -442,6 +442,73 @@ enum WindowSnapshot {
         return try png(of: host, appearance: appearance)
     }
 
+    /// The window's content with everything outside it inert, as the shots draw it, for
+    /// `--measure-mode-switch`. Starting a session takes as long as it does with the helper, so a
+    /// switch between two modes goes through Off as it really does.
+    @MainActor
+    static func inertWindow(
+        isExpanded: Bool,
+        reducesMotion: Bool,
+        reportCardHeight: @escaping (Mode, CGFloat) -> Void
+    ) -> (controller: ModeController, content: AnyView) {
+        let defaults = UserDefaults(suiteName: snapshotSuite)!
+        defaults.register(defaults: [
+            SettingsDisclosurePreference.key: isExpanded,
+            UpdateChecker.latestVersionKey: "",
+            UpdateChecker.offerKey: Data(),
+        ])
+        let inert = Inert(startDelay: 150_000_000)
+        let controller = ModeController(
+            displayAssertion: inert,
+            helper: inert,
+            sessions: inert,
+            preferences: SafetyPreferences(defaults: defaults),
+            notifier: inert,
+            activity: inert,
+            powerSourceMonitor: inert,
+            lidMonitor: inert
+        )
+        let wake = WakeScheduler(
+            preferences: WakePreferences(defaults: defaults),
+            helper: inert,
+            service: inert,
+            mode: controller,
+            log: inert,
+            clockMonitor: inert
+        )
+        let content = ContentView(
+            controller: controller,
+            preferences: controller.preferences,
+            helperSetup: HelperSetup(helper: inert, selectMode: { _ in }),
+            launchAtLogin: LaunchAtLogin(
+                service: inert,
+                store: inert,
+                bundleURL: URL(fileURLWithPath: "/Applications/LidAwake.app")
+            ),
+            accent: AccentPreference(defaults: defaults),
+            windowStyle: WindowAppearancePreference(defaults: defaults),
+            disclosure: SettingsDisclosurePreference(defaults: defaults),
+            updates: UpdateChecker(defaults: defaults, source: ReleaseOnlyUpdateSource(inert)),
+            autoLogout: AutoLogoutMonitor(source: FixedAutoLogout(delay: nil), defaults: defaults),
+            wake: wake,
+            wakePreferences: wake.preferences,
+            powerStatus: PowerStatus(source: FixedPower(reading: PowerReading(battery: .percent(82), source: .ac)), monitor: inert),
+            idleSource: FixedIdleStatus(status: nil),
+            openActivityLog: {},
+            openWatchedApps: {},
+            openWhatsNew: {},
+            openHowToUse: {},
+            reducesMotion: reducesMotion,
+            reportCardHeight: reportCardHeight
+        )
+        return (controller, AnyView(content))
+    }
+
+    /// Removes the settings `inertWindow` changed.
+    static func removeInertSettings() {
+        UserDefaults.standard.removePersistentDomain(forName: snapshotSuite)
+    }
+
     /// The popover's own frame is drawn by the system and is not in the picture.
     @MainActor
     private static func renderWakeTimePicker(isDark: Bool) throws -> Data {
@@ -713,10 +780,13 @@ private final class Inert: PowerAssertion, HelperPreparing, HelperInstalling, Li
     nonisolated let paused: Bool
     /// A setting changed while the mode runs is sent with a renewal, which would end the mode if it failed.
     nonisolated let renews: Bool
+    /// How long starting a session takes, in nanoseconds.
+    nonisolated let startDelay: UInt64
 
-    init(paused: Bool = false, renews: Bool = false) {
+    init(paused: Bool = false, renews: Bool = false, startDelay: UInt64 = 0) {
         self.paused = paused
         self.renews = renews
+        self.startDelay = startDelay
     }
 
     nonisolated var isHeld: Bool { false }
@@ -732,7 +802,11 @@ private final class Inert: PowerAssertion, HelperPreparing, HelperInstalling, Li
     func install() async {}
     func openSystemSettings() {}
 
-    nonisolated func startSession(leaseSeconds: Int, safety: SafetySettings) async throws {}
+    nonisolated func startSession(leaseSeconds: Int, safety: SafetySettings) async throws {
+        if startDelay > 0 {
+            try await Task.sleep(nanoseconds: startDelay)
+        }
+    }
     nonisolated func renewSession(leaseSeconds: Int, safety: SafetySettings) async throws {
         guard renews else { throw CancellationError() }
     }
