@@ -22,6 +22,9 @@ final class InfoWindowController {
     /// the window may get, as of the last fit.
     private var fitted: (fixed: CGFloat, maxHeight: CGFloat?)?
     private var visibleHeight: CGFloat?
+    /// The full height of the last fit, for `--log-window-geometry`.
+    private var lastFull: CGFloat?
+    private var resizeLog: NSObjectProtocol?
 
     /// `changes` tells of anything that may change the content's height while the window is open.
     init<Content: View>(
@@ -62,6 +65,12 @@ final class InfoWindowController {
         }
         // With keyboard navigation on, Space would press the first link right away.
         window.makeFirstResponder(nil)
+        logGeometry("opened")
+        if WindowGeometryLog.isEnabled {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+                self?.logGeometry("1 s after opening")
+            }
+        }
     }
 
     /// The window as it opens, off screen, for `--render-window`. `visibleHeight` stands in for
@@ -95,12 +104,14 @@ final class InfoWindowController {
         let maxHeight = screenHeight.map { ($0 * Self.maxScreenShare).rounded(.down) }
         let scroll = WindowHeightLimit.scrollHeight(fixedHeight: fixed, contentHeight: full - fixed, maxHeight: maxHeight)
         fitted = (fixed, maxHeight)
+        lastFull = full
         layout.scrollHeight = scroll
         setHeight(scroll.map { fixed + $0 } ?? full, of: window)
         // The page measured on its own comes out a few points off its height in the window, as
         // stretchy parts take a different size; laid out in the window, it decides the height.
         window.contentView?.layoutSubtreeIfNeeded()
         matchPage(window)
+        logGeometry("fitted")
     }
 
     /// Makes the window as tall as the page laid out in it, so the space under the footer is the
@@ -116,6 +127,35 @@ final class InfoWindowController {
         if abs(page - window.frame.height) >= 0.5 {
             setHeight(page, of: window)
         }
+    }
+
+    /// One line for `--log-window-geometry`. The page height is the page as laid out in the
+    /// window; fitted is its fittingSize measured on its own, and fixed the same with the middle
+    /// scrolled to nothing.
+    private func logGeometry(_ event: String) {
+        guard WindowGeometryLog.isEnabled, let window, let host = window.contentView else { return }
+        let underButton = layout.marks[.button].map { host.bounds.height - $0.maxY }
+        let titleTop = layout.marks[.title]?.minY
+        let line = [
+            "window \(Self.f(window.frame.height))",
+            "content view \(Self.f(host.bounds.height))",
+            "title bar \(Self.f(window.frame.height - window.contentLayoutRect.height))",
+            "safe area top \(Self.f(host.safeAreaInsets.top))",
+            "page \(Self.f(layout.pageHeight))",
+            "fitted \(fitted.map { Self.f(lastFull ?? 0) + ", fixed " + Self.f($0.fixed) } ?? "none")",
+            "max \(fitted?.maxHeight.map(Self.f) ?? "none")",
+            "scroll \(layout.scrollHeight.map(Self.f) ?? "none")",
+            "title top \(titleTop.map(Self.f) ?? "?")",
+            "under button \(underButton.map(Self.f) ?? "?")",
+            "visible \(window.isVisible)",
+            "key \(window.isKeyWindow)",
+            "active \(NSApp.isActive)",
+        ].joined(separator: ", ")
+        print("[\(title)] \(event): \(line)")
+    }
+
+    private nonisolated static func f(_ value: CGFloat) -> String {
+        String(format: "%.1f", value)
     }
 
     private func setHeight(_ height: CGFloat, of window: NSWindow) {
@@ -170,12 +210,28 @@ final class InfoWindowController {
         window.isReleasedWhenClosed = false
         let page = content { [weak self] in self?.close() }
         let host = NSHostingView(rootView: InfoPageHost(layout: layout, page: page))
-        // The window sets the size; the content only fills it.
         host.sizingOptions = []
-        window.contentView = host
+        // As the window's content view, a hosting view sets the window's height to the page plus
+        // the title bar each time the window lays out, as it does once it is key. Inside a plain
+        // view it only fills it, and the height stays the one this controller sets.
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: Self.width, height: 400))
+        host.frame = container.bounds
+        host.autoresizingMask = [.width, .height]
+        container.addSubview(host)
+        window.contentView = container
         layout.pageHeightChanged = { [weak self, weak window] in
             guard let window else { return }
+            self?.logGeometry("page height changed")
             self?.matchPage(window)
+        }
+        if WindowGeometryLog.isEnabled {
+            resizeLog = NotificationCenter.default.addObserver(
+                forName: NSWindow.didResizeNotification,
+                object: window,
+                queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.logGeometry("resized") }
+            }
         }
         return window
     }

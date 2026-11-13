@@ -74,13 +74,15 @@ struct WhatsNewScreen: View {
     @ObservedObject var updates: UpdateChecker
     @ObservedObject var accent: AccentPreference
     @ObservedObject var choice: WhatsNewChoice
+    /// Set apart from the build only by `--measure-info-windows`.
+    var showsPro = Edition.showsProOffer
     let close: () -> Void
 
     var body: some View {
         WhatsNewContent(
             releases: WhatsNewChoice.releases(choice.selection),
             earlierCount: choice.selection.earlierCount,
-            sections: WhatsNewSections(showsPro: Edition.showsProOffer, offer: updates.offer),
+            sections: WhatsNewSections(showsPro: showsPro, offer: updates.offer),
             accent: Palette.accent(accent.theme),
             onAccent: Palette.onAccentText(accent.theme),
             language: Bundle.main.preferredLocalizations.first,

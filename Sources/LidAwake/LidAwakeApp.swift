@@ -26,7 +26,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private(set) lazy var whatsNewWindow = InfoWindowController.whatsNew(
         updates: updates,
         accent: accent,
-        choice: whatsNewChoice
+        choice: whatsNewChoice,
+        showsPro: Edition.showsProOffer && !WithoutProOffer.isEnabled
     )
     private(set) lazy var helpWindow = InfoWindowController.help(accent: accent)
 
