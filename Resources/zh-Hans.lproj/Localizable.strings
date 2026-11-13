@@ -69,10 +69,10 @@
 /* Helper messages */
 "Permission needed" = "需要授权";
 "Allow LidAwake in System Settings > General > Login Items & Extensions. The mode turns on as soon as you do." = "请在“系统设置 > 通用 > 登录项与扩展”中允许 LidAwake。授权后将自动开启合盖运行。";
-"Allow LidAwake in System Settings > General > Login Items & Extensions, then choose Run with Lid Closed again." = "请在“系统设置 > 通用 > 登录项与扩展”中允许 LidAwake，然后重新选择“合盖运行”。";
+"Allow LidAwake in System Settings > General > Login Items & Extensions, then choose %@ again." = "请在“系统设置 > 通用 > 登录项与扩展”中允许 LidAwake，然后重新选择“%@”。";
 "Allow LidAwake in System Settings > General > Login Items & Extensions." = "请在“系统设置 > 通用 > 登录项与扩展”中允许 LidAwake。";
 "Move LidAwake to Applications" = "将 LidAwake 移至“应用程序”";
-"Run with Lid Closed needs the app in the Applications folder." = "使用合盖运行前，请将应用移至“应用程序”文件夹。";
+"%@ needs the app in the Applications folder." = "使用“%@”前，请将应用移至“应用程序”文件夹。";
 "LidAwake must be in /Applications to install the helper." = "安装辅助程序前，请将 LidAwake 移至 /Applications。";
 "The helper did not start" = "辅助程序未启动";
 "Install the helper to run with the lid closed." = "请先安装辅助程序，再使用合盖运行。";
@@ -103,7 +103,7 @@
 "Nothing was working for a while." = "已有一段时间没有任务在运行。";
 "LidAwake paused" = "LidAwake 已暂停";
 "Running on battery. It resumes when you plug in." = "当前使用电池供电，接通电源后将恢复运行。";
-"Only while charging is on, so Run with Lid Closed waits until power is connected." = "已开启“仅在接通电源时运行”，因此“合盖运行”会等到接通电源后再开始。";
+"Only while charging is on, so %@ waits until power is connected." = "已开启“仅在接通电源时运行”，因此“%@”会等到接通电源后再开始。";
 
 /* Updates */
 "Check for updates" = "检查更新";

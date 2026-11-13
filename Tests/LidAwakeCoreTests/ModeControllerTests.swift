@@ -976,7 +976,7 @@ final class ModeControllerTests: XCTestCase {
         XCTAssertEqual(PauseNotice.title, "LidAwake paused")
         XCTAssertEqual(PauseNotice.body, "Running on battery. It resumes when you plug in.")
         XCTAssertEqual(
-            PauseNotice.windowText,
+            PauseNotice.windowText(for: .lidClosed, timerIsOn: false),
             "Only while charging is on, so Run with Lid Closed waits until power is connected."
         )
     }

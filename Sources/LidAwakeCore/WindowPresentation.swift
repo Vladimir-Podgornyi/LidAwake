@@ -102,7 +102,7 @@ public enum HelperPrompt: Equatable {
     }
 
     /// For Wake at the approval texts promise nothing about the mode: it does not turn on.
-    public func text(forWake: Bool) -> String {
+    public func text(forWake: Bool, mode: Mode = .lidClosed) -> String {
         switch self {
         case .approval where forWake, .approvalExpired where forWake:
             return String(localized: "Allow LidAwake in System Settings > General > Login Items & Extensions.")
@@ -112,10 +112,10 @@ public enum HelperPrompt: Equatable {
             )
         case .approvalExpired:
             return String(
-                localized: "Allow LidAwake in System Settings > General > Login Items & Extensions, then choose Run with Lid Closed again."
+                localized: "Allow LidAwake in System Settings > General > Login Items & Extensions, then choose \(mode.name) again."
             )
         case .moveToApplications:
-            return String(localized: "Run with Lid Closed needs the app in the Applications folder.")
+            return String(localized: "\(mode.name) needs the app in the Applications folder.")
         case .failed(let message):
             return message
         }
@@ -200,13 +200,14 @@ public struct WindowMessage: Equatable, Identifiable {
     public var isDismissible: Bool { source == .autoLogout }
 
     /// The notices to show, helper first, then the mode, the logout warning and the update;
-    /// empty when there is nothing to say. The pause of Run with Lid Closed takes the mode's place
+    /// empty when there is nothing to say. The pause of `pausedMode` takes the mode's place
     /// while the mode has nothing else to say.
     public static func list(
         helper: HelperPrompt?,
         helperForWake: Bool = false,
         mode: ModeMessage?,
         isPausedOnBattery: Bool = false,
+        pausedMode: Mode = .lidClosed,
         timerIsOn: Bool = false,
         autoLogout: AutoLogoutNotice? = nil,
         update: UpdateNotice? = nil
@@ -238,7 +239,7 @@ public struct WindowMessage: Equatable, Identifiable {
                 source: .mode,
                 kind: .info,
                 title: PauseNotice.title,
-                text: timerIsOn ? PauseNotice.windowTextWithTimer : PauseNotice.windowText,
+                text: PauseNotice.windowText(for: pausedMode, timerIsOn: timerIsOn),
                 hint: nil,
                 action: nil,
                 actionTitle: nil

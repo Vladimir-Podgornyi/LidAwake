@@ -246,6 +246,7 @@ struct ContentView: View {
             helperForWake: helperSetup.isPromptForWake,
             mode: controller.message,
             isPausedOnBattery: controller.mode == .lidClosed && controller.isPaused,
+            pausedMode: controller.mode,
             timerIsOn: preferences.timerEnabled,
             autoLogout: autoLogout.notice(
                 mode: controller.mode,

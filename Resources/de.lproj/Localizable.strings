@@ -69,10 +69,10 @@
 /* Helper messages */
 "Permission needed" = "Erlaubnis erforderlich";
 "Allow LidAwake in System Settings > General > Login Items & Extensions. The mode turns on as soon as you do." = "Erlaube LidAwake unter Systemeinstellungen > Allgemein > Anmeldeobjekte & Erweiterungen. Danach schaltet sich der Modus sofort ein.";
-"Allow LidAwake in System Settings > General > Login Items & Extensions, then choose Run with Lid Closed again." = "Erlaube LidAwake unter Systemeinstellungen > Allgemein > Anmeldeobjekte & Erweiterungen und wähle danach erneut „Mit geschlossenem Deckel“.";
+"Allow LidAwake in System Settings > General > Login Items & Extensions, then choose %@ again." = "Erlaube LidAwake unter Systemeinstellungen > Allgemein > Anmeldeobjekte & Erweiterungen und wähle danach erneut „%@“.";
 "Allow LidAwake in System Settings > General > Login Items & Extensions." = "Erlaube LidAwake unter Systemeinstellungen > Allgemein > Anmeldeobjekte & Erweiterungen.";
 "Move LidAwake to Applications" = "LidAwake in „Programme“ bewegen";
-"Run with Lid Closed needs the app in the Applications folder." = "Für „Mit geschlossenem Deckel“ muss die App im Ordner „Programme“ liegen.";
+"%@ needs the app in the Applications folder." = "Für „%@“ muss die App im Ordner „Programme“ liegen.";
 "LidAwake must be in /Applications to install the helper." = "Zum Installieren des Hilfsprogramms muss LidAwake im Ordner „Programme“ liegen.";
 "The helper did not start" = "Das Hilfsprogramm ist nicht gestartet";
 "Install the helper to run with the lid closed." = "Für den Betrieb mit geschlossenem Deckel muss das Hilfsprogramm installiert sein.";
@@ -103,7 +103,7 @@
 "Nothing was working for a while." = "Es lief längere Zeit nichts mehr.";
 "LidAwake paused" = "LidAwake pausiert";
 "Running on battery. It resumes when you plug in." = "Akkubetrieb. Es geht weiter, sobald das Netzteil angeschlossen ist.";
-"Only while charging is on, so Run with Lid Closed waits until power is connected." = "„Nur am Netzteil“ ist an, daher wartet „Mit geschlossenem Deckel“, bis das Netzteil angeschlossen ist.";
+"Only while charging is on, so %@ waits until power is connected." = "„Nur am Netzteil“ ist an, daher wartet „%@“, bis das Netzteil angeschlossen ist.";
 
 /* Updates */
 "Check for updates" = "Nach Updates suchen";

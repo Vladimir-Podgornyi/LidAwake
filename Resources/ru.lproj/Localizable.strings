@@ -69,10 +69,10 @@
 /* Helper messages */
 "Permission needed" = "Нужно разрешение";
 "Allow LidAwake in System Settings > General > Login Items & Extensions. The mode turns on as soon as you do." = "Разрешите LidAwake: «Системные настройки» > «Основные» > «Объекты входа и расширения». Режим включится сразу после этого.";
-"Allow LidAwake in System Settings > General > Login Items & Extensions, then choose Run with Lid Closed again." = "Разрешите LidAwake: «Системные настройки» > «Основные» > «Объекты входа и расширения». Затем снова выберите «С закрытой крышкой».";
+"Allow LidAwake in System Settings > General > Login Items & Extensions, then choose %@ again." = "Разрешите LidAwake: «Системные настройки» > «Основные» > «Объекты входа и расширения». Затем снова выберите «%@».";
 "Allow LidAwake in System Settings > General > Login Items & Extensions." = "Разрешите LidAwake: «Системные настройки» > «Основные» > «Объекты входа и расширения».";
 "Move LidAwake to Applications" = "Переместить LidAwake в «Программы»";
-"Run with Lid Closed needs the app in the Applications folder." = "Для режима «С закрытой крышкой» приложение должно лежать в папке «Программы».";
+"%@ needs the app in the Applications folder." = "Для режима «%@» приложение должно лежать в папке «Программы».";
 "LidAwake must be in /Applications to install the helper." = "Чтобы установить помощник, LidAwake должен лежать в папке «Программы».";
 "The helper did not start" = "Помощник не запустился";
 "Install the helper to run with the lid closed." = "Для работы с закрытой крышкой нужно установить помощник.";
@@ -103,7 +103,7 @@
 "Nothing was working for a while." = "Какое-то время ничего не работало.";
 "LidAwake paused" = "LidAwake на паузе";
 "Running on battery. It resumes when you plug in." = "Mac работает от батареи. Режим продолжится после подключения зарядки.";
-"Only while charging is on, so Run with Lid Closed waits until power is connected." = "Включено «Только от зарядки», поэтому режим «С закрытой крышкой» ждёт подключения зарядки.";
+"Only while charging is on, so %@ waits until power is connected." = "Включено «Только от зарядки», поэтому режим «%@» ждёт подключения зарядки.";
 
 /* Updates */
 "Check for updates" = "Проверять обновления";
