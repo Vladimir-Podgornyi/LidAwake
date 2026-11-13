@@ -245,3 +245,18 @@ final class OpeningFocusTests: XCTestCase {
         XCTAssertNil(OpeningFocus.card(focused: nil, previous: .keepScreenOn, selected: .keepScreenOn))
     }
 }
+
+final class CardFocusRingTests: XCTestCase {
+    func testSelectedCardWithFocusHasNoRingOfItsOwn() {
+        XCTAssertFalse(CardFocusRing.isShown(card: .lidClosed, focused: .lidClosed, selected: .lidClosed))
+    }
+
+    func testOtherCardWithFocusHasRing() {
+        XCTAssertTrue(CardFocusRing.isShown(card: .lidClosed, focused: .lidClosed, selected: .off))
+    }
+
+    func testCardWithoutFocusHasNoRing() {
+        XCTAssertFalse(CardFocusRing.isShown(card: .lidClosed, focused: .off, selected: .keepScreenOn))
+        XCTAssertFalse(CardFocusRing.isShown(card: .lidClosed, focused: nil, selected: .off))
+    }
+}

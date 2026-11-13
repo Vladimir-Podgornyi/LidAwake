@@ -32,6 +32,14 @@ public enum OpeningFocus {
     }
 }
 
+public enum CardFocusRing {
+    /// Whether a mode card draws its own focus ring: only when it has the keyboard focus and is
+    /// not the selected card, whose border already marks it.
+    public static func isShown(card: Mode, focused: Mode?, selected: Mode) -> Bool {
+        focused == card && card != selected
+    }
+}
+
 public enum StatusLine {
     /// The text next to the app name; nil when there is nothing to show.
     public static func text(mode: Mode, isPaused: Bool, timerRemaining: TimeInterval?, battery: BatteryLevel) -> String? {

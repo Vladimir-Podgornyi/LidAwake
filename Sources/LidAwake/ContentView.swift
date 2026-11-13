@@ -24,6 +24,7 @@ struct ContentView: View {
     var heightLimit: HeightLimit = .screen
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var screenLimit: CGFloat?
     @State private var fixedHeight: CGFloat = 0
@@ -49,7 +50,7 @@ struct ContentView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        WindowColumn(maxHeight: maxHeight, isScrolling: scrollHeight != nil, contentHeight: scrollingContentHeight) {
             VStack(alignment: .leading, spacing: 12) {
                 header
                 modeCards
@@ -57,22 +58,24 @@ struct ContentView: View {
             .padding(.top, 14)
             .padding(.bottom, 12)
             .padding(.horizontal, 14)
-            .background(HeightReader(height: $fixedHeight))
-            if let scrollHeight {
+            .background(HeightReader(height: $fixedHeight, waitsForRest: true))
+            if scrollHeight != nil {
                 // No background of its own, so Glass and Solid look the same as without scrolling.
                 ScrollView(.vertical) {
                     scrollingContent
                 }
-                .frame(height: scrollHeight)
             } else {
                 scrollingContent
             }
         }
         .frame(width: 320, alignment: .leading)
+        .clipped()
         .background(WindowGeometryReader(limit: $screenLimit, isScrolling: scrollHeight != nil))
         .background(WindowKeyReader(isKey: $isWindowKey))
         .background(look.drawsOwnBackground ? Palette.solidWindowBackground : .clear)
         .tint(accentColor)
+        // The cards fold and unfold together, and the window follows them.
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: controller.shownMode)
         .onAppear {
             launchAtLogin.refresh()
             autoLogout.refresh()
@@ -149,7 +152,7 @@ struct ContentView: View {
 
     private var idleNote: IdleSleepNote {
         IdleSleepNote.make(
-            mode: controller.mode,
+            mode: controller.shownMode,
             isEnabled: preferences.idleSleepEnabled,
             isPaused: controller.isPaused,
             status: idleStatus
@@ -187,6 +190,8 @@ struct ContentView: View {
         }
     }
 
+    /// Whether the part under the cards scrolls. It is decided from the cards' height once they
+    /// stop changing; `WindowColumn` gives the scrolling part its height in every frame.
     private var scrollHeight: CGFloat? {
         WindowHeightLimit.scrollHeight(
             fixedHeight: fixedHeight,
@@ -215,10 +220,10 @@ struct ContentView: View {
 
     private var statusLine: String? {
         StatusLine.text(
-            mode: controller.mode,
+            mode: controller.shownMode,
             isPaused: controller.isPaused,
             timerRemaining: controller.timerRemaining(),
-            battery: controller.mode == .lidClosed ? power.read().battery : .none
+            battery: controller.shownMode == .lidClosed ? power.read().battery : .none
         )
     }
 
@@ -227,7 +232,8 @@ struct ContentView: View {
             ForEach(Mode.allCases, id: \.self) { mode in
                 ModeCard(
                     mode: mode,
-                    isSelected: controller.mode == mode,
+                    isSelected: controller.shownMode == mode,
+                    showsFocusRing: CardFocusRing.isShown(card: mode, focused: focusedCard, selected: controller.shownMode),
                     accent: accentColor,
                     onAccent: Palette.onAccent(accent.theme),
                     look: look
@@ -245,11 +251,11 @@ struct ContentView: View {
             helper: helperSetup.prompt,
             helperForWake: helperSetup.isPromptForWake,
             mode: controller.message,
-            isPausedOnBattery: controller.mode == .lidClosed && controller.isPaused,
-            pausedMode: controller.mode,
+            isPausedOnBattery: controller.shownMode == .lidClosed && controller.isPaused,
+            pausedMode: controller.shownMode,
             timerIsOn: preferences.timerEnabled,
             autoLogout: autoLogout.notice(
-                mode: controller.mode,
+                mode: controller.shownMode,
                 timerSeconds: preferences.timerEnabled ? preferences.timerSeconds : nil
             ),
             update: updates.notice
@@ -290,7 +296,7 @@ struct ContentView: View {
 
     private var blocks: [WindowBlock] {
         WindowBlock.list(
-            mode: controller.mode,
+            mode: controller.shownMode,
             isExpanded: disclosure.isExpanded,
             showsAppearance: WindowLook.showsStyleSetting(isSystem26OrLater: isSystem26OrLater),
             showsProOffer: ProOffer.isShown,
@@ -402,7 +408,7 @@ struct ContentView: View {
     private var sleepAndWakeSection: some View {
         VStack(alignment: .leading, spacing: 4) {
             SectionToggleHeader(title: "Sleep and wake", isExpanded: $disclosure.isSleepAndWakeExpanded)
-            ForEach(SleepAndWakeRow.list(mode: controller.mode, isExpanded: disclosure.isSleepAndWakeExpanded), id: \.self) { row in
+            ForEach(SleepAndWakeRow.list(mode: controller.shownMode, isExpanded: disclosure.isSleepAndWakeExpanded), id: \.self) { row in
                 switch row {
                 case .wakeAt:
                     wakeRow
@@ -424,7 +430,7 @@ struct ContentView: View {
 
     // The window opens as before; dimming only tells that the list is not used now.
     private var watchedAppsRow: some View {
-        let applies = SettingNotice.watchedAppsApply(mode: controller.mode, idleSleepEnabled: preferences.idleSleepEnabled)
+        let applies = SettingNotice.watchedAppsApply(mode: controller.shownMode, idleSleepEnabled: preferences.idleSleepEnabled)
         return NoticedRow(notice: applies ? nil : SettingNotice.watchedAppsUnused) {
             WatchedAppsOpenRow(
                 summary: WatchedAppsSummary.text(paths: preferences.watchedAppPaths, name: AppDisplayName.of),
@@ -679,6 +685,7 @@ private extension WindowAppearance {
 private struct ModeCard: View {
     let mode: Mode
     let isSelected: Bool
+    let showsFocusRing: Bool
     let accent: Color
     let onAccent: Color
     let look: WindowLook
@@ -693,16 +700,18 @@ private struct ModeCard: View {
                 ModeIconView(mode: mode)
                     .frame(width: 22, height: 22)
                     .foregroundStyle(isSelected ? accent : Color.primary)
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 0) {
                     Text(mode.title)
                         .font(.system(size: 13, weight: .semibold))
                     // Only the chosen mode is described, to keep the window short; the others
                     // tell it on hover.
-                    if isSelected {
-                        Text(mode.summary)
-                            .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
-                    }
+                    Text(mode.summary)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .keepingWidthOfCheckmark(isShown: isSelected)
+                        .padding(.top, 2)
+                        .unfolded(isSelected)
                 }
                 .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
@@ -712,6 +721,7 @@ private struct ModeCard: View {
                         .foregroundStyle(onAccent)
                         .frame(width: 18, height: 18)
                         .background(Circle().fill(accent))
+                        .transition(.opacity)
                         .accessibilityHidden(true)
                 }
             }
@@ -723,6 +733,8 @@ private struct ModeCard: View {
             .contentShape(shape)
         }
         .buttonStyle(.plain)
+        .cardFocusRing(showsFocusRing, color: accent)
+        .withoutSystemFocusRing()
         .opacity(isEnabled ? 1 : 0.6)
         .help(Text(mode.summary))
         .accessibilityLabel(Text(mode.title))
@@ -1314,15 +1326,63 @@ struct WakeTimePicker: View {
     }
 }
 
+/// The header and the mode cards on top, the rest under them, cut to the height that keeps the
+/// whole within `maxHeight`. It is laid out anew in every frame of the cards' animation, so the
+/// part under the cards gives way to them frame by frame and the window never grows past the
+/// limit, even before the part under the cards becomes a scroll view.
+private struct WindowColumn: Layout {
+    let maxHeight: CGFloat?
+    /// Whether the part under the cards is a scroll view; its content is `contentHeight` tall.
+    let isScrolling: Bool
+    let contentHeight: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let (fixed, lower) = heights(width: proposal.width, subviews: subviews)
+        return CGSize(width: proposal.width ?? 320, height: fixed + lower)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        guard subviews.count == 2 else { return }
+        let (fixed, lower) = heights(width: bounds.width, subviews: subviews)
+        subviews[0].place(at: bounds.origin, anchor: .topLeading, proposal: ProposedViewSize(width: bounds.width, height: nil))
+        subviews[1].place(
+            at: CGPoint(x: bounds.minX, y: bounds.minY + fixed),
+            anchor: .topLeading,
+            proposal: ProposedViewSize(width: bounds.width, height: isScrolling ? lower : nil)
+        )
+    }
+
+    private func heights(width: CGFloat?, subviews: Subviews) -> (fixed: CGFloat, lower: CGFloat) {
+        guard subviews.count == 2 else { return (0, 0) }
+        let fixed = subviews[0].sizeThatFits(ProposedViewSize(width: width, height: nil)).height
+        let natural = isScrolling
+            ? contentHeight
+            : subviews[1].sizeThatFits(ProposedViewSize(width: width, height: nil)).height
+        let lower = WindowHeightLimit.scrollHeight(fixedHeight: fixed, contentHeight: natural, maxHeight: maxHeight) ?? natural
+        return (fixed, lower)
+    }
+}
+
 /// Reports the height of the view it is the background of.
 private struct HeightReader: View {
     @Binding var height: CGFloat
+    /// While the height keeps changing, as when the mode cards fold and unfold, it is reported
+    /// once it stops: each report redraws the whole window, which would slow the animation down.
+    var waitsForRest = false
+
+    @State private var rest = RestTimer()
 
     var body: some View {
         GeometryReader { proxy in
             Color.clear
                 .onAppear { update(proxy.size.height) }
-                .onChange(of: proxy.size.height) { update($0) }
+                .onChange(of: proxy.size.height) { value in
+                    if waitsForRest {
+                        rest.restart { update(value) }
+                    } else {
+                        update(value)
+                    }
+                }
         }
     }
 
@@ -1330,6 +1390,17 @@ private struct HeightReader: View {
         if value != height {
             height = value
         }
+    }
+}
+
+private final class RestTimer {
+    private var pending: DispatchWorkItem?
+
+    func restart(_ action: @escaping () -> Void) {
+        pending?.cancel()
+        let item = DispatchWorkItem(block: action)
+        pending = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: item)
     }
 }
 

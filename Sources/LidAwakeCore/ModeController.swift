@@ -4,9 +4,16 @@ import LidAwakeShared
 
 @MainActor
 public final class ModeController: ObservableObject, ScheduledModeStarting {
-    @Published public private(set) var mode: Mode = .off
+    @Published public private(set) var mode: Mode = .off {
+        didSet { settleShownMode() }
+    }
     @Published public private(set) var message: ModeMessage?
-    @Published public private(set) var isBusy = false
+    @Published public private(set) var isBusy = false {
+        didSet { settleShownMode() }
+    }
+    /// The mode the window shows. It changes only once a switch is over, so the steps a switch
+    /// goes through, such as Off between two helper modes, are never shown.
+    @Published public private(set) var shownMode: Mode = .off
     /// Monotonic time the current mode started; the timer counts from here.
     @Published public private(set) var modeStartedAt: TimeInterval?
     /// True while the helper holds Run with Lid Closed paused on battery power.
@@ -92,6 +99,12 @@ public final class ModeController: ObservableObject, ScheduledModeStarting {
     public func timerRemaining() -> TimeInterval? {
         guard let modeStartedAt, let limit = preferences.timerLimit else { return nil }
         return max(0, TimeInterval(limit) - (now() - modeStartedAt))
+    }
+
+    private func settleShownMode() {
+        if !isBusy, shownMode != mode {
+            shownMode = mode
+        }
     }
 
     public func select(_ newMode: Mode) async throws {

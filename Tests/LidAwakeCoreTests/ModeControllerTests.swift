@@ -50,7 +50,11 @@ private final class FakeSessions: LidSessionService {
     private(set) var statusRequests: [Int] = []
     private(set) var safety: [SafetySettings] = []
 
+    /// Called when a session starts.
+    var probeAtStart: (() -> Void)?
+
     func startSession(leaseSeconds: Int, safety: SafetySettings) async throws {
+        probeAtStart?()
         calls.append("start \(leaseSeconds)")
         self.safety.append(safety)
         if let startError { throw startError }
@@ -278,6 +282,34 @@ final class ModeControllerTests: XCTestCase {
         let controller = makeController()
         XCTAssertEqual(controller.mode, .off)
         XCTAssertFalse(assertion.isHeld)
+    }
+
+    func testShownModeChangesOnlyOnceASwitchIsOver() async throws {
+        let controller = makeController()
+        var shown: [Mode] = []
+        let subscription = controller.$shownMode.dropFirst().sink { shown.append($0) }
+        defer { subscription.cancel() }
+        // Read when the session starts, while the switch is still running.
+        var shownAtStart: Mode?
+        sessions.probeAtStart = { shownAtStart = controller.shownMode }
+
+        try await controller.select(.keepScreenOn)
+        try await controller.select(.lidClosed)
+        XCTAssertEqual(shownAtStart, .keepScreenOn)
+        try await controller.select(.off)
+
+        XCTAssertEqual(shown, [.keepScreenOn, .lidClosed, .off])
+        XCTAssertEqual(controller.shownMode, .off)
+    }
+
+    func testShownModeIsOffWhenTheModeDoesNotTurnOn() async throws {
+        let controller = makeController()
+        sessions.startError = HelperError.helper(.noSession, "")
+
+        try? await controller.select(.lidClosed)
+
+        XCTAssertEqual(controller.mode, .off)
+        XCTAssertEqual(controller.shownMode, .off)
     }
 
     func testKeepScreenOnAcquiresAndOffReleases() async throws {
