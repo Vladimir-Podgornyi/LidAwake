@@ -5,7 +5,8 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 /// `--render-window <folder>`: draws the window with default settings in the Off and the
-/// Keep Screen On positions, with the settings collapsed and expanded, Off with the update
+/// Keep Screen On positions, with the settings collapsed and expanded, Run with Lid Closed
+/// collapsed, Off with the update
 /// banner, Keep Screen On with the automatic logout warning, Off expanded in a window limited
 /// to 600 points, Keep Screen On expanded with both banners, Run with Lid Closed expanded with
 /// Only while charging on, Run with Lid Closed collapsed and paused on battery, Run with Lid
@@ -108,10 +109,14 @@ enum WindowSnapshot {
 
         static let all = [
             Shot(mode: .off, isExpanded: false, isDark: false),
+            Shot(mode: .off, isExpanded: false, isDark: true),
             Shot(mode: .off, isExpanded: true, isDark: false),
             Shot(mode: .off, isExpanded: true, isDark: true),
             Shot(mode: .keepScreenOn, isExpanded: false, isDark: false),
+            Shot(mode: .keepScreenOn, isExpanded: false, isDark: true),
             Shot(mode: .keepScreenOn, isExpanded: true, isDark: false),
+            Shot(mode: .lidClosed, isExpanded: false, isDark: false, name: "lid-collapsed-light.png"),
+            Shot(mode: .lidClosed, isExpanded: false, isDark: true, name: "lid-collapsed-dark.png"),
             Shot(mode: .off, isExpanded: false, isDark: false, showsUpdate: true),
             Shot(mode: .keepScreenOn, isExpanded: false, isDark: false, showsAutoLogout: true),
             Shot(mode: .off, isExpanded: true, isDark: false, maxHeight: 600, name: "off-expanded-short-light.png"),

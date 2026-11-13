@@ -700,9 +700,13 @@ private struct ModeCard: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(mode.title)
                         .font(.system(size: 13, weight: .semibold))
-                    Text(mode.summary)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
+                    // Only the chosen mode is described, to keep the window short; the others
+                    // tell it on hover.
+                    if isSelected {
+                        Text(mode.summary)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
@@ -724,6 +728,7 @@ private struct ModeCard: View {
         }
         .buttonStyle(.plain)
         .opacity(isEnabled ? 1 : 0.6)
+        .help(Text(mode.summary))
         .accessibilityLabel(Text(mode.title))
         .accessibilityHint(Text(mode.summary))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
