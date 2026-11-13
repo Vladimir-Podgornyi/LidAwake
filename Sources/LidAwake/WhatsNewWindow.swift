@@ -155,6 +155,7 @@ struct WhatsNewContent: View {
                         .frame(minWidth: 72)
                 }
                 .keyboardShortcut(.defaultAction)
+                .infoPageMark(.button)
             }
         }
         .tint(accent)

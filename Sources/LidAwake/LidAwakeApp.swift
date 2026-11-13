@@ -23,17 +23,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         preferences: modeController.preferences,
         accent: accent
     )
-    private(set) lazy var whatsNewWindow = InfoWindowController(
-        title: String(localized: "What's new in \(Edition.name)"),
-        changes: updates.objectWillChange.map { _ in }.eraseToAnyPublisher()
-    ) { [updates, accent, whatsNewChoice] close in
-        WhatsNewScreen(updates: updates, accent: accent, choice: whatsNewChoice, close: close)
-    }
-    private(set) lazy var helpWindow = InfoWindowController(
-        title: String(localized: "How to use LidAwake")
-    ) { [accent] close in
-        HelpScreen(accent: accent, close: close)
-    }
+    private(set) lazy var whatsNewWindow = InfoWindowController.whatsNew(
+        updates: updates,
+        accent: accent,
+        choice: whatsNewChoice
+    )
+    private(set) lazy var helpWindow = InfoWindowController.help(accent: accent)
 
     override init() {
         helperClient = HelperClient()

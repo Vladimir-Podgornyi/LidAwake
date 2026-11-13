@@ -73,8 +73,10 @@ struct HelpContent: View {
         version.isEmpty ? Edition.name : "\(Edition.name) \(version)"
     }
 
+    /// On the last line, so with the copyright under the name the button ends the page, as in
+    /// What's new.
     private func footerRow(credit: String) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 14) {
+        HStack(alignment: .lastTextBaseline, spacing: 14) {
             Text(verbatim: credit)
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
@@ -94,6 +96,7 @@ struct HelpContent: View {
             }
             .keyboardShortcut(.defaultAction)
             .fixedSize()
+            .infoPageMark(.button)
         }
     }
 }

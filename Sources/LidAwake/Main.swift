@@ -12,6 +12,9 @@ enum Main {
         case nil:
             break
         }
+        if CommandLine.arguments.contains(InfoWindowMeasure.flag) {
+            exit(MainActor.assumeIsolated { InfoWindowMeasure.run() })
+        }
         if CommandLine.arguments.contains(LogCommand.flag) {
             exit(LogCommand.run())
         }

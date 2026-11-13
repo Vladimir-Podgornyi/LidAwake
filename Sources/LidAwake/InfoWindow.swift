@@ -21,6 +21,7 @@ final class InfoWindowController {
     /// The height of the header and footer with the middle scrolled to nothing, and the tallest
     /// the window may get, as of the last fit.
     private var fitted: (fixed: CGFloat, maxHeight: CGFloat?)?
+    private var visibleHeight: CGFloat?
 
     /// `changes` tells of anything that may change the content's height while the window is open.
     init<Content: View>(
@@ -40,10 +41,13 @@ final class InfoWindowController {
             }
     }
 
-    func show() {
+    /// `visibleHeight` stands in for the height of the screen's visible area, for
+    /// `--measure-info-windows`.
+    func show(visibleHeight: CGFloat? = nil) {
         let isNew = window == nil
         let window = self.window ?? makeWindow()
         self.window = window
+        self.visibleHeight = visibleHeight
         fit(window)
         if isNew || !window.isVisible {
             window.center()
@@ -72,8 +76,14 @@ final class InfoWindowController {
         return window
     }
 
-    private func close() {
+    func close() {
         window?.performClose(nil)
+    }
+
+    /// The window as it is now and where the marked parts of the page are, for
+    /// `--measure-info-windows`.
+    var measured: (window: NSWindow, marks: [InfoPageMark: CGRect], scrollHeight: CGFloat?)? {
+        window.map { ($0, layout.marks, layout.scrollHeight) }
     }
 
     /// Sets the height to the content's, keeping the top edge where it is. The content fills the
@@ -81,7 +91,7 @@ final class InfoWindowController {
     private func fit(_ window: NSWindow, visibleHeight: CGFloat? = nil) {
         let full = height(scrollHeight: nil)
         let fixed = height(scrollHeight: 0)
-        let screenHeight = visibleHeight ?? (window.screen ?? NSScreen.main)?.visibleFrame.height
+        let screenHeight = visibleHeight ?? self.visibleHeight ?? (window.screen ?? NSScreen.main)?.visibleFrame.height
         let maxHeight = screenHeight.map { ($0 * Self.maxScreenShare).rounded(.down) }
         let scroll = WindowHeightLimit.scrollHeight(fixedHeight: fixed, contentHeight: full - fixed, maxHeight: maxHeight)
         fitted = (fixed, maxHeight)
@@ -205,6 +215,29 @@ private final class InfoPageLayout: ObservableObject {
     /// The page's height as laid out in the window; 0 until it is.
     var pageHeight: CGFloat = 0
     var pageHeightChanged: (() -> Void)?
+    var marks: [InfoPageMark: CGRect] = [:]
+}
+
+/// Parts of a page whose place `--measure-info-windows` reports.
+enum InfoPageMark: Hashable {
+    case page, title, button
+}
+
+private struct InfoPageMarksKey: PreferenceKey {
+    static let defaultValue: [InfoPageMark: CGRect] = [:]
+
+    static func reduce(value: inout [InfoPageMark: CGRect], nextValue: () -> [InfoPageMark: CGRect]) {
+        value.merge(nextValue()) { $1 }
+    }
+}
+
+extension View {
+    /// Reports the frame in the window's content, top edge at 0.
+    func infoPageMark(_ mark: InfoPageMark) -> some View {
+        background(GeometryReader { proxy in
+            Color.clear.preference(key: InfoPageMarksKey.self, value: [mark: proxy.frame(in: .global)])
+        })
+    }
 }
 
 private struct InfoPageHeightKey: PreferenceKey {
@@ -225,6 +258,10 @@ private struct InfoPageHost: View {
             .background(GeometryReader { proxy in
                 Color.clear.preference(key: InfoPageHeightKey.self, value: proxy.size.height)
             })
+            .infoPageMark(.page)
+            .onPreferenceChange(InfoPageMarksKey.self) { marks in
+                layout.marks = marks
+            }
             .onPreferenceChange(InfoPageHeightKey.self) { height in
                 guard height != layout.pageHeight else { return }
                 layout.pageHeight = height
@@ -298,6 +335,7 @@ struct InfoPageTitle: View {
                 .font(.system(size: 20, weight: .bold))
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
+                .infoPageMark(.title)
             if let subtitle {
                 subtitle
                     .font(.system(size: 12))
