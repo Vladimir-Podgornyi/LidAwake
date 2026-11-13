@@ -53,11 +53,52 @@ final class LocalizationTests: XCTestCase {
         }
     }
 
+    /// The plural forms of `key` in `language`, resolved the way the app resolves them.
+    private func plural(_ key: String, _ language: String, _ count: Int) throws -> String {
+        let folder = Self.root.appendingPathComponent("Resources/\(language).lproj")
+        let bundle = try XCTUnwrap(Bundle(url: folder), language)
+        let format = bundle.localizedString(forKey: key, value: "", table: nil)
+        return String(format: format, locale: Locale(identifier: language), count)
+    }
+
+    private func pluralTable(_ language: String) throws -> [String: [String: Any]] {
+        let url = Self.root.appendingPathComponent("Resources/\(language).lproj/Localizable.stringsdict")
+        let plist = try PropertyListSerialization.propertyList(from: Data(contentsOf: url), format: nil)
+        return try XCTUnwrap(plist as? [String: [String: Any]], "\(language) is not a plural table")
+    }
+
+    func testEveryLanguageHasThePluralsOfTheStringsTable() throws {
+        let english = try pluralTable("en")
+        XCTAssertFalse(english.isEmpty)
+        for language in Self.languages {
+            let plurals = try pluralTable(language)
+            XCTAssertEqual(Set(plurals.keys), Set(english.keys), language)
+            let strings = try table(language)
+            for (key, entry) in plurals {
+                XCTAssertNotNil(strings[key], "\(language): \(key) has no fallback in the strings table")
+                let rule = try XCTUnwrap(entry["updates"] as? [String: String], "\(language): \(key)")
+                XCTAssertNotNil(rule["other"], "\(language): \(key)")
+                for (category, value) in rule where !category.hasPrefix("NSString") {
+                    XCTAssertEqual(try placeholders(value), try placeholders(key), "\(language): \(key) \(category)")
+                }
+            }
+        }
+    }
+
     func testEarlierUpdatesLine() throws {
-        XCTAssertEqual(String(format: try table("en")["and %lld earlier updates"]!, 2), "and 2 earlier updates")
-        XCTAssertEqual(String(format: try table("de")["and %lld earlier updates"]!, 2), "und 2 frühere Updates")
-        XCTAssertEqual(String(format: try table("ru")["and %lld earlier updates"]!, 2), "и ещё обновлений: 2")
-        XCTAssertEqual(String(format: try table("zh-Hans")["and %lld earlier updates"]!, 2), "以及另外 2 次更新")
+        let key = "and %lld earlier updates"
+        let expected: [String: [Int: String]] = [
+            "en": [1: "and 1 earlier update", 2: "and 2 earlier updates", 5: "and 5 earlier updates"],
+            "de": [1: "und 1 früheres Update", 2: "und 2 frühere Updates", 5: "und 5 frühere Updates"],
+            "ru": [1: "и ещё 1 обновление", 2: "и ещё 2 обновления", 5: "и ещё 5 обновлений", 21: "и ещё 21 обновление"],
+            "zh-Hans": [1: "以及另外 1 次更新", 2: "以及另外 2 次更新", 5: "以及另外 5 次更新"],
+        ]
+        XCTAssertEqual(Set(expected.keys), Set(Self.languages))
+        for (language, forms) in expected {
+            for (count, text) in forms {
+                XCTAssertEqual(try plural(key, language, count), text, "\(language): \(count)")
+            }
+        }
     }
 
     func testFormattedValuesUseANoBreakSpaceBeforePercentAndUnits() throws {
