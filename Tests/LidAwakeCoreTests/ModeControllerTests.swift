@@ -312,6 +312,40 @@ final class ModeControllerTests: XCTestCase {
         XCTAssertEqual(controller.shownMode, .off)
     }
 
+    // The menu bar icon follows shownMode: leaving Run with Lid Closed for Keep Screen On goes
+    // through Off, which the icon must not show.
+    func testShownModeSkipsOffBetweenRunWithLidClosedAndKeepScreenOn() async throws {
+        let controller = makeController()
+        try await controller.select(.lidClosed)
+        var modes: [Mode] = []
+        var shown: [Mode] = []
+        let modeSubscription = controller.$mode.dropFirst().sink { modes.append($0) }
+        let shownSubscription = controller.$shownMode.dropFirst().sink { shown.append($0) }
+        defer {
+            modeSubscription.cancel()
+            shownSubscription.cancel()
+        }
+
+        try await controller.select(.keepScreenOn)
+
+        XCTAssertEqual(modes, [.off, .keepScreenOn])
+        XCTAssertEqual(shown, [.keepScreenOn])
+    }
+
+    func testShownModeEndsAtTheSelectedModeForEverySwitch() async throws {
+        let controller = makeController()
+        let path: [Mode] = [.keepScreenOn, .lidClosed, .keepScreenOn, .off, .lidClosed, .off, .keepScreenOn, .off]
+        for target in path {
+            let from = controller.shownMode
+            var shown: [Mode] = []
+            let subscription = controller.$shownMode.dropFirst().sink { shown.append($0) }
+            try await controller.select(target)
+            subscription.cancel()
+            XCTAssertEqual(shown, [target], "\(from) → \(target)")
+            XCTAssertEqual(controller.shownMode, controller.mode)
+        }
+    }
+
     func testKeepScreenOnAcquiresAndOffReleases() async throws {
         let controller = makeController()
 

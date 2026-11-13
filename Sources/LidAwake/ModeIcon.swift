@@ -105,7 +105,7 @@ struct MenuBarIcon: View {
     @ObservedObject var controller: ModeController
 
     var body: some View {
-        Image(nsImage: ModeIcon.menuBarImage(for: controller.mode))
+        Image(nsImage: ModeIcon.menuBarImage(for: controller.shownMode))
             .accessibilityLabel(Text(verbatim: "LidAwake"))
     }
 }
