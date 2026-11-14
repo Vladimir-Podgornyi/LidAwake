@@ -53,8 +53,8 @@ Each protection is turned on separately in Settings.
 |---|---|---|
 | Stop when the Mac gets hot | Ends the mode when macOS reports the thermal state as serious or critical | on |
 | Stop on low battery | Ends the mode when the Mac runs on battery and the charge is at or below the limit (10 to 50 %). Not used while Only while charging is on, because the mode is already paused on battery | on, 20 % |
-| Only while charging | Pauses the mode on battery power and resumes it when power is connected | off |
-| Turn off after | Ends the mode after the chosen time (30 min to 8 hours), counted from the moment it was switched on | off, 2 hours; 4 hours when watched apps are used with Sleep when idle |
+| Only while charging | Pauses the mode on battery power and resumes it when power is connected. The Turn off after timer keeps counting during the pause | off |
+| Turn off after | Ends the mode after the chosen time (30 min to 8 hours), counted from the moment it was switched on | off, 2 hours; set once to 4 hours when Sleep when idle and watched apps first meet, see [Watched apps](#watched-apps) |
 | Sleep when idle | Ends the mode when nothing has been working on the Mac for the chosen time (10 to 60 min) | off, 20 min; turns itself off when the mode ends |
 
 The timer applies to both modes; the other four protections apply only to Run with Lid Closed.
@@ -69,13 +69,14 @@ Lock screen when the lid closes (on by default) locks the screen as soon as the 
 
 Turn it on when the Mac has a long job to finish with the lid closed: an AI coding agent such as Claude Code or Codex, a build, a video render. When the job is done, the mode ends. With the lid closed, the Mac then goes to sleep; with the lid open, the usual macOS sleep settings apply.
 
-Each minute the helper looks for three signs of work:
+Each minute the helper looks for four signs of work:
 
 - the processor load, averaged over the minute, is above about 1.5 cores;
 - a program asks macOS not to sleep, as the `caffeinate` command does;
+- programs started by an app from [Watched apps](#watched-apps) used the processor;
 - the keyboard, mouse or trackpad was used.
 
-A minute with none of them is a quiet minute. When the chosen number of quiet minutes is reached, the mode ends. A sleep request or input starts the count over. A short burst of load only holds the count where it is; load that lasts three minutes in a row starts it over.
+A minute with none of them is a quiet minute. When the chosen number of quiet minutes is reached, the mode ends. A sleep request, work in a watched app or input starts the count over. A short burst of load only holds the count where it is; load that lasts three minutes in a row starts it over.
 
 Not counted: network and disk activity, so a long download does not keep the Mac awake; sleep requests from the services of macOS itself; a program that has stopped and is waiting for your answer.
 
@@ -91,7 +92,9 @@ caffeinate -i make release
 
 ### Watched apps
 
-A coding agent in an editor thinks on a server and barely uses the processor, so on its own it can look idle. Watched apps in Settings fixes that: choose the editor or terminal you run it in, and while that app runs programs it started, LidAwake counts it as work. The app's own windows, and typing in it, do not count. The window lists the apps that are open now and the watched apps that are not, and marks the ones whose started programs are working. If Sleep when idle is on and Turn off after is off when you add the first watched app, Turn off after is set to 4 hours, so a stuck app can't keep the Mac awake forever; if a mode is running, this happens when it ends. You can change it in Settings.
+A coding agent in an editor thinks on a server and barely uses the processor, so on its own it can look idle. Watched apps in Settings fixes that: choose the editor or terminal you run it in. When a program that app started, together with the programs it started in turn, uses more than 0.5 seconds of processor time in a minute, LidAwake counts that minute as work; a program that only waits does not. The app's own windows, and typing in it, do not count. The window lists the apps that are open now and the watched apps that are not, and marks the ones whose started programs are working.
+
+The first time Sleep when idle is on and the list has an app, in either order, Turn off after is set to 4 hours if it is off, so a stuck app can't keep the Mac awake forever; if a mode is running, this happens when it ends. This happens once, until the list is emptied, and not when Sleep when idle is on only for a session started by Wake at or for a list kept from a version before 1.2.0. You can change it in Settings.
 
 <p align="center">
   <img src="docs/images/settings-blue.png" width="377" alt="The LidAwake window in Off with the settings expanded and the Blue accent">
@@ -174,8 +177,8 @@ LidAwake is developed and tested on a MacBook Air (M1) with macOS 26. Version 1.
 Once a day the Apple silicon build reads one small file from this repository, [`update.json`](update.json), at `https://raw.githubusercontent.com/Vladimir-Podgornyi/LidAwake/main/update.json`. It holds the number of the latest version and, sometimes, an offer for LidAwake Pro:
 
 ```json
-{"version": "1.1.1",
- "offer": {"percent": 15, "price": "9.99", "sale": "8.49",
+{"version": "1.2.0",
+ "offer": {"percent": 20, "price": "9.99", "sale": "7.99",
            "until": "2026-12-03", "url": "https://buy.polar.sh/..."}}
 ```
 
