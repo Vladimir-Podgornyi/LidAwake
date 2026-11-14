@@ -62,7 +62,7 @@ final class UpdateFileTests: XCTestCase {
     func testRepositoryFileIsReadable() throws {
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
         let body = try Data(contentsOf: root.appendingPathComponent("update.json"))
-        XCTAssertEqual(try read(body).lookup, .tag("1.1.1"))
+        XCTAssertEqual(try read(body).lookup, .tag("1.2.0"))
     }
 
     func testPercentOutsideTheRangeDropsOnlyTheOffer() throws {

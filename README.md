@@ -27,6 +27,8 @@ LidAwake is an open-source alternative to apps like Amphetamine and to the `caff
 
 LidAwake keeps a Mac from sleeping in two situations: when you step away from the desk, and when the laptop is closed and travels with you. It lives in the menu bar, has no Dock icon, and offers one switch with three positions, so only one mode can be on at a time.
 
+The window shows the three modes as cards; only the selected one carries its short description. Below them are the LidAwake Pro card, Settings, What's new and How to use LidAwake. In Settings, the Sleep and wake and General sections can be collapsed. What's new opens by itself the first time a version with news starts.
+
 | | Off | Keep Screen On | Run with Lid Closed |
 |---|---|---|---|
 | For | normal use | stepping away from the desk | the road |
@@ -38,9 +40,9 @@ LidAwake keeps a Mac from sleeping in two situations: when you step away from th
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/images/window-dark.png">
-    <img src="docs/images/window-light.png" width="335" alt="The LidAwake window with Run with Lid Closed selected and the settings collapsed">
+    <img src="docs/images/window-light.png" width="377" alt="The LidAwake window with Run with Lid Closed selected and the settings collapsed">
   </picture>
-  <img src="docs/images/keep-screen-on.png" width="335" alt="The LidAwake window with Keep Screen On selected and a two-hour timer">
+  <img src="docs/images/keep-screen-on.png" width="377" alt="The LidAwake window with Keep Screen On selected and the Turn off after timer under the mode cards">
 </p>
 
 ## Protections
@@ -59,7 +61,7 @@ The timer applies to both modes; the other four protections apply only to Run wi
 
 In Run with Lid Closed, the protections and the timer run in the privileged helper, not in the app, so they keep working if the app crashes or stops responding. If the battery level, the power source or the thermal state cannot be read while the matching protection is on, the mode turns off.
 
-When a protection ends or pauses the mode, LidAwake shows a notification and the reason in its window. If the app was not running when the mode ended, it shows the reason the next time it starts.
+When a protection ends or pauses the mode, LidAwake shows a notification and the reason in its window. While Run with Lid Closed waits for power, the window shows a LidAwake paused banner. If the app was not running when the mode ended, it shows the reason the next time it starts.
 
 Lock screen when the lid closes (on by default) locks the screen as soon as the lid is closed in Run with Lid Closed. It uses a private macOS function; if a macOS version does not have it, the window says so.
 
@@ -133,11 +135,12 @@ It prints `auto-logout=` followed by the delay in seconds, or `auto-logout=off`.
 
 ## LidAwake Pro
 
-LidAwake stays free and open source. LidAwake Pro is a paid, ready-to-install build for everyday use with three more features:
+LidAwake stays free and open source. LidAwake Pro is a paid, ready-to-install build for everyday use with four more features:
 
 - **Movie on a TV.** Close the lid and the movie keeps playing on a TV or monitor, by cable or AirPlay; LidAwake brings the player back to the external display by itself.
 - **Waits for downloads.** With Sleep when idle on, the Mac stays awake while a large file downloads and sleeps when the download is done.
 - **Waits for video exports.** With Sleep when idle on, the Mac stays awake while a video renders and sleeps when the export is done.
+- **In a Bag.** One switch for a closed Mac in a bag: it stops at the first sign of heat, at 40% battery and after the time you set (1 to 4 hours), and these protections can't be weakened.
 
 It is sold at [erstgebaut.de/lidawake](https://erstgebaut.de/lidawake/).
 
@@ -176,7 +179,7 @@ Once a day the Apple silicon build reads one small file from this repository, [`
            "until": "2026-12-03", "url": "https://buy.polar.sh/..."}}
 ```
 
-`offer` is optional. From the file the app reads only the version number and, when present, the discount in percent, the old and new price in euros, the last day of the offer and the payment link. The link is accepted only on `buy.polar.sh` or `erstgebaut.de`; an offer that fails any check is ignored. All words in the window come from the app itself, never from the file. While an offer runs, until the end of its last day in your time zone, the LidAwake Pro card at the bottom of the window shows the discount; it is kept until then, so it stays visible offline, and is removed when a later file has no offer. The reply may be at most 4 KB and redirects are not followed.
+`offer` is optional. From the file the app reads only the version number and, when present, the discount in percent, the old and new price in euros, the last day of the offer and the payment link. The link is accepted only on `buy.polar.sh` or `erstgebaut.de`; an offer that fails any check is ignored. All words in the window come from the app itself, never from the file. While an offer runs, until the end of its last day in your time zone, the LidAwake Pro card under the mode cards and the What's new window show the discount; it is kept until then, so it stays visible offline, and is removed when a later file has no offer. The reply may be at most 4 KB and redirects are not followed.
 
 If the file cannot be read, the app asks `github.com` for the number of the latest release, and if that gives no answer the app can use, `api.github.com`; these replies carry no offer. The Intel build skips the file and the offers: it asks `github.com`, sends a second request to see whether that release has an Intel disk image, and falls back to `api.github.com`. The requests carry no data about you or your Mac; their User-Agent contains only the app version. Nothing is downloaded. If a newer version exists, the window shows Update available with a Download button that opens the releases page. A failed check is silent.
 
@@ -190,7 +193,7 @@ brew upgrade --cask lidawake
 
 Homebrew quits LidAwake and unregisters its helper before replacing the app. LidAwake registers the helper again the next time you choose Run with Lid Closed.
 
-The bottom of the window shows a LidAwake Pro card. Clicking it opens erstgebaut.de/lidawake in the browser, or the payment link of a running offer; the app makes no request for it.
+Under the mode cards the window shows a LidAwake Pro card. Clicking it opens erstgebaut.de/lidawake in the browser, or the payment link of a running offer; the app makes no request for it.
 
 LidAwake makes no other network requests and contains no analytics. The helper does not use the network.
 
@@ -281,6 +284,8 @@ scripts/check-localizations.sh      # checks that every interface string exists 
 ## Languages
 
 The interface is in English, German, Russian, Simplified Chinese, Japanese, French, Spanish, Brazilian Portuguese, Korean and Italian. The language follows the system settings. To use another of these languages for this app only, choose LidAwake in System Settings > General > Language & Region > Applications and select the language.
+
+Korean translation reviewed by Moon.
 
 ## License
 
