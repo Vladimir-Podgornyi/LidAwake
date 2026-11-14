@@ -92,7 +92,7 @@ caffeinate -i make release
 
 ### Watched apps
 
-A coding agent in an editor thinks on a server and barely uses the processor, so on its own it can look idle. Watched apps in Settings fixes that: choose the editor or terminal you run it in. When a program that app started, together with the programs it started in turn, uses more than 0.5 seconds of processor time in a minute, LidAwake counts that minute as work; a program that only waits does not. The app's own windows, and typing in it, do not count. The window lists the apps that are open now and the watched apps that are not, and marks the ones whose started programs are working.
+A coding agent in an editor thinks on a server and barely uses the processor, so on its own it can look idle. Watched apps in Settings fixes that: choose the editor or terminal you run it in. When a program that app started, together with the programs it started in turn, uses more than 0.5 seconds of processor time in a minute, LidAwake counts that minute as work; a program that only waits does not. The app's own processes, its windows included, are not counted as its work; typing or clicking in it counts as keyboard and mouse use, as in any other app. The window lists the apps that are open now and the watched apps that are not, and marks the ones whose started programs are working.
 
 The first time Sleep when idle is on and the list has an app, in either order, Turn off after is set to 4 hours if it is off, so a stuck app can't keep the Mac awake forever; if a mode is running, this happens when it ends. This happens once, until the list is emptied, and not when Sleep when idle is on only for a session started by Wake at or for a list kept from a version before 1.2.0. You can change it in Settings.
 
@@ -118,7 +118,7 @@ Closed the Mac for the night, but need it in the morning for a scheduled job? Tu
 
 ## Activity log
 
-Activity log in Settings opens a window with what happened and when: a mode was turned on or off and why, the session was paused on battery and resumed, the Mac went to sleep and woke up, the Mac woke up on schedule or missed a scheduled wake. With Sleep when idle on, it also shows what kept the Mac awake (a program, processor load with the busiest process, or the keyboard and mouse) and when the quiet minutes started to count.
+Activity log in Settings opens a window with what happened and when: a mode was turned on or off and why, the session was paused on battery and resumed, the Mac went to sleep and woke up, the Mac woke up on schedule or missed a scheduled wake. With Sleep when idle on, it also shows what kept the Mac awake (a program, a watched app whose started programs are working, processor load with the busiest process, or the keyboard and mouse) and when the quiet minutes started to count.
 
 The log keeps the last 200 events in a file on this Mac, `~/Library/Application Support/com.vladimirpodgornyi.LidAwake/activity-log.json`, readable only by your user account. It is never sent anywhere. Clear in the log window empties it.
 
