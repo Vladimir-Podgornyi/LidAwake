@@ -162,7 +162,7 @@
 "Done" = "완료";
 
 /* LidAwake Pro */
-"Movie on a TV, waits for downloads and exports" = "TV로 영화 보기, 다운로드 및 내보내기 대기";
+"Movie on a TV, In a Bag, waits for downloads and exports" = "TV로 영화 보기, 가방 속, 다운로드 및 내보내기 대기";
 
 "−%lld%%" = "−%lld%%";
 "until %@" = "%@까지";

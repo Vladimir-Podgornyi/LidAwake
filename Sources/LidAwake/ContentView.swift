@@ -960,7 +960,7 @@ private struct ProOfferRow: View {
                     Text(verbatim: "LidAwake Pro")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(Color.primary)
-                    Text("Movie on a TV, waits for downloads and exports")
+                    Text("Movie on a TV, In a Bag, waits for downloads and exports")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -980,7 +980,7 @@ private struct ProOfferRow: View {
             .contentShape(shape)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(Text(verbatim: "LidAwake Pro, ") + Text("Movie on a TV, waits for downloads and exports"))
+        .accessibilityLabel(Text(verbatim: "LidAwake Pro, ") + Text("Movie on a TV, In a Bag, waits for downloads and exports"))
     }
 }
 
@@ -1008,7 +1008,7 @@ private struct ProDiscountRow: View {
                             .padding(.vertical, 1)
                             .background(Capsule().fill(accent))
                     }
-                    Text("Movie on a TV, waits for downloads and exports")
+                    Text("Movie on a TV, In a Bag, waits for downloads and exports")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -1053,7 +1053,7 @@ private struct ProDiscountRow: View {
 
     private var accessibilityText: Text {
         var text = Text(verbatim: "LidAwake Pro, ") + Text("−\(offer.percent)%") + Text(verbatim: ", ")
-            + Text("Movie on a TV, waits for downloads and exports")
+            + Text("Movie on a TV, In a Bag, waits for downloads and exports")
             + Text(verbatim: ", \(oldPrice) → \(newPrice)")
         if let lastDay {
             text = text + Text(verbatim: ", ") + Text("until \(lastDay)")
