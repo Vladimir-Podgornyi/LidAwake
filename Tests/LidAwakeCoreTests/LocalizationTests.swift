@@ -459,7 +459,7 @@ final class LocalizationTests: XCTestCase {
             "fr": "Rien n’a fonctionné pendant %lld\u{00A0}minutes.",
             "es": "No hubo actividad durante %lld\u{00A0}minutos.",
             "pt-BR": "Nada estava em execução por %lld\u{00A0}minutos.",
-            "ko": "%lld분 동안 아무 작업도 없었습니다.",
+            "ko": "%lld분 동안 아무런 작업도 감지되지 않았습니다.",
             "it": "Nessuna attività per %lld\u{00A0}minuti.",
         ]
         let withoutMinutes = [
@@ -471,7 +471,7 @@ final class LocalizationTests: XCTestCase {
             "fr": "Rien n’a fonctionné depuis un moment.",
             "es": "No hubo actividad durante un rato.",
             "pt-BR": "Nada estava em execução por um tempo.",
-            "ko": "한동안 아무 작업도 없었습니다.",
+            "ko": "한동안 아무런 작업도 감지되지 않았습니다.",
             "it": "Nessuna attività da un po’.",
         ]
         for language in Self.languages {
