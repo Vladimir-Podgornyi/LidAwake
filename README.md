@@ -9,7 +9,7 @@
 <p align="center">macOS 13+ · Apple silicon · MIT</p>
 
 <p align="center">
-  <img src="docs/images/demo.gif" width="335" alt="Animation: the LidAwake window opens, Keep Screen On and then Run with Lid Closed are selected, the settings are expanded, the accent is switched to Amber and the settings are collapsed">
+  <img src="docs/images/demo.gif" width="360" alt="Animation in dark mode with the Amber accent: Keep Screen On and then Run with Lid Closed are selected, the settings are expanded, protections and Sleep when idle are switched on and off, and the settings are collapsed">
 </p>
 
 ## Why LidAwake
@@ -40,9 +40,9 @@ The window shows the three modes as cards; only the selected one carries its sho
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/images/window-dark.png">
-    <img src="docs/images/window-light.png" width="377" alt="The LidAwake window with Run with Lid Closed selected and the settings collapsed">
+    <img src="docs/images/window-light.png" width="357" alt="The LidAwake window with Run with Lid Closed selected and the settings collapsed">
   </picture>
-  <img src="docs/images/keep-screen-on.png" width="377" alt="The LidAwake window with Keep Screen On selected and the Turn off after timer under the mode cards">
+  <img src="docs/images/keep-screen-on.png" width="354" alt="The LidAwake window with Keep Screen On selected and the Turn off after timer under the mode cards">
 </p>
 
 ## Protections
@@ -94,11 +94,15 @@ caffeinate -i make release
 
 A coding agent in an editor thinks on a server and barely uses the processor, so on its own it can look idle. Watched apps in Settings fixes that: choose the editor or terminal you run it in. When a program that app started, together with the programs it started in turn, uses more than 0.5 seconds of processor time in a minute, LidAwake counts that minute as work; a program that only waits does not. The app's own processes, its windows included, are not counted as its work; typing or clicking in it counts as keyboard and mouse use, as in any other app. The window lists the apps that are open now and the watched apps that are not, and marks the ones whose started programs are working.
 
+<p align="center">
+  <img src="docs/images/watched-apps.png" width="472" alt="The Watched apps window: Code is watched and its started programs are working; Dia, Finder and Spark are open and not watched">
+</p>
+
 The first time Sleep when idle is on and the list has an app, in either order, Turn off after is set to 4 hours if it is off, so a stuck app can't keep the Mac awake forever; if a mode is running, this happens when it ends. This happens once, until the list is emptied, and not when Sleep when idle is on only for a session started by Wake at or for a list kept from a version before 1.2.0. You can change it in Settings.
 
 <p align="center">
-  <img src="docs/images/settings-blue.png" width="377" alt="The LidAwake window in Off with the settings expanded and the Blue accent">
-  <img src="docs/images/settings-amber.png" width="377" alt="The LidAwake window in Off with the settings expanded and the Amber accent">
+  <img src="docs/images/settings-blue.png" width="349" alt="The LidAwake window in Run with Lid Closed with the Safety settings expanded and the Blue accent">
+  <img src="docs/images/settings-amber.png" width="359" alt="The LidAwake window in dark mode in Run with Lid Closed with Safety and Sleep and Wake expanded and the Amber accent">
 </p>
 
 A closed laptop in a bag cools poorly. The protections reduce the risk; they do not remove it. The thermal protection reacts only to what macOS itself reports as overheating: in tests on a MacBook Air (M1) under full CPU load, the system reported a nominal thermal state throughout, so this protection has never been seen to trip.
@@ -119,6 +123,13 @@ Closed the Mac for the night, but need it in the morning for a scheduled job? Tu
 ## Activity log
 
 Activity log in Settings opens a window with what happened and when: a mode was turned on or off and why, the session was paused on battery and resumed, the Mac went to sleep and woke up, the Mac woke up on schedule or missed a scheduled wake. With Sleep when idle on, it also shows what kept the Mac awake (a program, a watched app whose started programs are working, processor load with the busiest process, or the keyboard and mouse) and when the quiet minutes started to count.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/activity-log-dark.png">
+    <img src="docs/images/activity-log-light.png" width="466" alt="The Activity log window with modes turned on and off">
+  </picture>
+</p>
 
 The log keeps the last 200 events in a file on this Mac, `~/Library/Application Support/com.vladimirpodgornyi.LidAwake/activity-log.json`, readable only by your user account. It is never sent anywhere. Clear in the log window empties it.
 
