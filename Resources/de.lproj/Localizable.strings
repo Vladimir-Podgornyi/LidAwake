@@ -41,13 +41,13 @@
 "Turn off after" = "Ausschalten nach";
 "Counts from the moment you switch on" = "Ab dem Einschalten";
 "Sleep when idle" = "Ruhezustand bei Leerlauf";
-"After the work is done" = "Wenn die Arbeit erledigt ist";
+"After the work is done · for one session" = "Wenn die Arbeit erledigt ist · für eine Sitzung";
 "Kept awake by %@" = "Wach gehalten von %@";
 "Kept awake by CPU load" = "Wach gehalten durch CPU-Last";
 "Kept awake by keyboard or mouse" = "Wach gehalten durch Tastatur oder Maus";
 "Idle for %lld of %lld min" = "Leerlauf: %lld von %lld Min.";
 "Wake at" = "Aufwachen um";
-"Every day, on power only" = "Täglich, nur am Netzteil";
+"If the Mac is asleep, every day, on power only" = "Wenn der Mac schläft, täglich, nur am Netzteil";
 "Could not set the wake" = "Aufwachen konnte nicht eingestellt werden";
 "Lock screen when the lid closes" = "Beim Zuklappen sperren";
 "Screen lock is not available on this macOS version." = "Die Bildschirmsperre ist in dieser macOS-Version nicht verfügbar.";
@@ -69,10 +69,10 @@
 /* Helper messages */
 "Permission needed" = "Erlaubnis erforderlich";
 "Allow LidAwake in System Settings > General > Login Items & Extensions. The mode turns on as soon as you do." = "Erlaube LidAwake unter Systemeinstellungen > Allgemein > Anmeldeobjekte & Erweiterungen. Danach schaltet sich der Modus sofort ein.";
-"Allow LidAwake in System Settings > General > Login Items & Extensions, then choose Run with Lid Closed again." = "Erlaube LidAwake unter Systemeinstellungen > Allgemein > Anmeldeobjekte & Erweiterungen und wähle danach erneut „Mit geschlossenem Deckel“.";
+"Allow LidAwake in System Settings > General > Login Items & Extensions, then choose %@ again." = "Erlaube LidAwake unter Systemeinstellungen > Allgemein > Anmeldeobjekte & Erweiterungen und wähle danach erneut „%@“.";
 "Allow LidAwake in System Settings > General > Login Items & Extensions." = "Erlaube LidAwake unter Systemeinstellungen > Allgemein > Anmeldeobjekte & Erweiterungen.";
 "Move LidAwake to Applications" = "LidAwake in „Programme“ bewegen";
-"Run with Lid Closed needs the app in the Applications folder." = "Für „Mit geschlossenem Deckel“ muss die App im Ordner „Programme“ liegen.";
+"%@ needs the app in the Applications folder." = "Für „%@“ muss die App im Ordner „Programme“ liegen.";
 "LidAwake must be in /Applications to install the helper." = "Zum Installieren des Hilfsprogramms muss LidAwake im Ordner „Programme“ liegen.";
 "The helper did not start" = "Das Hilfsprogramm ist nicht gestartet";
 "Install the helper to run with the lid closed." = "Für den Betrieb mit geschlossenem Deckel muss das Hilfsprogramm installiert sein.";
@@ -103,6 +103,7 @@
 "Nothing was working for a while." = "Es lief längere Zeit nichts mehr.";
 "LidAwake paused" = "LidAwake pausiert";
 "Running on battery. It resumes when you plug in." = "Akkubetrieb. Es geht weiter, sobald das Netzteil angeschlossen ist.";
+"Only while charging is on, so %@ waits until power is connected." = "„Nur am Netzteil“ ist an, daher wartet „%@“, bis das Netzteil angeschlossen ist.";
 
 /* Updates */
 "Check for updates" = "Nach Updates suchen";
@@ -150,6 +151,8 @@
 "Watched Apps" = "Beobachtete Apps";
 "None" = "Keine";
 "While a watched app runs programs it started, such as a coding agent, a build or a script, Sleep when idle keeps counting it as work. Typing in the app and its own windows do not count." = "Solange eine beobachtete App Programme ausführt, die sie gestartet hat, etwa einen Coding-Agenten, einen Build oder ein Skript, zählt „Ruhezustand bei Leerlauf“ das als Arbeit. Tippen in der App und ihre eigenen Fenster zählen nicht.";
+"Turn off after is set to 4 hours, so a stuck app can't keep the Mac awake forever. You can change it in Settings." = "„Ausschalten nach“ ist auf 4 Stunden gestellt, damit eine hängende App den Mac nicht endlos wach hält. Du kannst das in den Einstellungen ändern.";
+"Turn off after will be set to 4 hours when LidAwake stops keeping the Mac awake. You can change it in Settings." = "„Ausschalten nach“ wird auf 4 Stunden gestellt, sobald LidAwake den Mac nicht mehr wach hält. Du kannst das in den Einstellungen ändern.";
 "Open now" = "Geöffnet";
 "Watched, not open" = "Beobachtet, nicht geöffnet";
 "Started programs are working now" = "Gestartete Programme arbeiten gerade";
@@ -159,4 +162,49 @@
 "Done" = "Fertig";
 
 /* LidAwake Pro */
-"Movie on a TV, waits for downloads and exports" = "Film auf dem Fernseher, wartet auf Downloads und Exporte";
+"Movie on a TV, In a Bag, waits for downloads and exports" = "„Film auf dem Fernseher“, „In der Tasche“, wartet auf Downloads und Exporte";
+
+"−%lld%%" = "−%lld%%";
+"until %@" = "bis %@";
+
+/* What's new and How to use LidAwake */
+"What's new" = "Neuigkeiten";
+"How to use LidAwake" = "So funktioniert LidAwake";
+"What's new in %@" = "Neu in %@";
+"Version %@" = "Version %@";
+"and %lld earlier updates" = "und %lld frühere Updates";
+"Six new languages" = "Sechs neue Sprachen";
+"Only in LidAwake Pro %@" = "Nur in LidAwake Pro %@";
+"Movie on a TV" = "Film auf dem Fernseher";
+"Close the lid and the movie keeps playing on the TV." = "Deckel zu, und der Film läuft auf dem Fernseher weiter.";
+"Waits for downloads" = "Wartet auf Downloads";
+"Stays awake until a big download is done, then sleeps." = "Bleibt wach, bis ein großer Download fertig ist, und geht dann in den Ruhezustand.";
+"Waits for video exports" = "Wartet auf Videoexporte";
+"Stays awake while a video renders, then sleeps." = "Bleibt wach, solange ein Video gerendert wird, und geht dann in den Ruhezustand.";
+"In a Bag" = "In der Tasche";
+"One switch with stricter protections for a Mac in a bag." = "Ein Schalter mit strengeren Schutzfunktionen für einen Mac in der Tasche.";
+"New" = "Neu";
+"Updates in one click" = "Updates mit einem Klick";
+"The Download button opens your purchases, where the new version is ready." = "Die Taste „Laden“ öffnet deine Käufe, dort liegt die neue Version bereit.";
+"−%lld%% on LidAwake Pro" = "−%lld%% auf LidAwake Pro";
+"one-time" = "einmalig";
+"one-time · until %@" = "einmalig · bis %@";
+"Get Pro" = "Pro holen";
+"Continue" = "Weiter";
+"Pick a mode" = "Modus wählen";
+"Keep Screen On when you step away from the desk. Run with Lid Closed when the Mac should keep working with the lid shut. Only one mode is on at a time; Off brings normal sleep back." = "„Bildschirm anlassen“, wenn du kurz vom Schreibtisch weggehst. „Mit geschlossenem Deckel“, wenn der Mac mit geschlossenem Deckel weiterarbeiten soll. Es ist immer nur ein Modus aktiv; „Aus“ stellt den normalen Ruhezustand wieder her.";
+"Allow the helper once" = "Hilfsprogramm einmal erlauben";
+"The first time you choose Run with Lid Closed, allow LidAwake in System Settings › General › Login Items & Extensions. No password is needed." = "Wenn du „Mit geschlossenem Deckel“ zum ersten Mal wählst, erlaube LidAwake unter Systemeinstellungen › Allgemein › Anmeldeobjekte & Erweiterungen. Ein Passwort ist nicht nötig.";
+"Let it end by itself" = "Von selbst enden lassen";
+"In Settings, Sleep when idle lets the Mac sleep once the work is done, and Turn off after ends the mode after a set time. With Sleep when idle on, adding the first watched app sets Turn off after to 4 hours, so a stuck app can't keep the Mac awake forever. The mode also stops when the Mac gets hot or the battery runs low." = "In den Einstellungen lässt „Ruhezustand bei Leerlauf“ den Mac schlafen, sobald die Arbeit erledigt ist, und „Ausschalten nach“ beendet den Modus nach einer festen Zeit. Ist „Ruhezustand bei Leerlauf“ an, stellt die erste beobachtete App „Ausschalten nach“ auf 4 Stunden, damit eine hängende App den Mac nicht endlos wach hält. Der Modus endet auch, wenn der Mac zu heiß wird oder der Akku schwach ist.";
+"Avoid packing a running Mac in a closed bag" = "Einen laufenden Mac nicht in eine geschlossene Tasche packen";
+"A closed laptop in a bag cools poorly. The protections reduce the risk; they do not remove it. If you must carry it running, prefer a short session and keep an eye on the temperature. You use LidAwake at your own risk." = "Ein zugeklappter Laptop in einer Tasche kühlt schlecht. Die Schutzfunktionen verringern das Risiko, beseitigen es aber nicht. Wenn du ihn unbedingt laufend tragen musst, halte die Sitzung kurz und behalte die Temperatur im Blick. Du nutzt LidAwake auf eigenes Risiko.";
+"Website" = "Website";
+"Source code" = "Quellcode";
+"Works only with Sleep when idle in Run with Lid Closed." = "Wirkt nur mit „Ruhezustand bei Leerlauf“ in „Mit geschlossenem Deckel“.";
+"The Mac is on battery, so the wake will not turn the mode on." = "Der Mac läuft mit Akku, daher schaltet das Aufwachen den Modus nicht ein.";
+"On for this session, turned on by Wake at." = "Für diese Sitzung an, eingeschaltet durch „Aufwachen um“.";
+"This Mac has no battery." = "Dieser Mac hat keinen Akku.";
+"Set to 4 hours for watched apps." = "Für beobachtete Apps auf 4 Stunden gestellt.";
+"Will be set to 4 hours for watched apps when the mode ends." = "Wird für beobachtete Apps auf 4 Stunden gestellt, wenn der Modus endet.";
+"%@ The timer keeps counting." = "%@ Der Timer läuft weiter.";

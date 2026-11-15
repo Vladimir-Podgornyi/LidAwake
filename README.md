@@ -9,7 +9,7 @@
 <p align="center">macOS 13+ · Apple silicon · MIT</p>
 
 <p align="center">
-  <img src="docs/images/demo.gif" width="335" alt="Animation: the LidAwake window opens, Keep Screen On and then Run with Lid Closed are selected, the settings are expanded, the accent is switched to Amber and the settings are collapsed">
+  <img src="docs/images/demo.gif" width="360" alt="Animation in dark mode with the Amber accent: Keep Screen On and then Run with Lid Closed are selected, the settings are expanded, protections and Sleep when idle are switched on and off, and the settings are collapsed">
 </p>
 
 ## Why LidAwake
@@ -18,14 +18,16 @@
 - Stops by itself when the Mac gets hot, when the battery runs low, when the timer ends or when the work is done, and can run only while charging.
 - Can wake the Mac at a set time every day, keep it running while the work goes on and let it sleep when the work is done.
 - If the app quits unexpectedly or stops responding, normal sleep returns by itself within two minutes.
-- Open source (MIT), no account and no analytics. The only network activity is a daily update check, and it can be turned off.
-- The interface is in English, German, Russian and Simplified Chinese.
+- Open source (MIT), no account and no analytics. The only network activity is a daily check for updates and offers, and it can be turned off.
+- The interface is in English, German, Russian, Simplified Chinese, Japanese, French, Spanish, Brazilian Portuguese, Korean and Italian.
 
 LidAwake is an open-source alternative to apps like Amphetamine and to the `caffeinate` command for keeping a Mac awake, including with the lid closed and no external display.
 
 ## What it does
 
 LidAwake keeps a Mac from sleeping in two situations: when you step away from the desk, and when the laptop is closed and travels with you. It lives in the menu bar, has no Dock icon, and offers one switch with three positions, so only one mode can be on at a time.
+
+The window shows the three modes as cards; only the selected one carries its short description. Below them are the LidAwake Pro card, Settings, What's new and How to use LidAwake. In Settings, the Sleep and wake and General sections can be collapsed. What's new opens by itself the first time a version with news starts.
 
 | | Off | Keep Screen On | Run with Lid Closed |
 |---|---|---|---|
@@ -38,9 +40,9 @@ LidAwake keeps a Mac from sleeping in two situations: when you step away from th
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/images/window-dark.png">
-    <img src="docs/images/window-light.png" width="335" alt="The LidAwake window with Run with Lid Closed selected and the settings collapsed">
+    <img src="docs/images/window-light.png" width="357" alt="The LidAwake window with Run with Lid Closed selected and the settings collapsed">
   </picture>
-  <img src="docs/images/keep-screen-on.png" width="335" alt="The LidAwake window with Keep Screen On selected and a two-hour timer">
+  <img src="docs/images/keep-screen-on.png" width="354" alt="The LidAwake window with Keep Screen On selected and the Turn off after timer under the mode cards">
 </p>
 
 ## Protections
@@ -51,15 +53,15 @@ Each protection is turned on separately in Settings.
 |---|---|---|
 | Stop when the Mac gets hot | Ends the mode when macOS reports the thermal state as serious or critical | on |
 | Stop on low battery | Ends the mode when the Mac runs on battery and the charge is at or below the limit (10 to 50 %). Not used while Only while charging is on, because the mode is already paused on battery | on, 20 % |
-| Only while charging | Pauses the mode on battery power and resumes it when power is connected | off |
-| Turn off after | Ends the mode after the chosen time (30 min to 8 hours), counted from the moment it was switched on | off, 2 hours |
+| Only while charging | Pauses the mode on battery power and resumes it when power is connected. The Turn off after timer keeps counting during the pause | off |
+| Turn off after | Ends the mode after the chosen time (30 min to 8 hours), counted from the moment it was switched on | off, 2 hours; set once to 4 hours when Sleep when idle and watched apps first meet, see [Watched apps](#watched-apps) |
 | Sleep when idle | Ends the mode when nothing has been working on the Mac for the chosen time (10 to 60 min) | off, 20 min; turns itself off when the mode ends |
 
 The timer applies to both modes; the other four protections apply only to Run with Lid Closed.
 
 In Run with Lid Closed, the protections and the timer run in the privileged helper, not in the app, so they keep working if the app crashes or stops responding. If the battery level, the power source or the thermal state cannot be read while the matching protection is on, the mode turns off.
 
-When a protection ends or pauses the mode, LidAwake shows a notification and the reason in its window. If the app was not running when the mode ended, it shows the reason the next time it starts.
+When a protection ends or pauses the mode, LidAwake shows a notification and the reason in its window. While Run with Lid Closed waits for power, the window shows a LidAwake paused banner. If the app was not running when the mode ended, it shows the reason the next time it starts.
 
 Lock screen when the lid closes (on by default) locks the screen as soon as the lid is closed in Run with Lid Closed. It uses a private macOS function; if a macOS version does not have it, the window says so.
 
@@ -67,13 +69,14 @@ Lock screen when the lid closes (on by default) locks the screen as soon as the 
 
 Turn it on when the Mac has a long job to finish with the lid closed: an AI coding agent such as Claude Code or Codex, a build, a video render. When the job is done, the mode ends. With the lid closed, the Mac then goes to sleep; with the lid open, the usual macOS sleep settings apply.
 
-Each minute the helper looks for three signs of work:
+Each minute the helper looks for four signs of work:
 
 - the processor load, averaged over the minute, is above about 1.5 cores;
 - a program asks macOS not to sleep, as the `caffeinate` command does;
+- programs started by an app from [Watched apps](#watched-apps) used the processor;
 - the keyboard, mouse or trackpad was used.
 
-A minute with none of them is a quiet minute. When the chosen number of quiet minutes is reached, the mode ends. A sleep request or input starts the count over. A short burst of load only holds the count where it is; load that lasts three minutes in a row starts it over.
+A minute with none of them is a quiet minute. When the chosen number of quiet minutes is reached, the mode ends. A sleep request, work in a watched app or input starts the count over. A short burst of load only holds the count where it is; load that lasts three minutes in a row starts it over.
 
 Not counted: network and disk activity, so a long download does not keep the Mac awake; sleep requests from the services of macOS itself; a program that has stopped and is waiting for your answer.
 
@@ -89,11 +92,17 @@ caffeinate -i make release
 
 ### Watched apps
 
-A coding agent in an editor thinks on a server and barely uses the processor, so on its own it can look idle. Watched apps in Settings fixes that: choose the editor or terminal you run it in, and while that app runs programs it started, LidAwake counts it as work. The app's own windows, and typing in it, do not count. The window lists the apps that are open now and the watched apps that are not, and marks the ones whose started programs are working.
+A coding agent in an editor thinks on a server and barely uses the processor, so on its own it can look idle. Watched apps in Settings fixes that: choose the editor or terminal you run it in. When a program that app started, together with the programs it started in turn, uses more than 0.5 seconds of processor time in a minute, LidAwake counts that minute as work; a program that only waits does not. The app's own processes, its windows included, are not counted as its work; typing or clicking in it counts as keyboard and mouse use, as in any other app. The window lists the apps that are open now and the watched apps that are not, and marks the ones whose started programs are working.
 
 <p align="center">
-  <img src="docs/images/settings-blue.png" width="377" alt="The LidAwake window in Off with the settings expanded and the Blue accent">
-  <img src="docs/images/settings-amber.png" width="377" alt="The LidAwake window in Off with the settings expanded and the Amber accent">
+  <img src="docs/images/watched-apps.png" width="472" alt="The Watched apps window: Code is watched and its started programs are working; Dia, Finder and Spark are open and not watched">
+</p>
+
+The first time Sleep when idle is on and the list has an app, in either order, Turn off after is set to 4 hours if it is off, so a stuck app can't keep the Mac awake forever; if a mode is running, this happens when it ends. This happens once, until the list is emptied, and not when Sleep when idle is on only for a session started by Wake at or for a list kept from a version before 1.2.0. You can change it in Settings.
+
+<p align="center">
+  <img src="docs/images/settings-blue.png" width="349" alt="The LidAwake window in Run with Lid Closed with the Safety settings expanded and the Blue accent">
+  <img src="docs/images/settings-amber.png" width="359" alt="The LidAwake window in dark mode in Run with Lid Closed with Safety and Sleep and Wake expanded and the Amber accent">
 </p>
 
 A closed laptop in a bag cools poorly. The protections reduce the risk; they do not remove it. The thermal protection reacts only to what macOS itself reports as overheating: in tests on a MacBook Air (M1) under full CPU load, the system reported a nominal thermal state throughout, so this protection has never been seen to trip.
@@ -113,7 +122,14 @@ Closed the Mac for the night, but need it in the morning for a scheduled job? Tu
 
 ## Activity log
 
-Activity log in Settings opens a window with what happened and when: a mode was turned on or off and why, the session was paused on battery and resumed, the Mac went to sleep and woke up, the Mac woke up on schedule or missed a scheduled wake. With Sleep when idle on, it also shows what kept the Mac awake (a program, processor load with the busiest process, or the keyboard and mouse) and when the quiet minutes started to count.
+Activity log in Settings opens a window with what happened and when: a mode was turned on or off and why, the session was paused on battery and resumed, the Mac went to sleep and woke up, the Mac woke up on schedule or missed a scheduled wake. With Sleep when idle on, it also shows what kept the Mac awake (a program, a watched app whose started programs are working, processor load with the busiest process, or the keyboard and mouse) and when the quiet minutes started to count.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/activity-log-dark.png">
+    <img src="docs/images/activity-log-light.png" width="466" alt="The Activity log window with modes turned on and off">
+  </picture>
+</p>
 
 The log keeps the last 200 events in a file on this Mac, `~/Library/Application Support/com.vladimirpodgornyi.LidAwake/activity-log.json`, readable only by your user account. It is never sent anywhere. Clear in the log window empties it.
 
@@ -133,11 +149,12 @@ It prints `auto-logout=` followed by the delay in seconds, or `auto-logout=off`.
 
 ## LidAwake Pro
 
-LidAwake stays free and open source. LidAwake Pro is a paid, ready-to-install build for everyday use with three more features:
+LidAwake stays free and open source. LidAwake Pro is a paid, ready-to-install build for everyday use with four more features:
 
 - **Movie on a TV.** Close the lid and the movie keeps playing on a TV or monitor, by cable or AirPlay; LidAwake brings the player back to the external display by itself.
 - **Waits for downloads.** With Sleep when idle on, the Mac stays awake while a large file downloads and sleeps when the download is done.
 - **Waits for video exports.** With Sleep when idle on, the Mac stays awake while a video renders and sleeps when the export is done.
+- **In a Bag.** One switch for a closed Mac in a bag: it stops at the first sign of heat, at 40% battery and after the time you set (1 to 4 hours), and these protections can't be weakened.
 
 It is sold at [erstgebaut.de/lidawake](https://erstgebaut.de/lidawake/).
 
@@ -168,9 +185,19 @@ LidAwake is developed and tested on a MacBook Air (M1) with macOS 26. Version 1.
 
 ## Updates
 
-Once a day LidAwake asks `github.com` for the number of the latest release. This is one request; the Intel build sends a second one to see whether that release has an Intel disk image. If `github.com` gives no answer the app can use, it asks `api.github.com` instead. The requests carry no data about you or your Mac; their User-Agent contains only the app version. Only the version number is read from the reply, and nothing is downloaded. If a newer version exists, the window shows Update available with a Download button that opens the releases page. A failed check is silent.
+Once a day the Apple silicon build reads one small file from this repository, [`update.json`](update.json), at `https://raw.githubusercontent.com/Vladimir-Podgornyi/LidAwake/main/update.json`. It holds the number of the latest version and, sometimes, an offer for LidAwake Pro:
 
-The check is turned off with the Check for updates toggle in Settings; when it is off, no requests are made. Updates are installed by hand: download the new DMG, choose Quit LidAwake, and drag LidAwake over the old copy in Applications. Finder does not replace the app while it is running.
+```json
+{"version": "1.2.0",
+ "offer": {"percent": 20, "price": "9.99", "sale": "7.99",
+           "until": "2026-12-03", "url": "https://buy.polar.sh/..."}}
+```
+
+`offer` is optional. From the file the app reads only the version number and, when present, the discount in percent, the old and new price in euros, the last day of the offer and the payment link. The link is accepted only on `buy.polar.sh` or `erstgebaut.de`; an offer that fails any check is ignored. All words in the window come from the app itself, never from the file. While an offer runs, until the end of its last day in your time zone, the LidAwake Pro card under the mode cards and the What's new window show the discount; it is kept until then, so it stays visible offline, and is removed when a later file has no offer. The reply may be at most 4 KB and redirects are not followed.
+
+If the file cannot be read, the app asks `github.com` for the number of the latest release, and if that gives no answer the app can use, `api.github.com`; these replies carry no offer. The Intel build skips the file and the offers: it asks `github.com`, sends a second request to see whether that release has an Intel disk image, and falls back to `api.github.com`. The requests carry no data about you or your Mac; their User-Agent contains only the app version. Nothing is downloaded. If a newer version exists, the window shows Update available with a Download button that opens the releases page. A failed check is silent.
+
+The check is turned off with the Check for updates toggle in Settings; when it is off, no requests are made and no offer is shown. Updates are installed by hand: download the new DMG, choose Quit LidAwake, and drag LidAwake over the old copy in Applications. Finder does not replace the app while it is running.
 
 If LidAwake was installed with Homebrew, update it with:
 
@@ -180,7 +207,7 @@ brew upgrade --cask lidawake
 
 Homebrew quits LidAwake and unregisters its helper before replacing the app. LidAwake registers the helper again the next time you choose Run with Lid Closed.
 
-The bottom of the window shows a LidAwake Pro card. Clicking it opens erstgebaut.de/lidawake in the browser; the app makes no request for it.
+Under the mode cards the window shows a LidAwake Pro card. Clicking it opens erstgebaut.de/lidawake in the browser, or the payment link of a running offer; the app makes no request for it.
 
 LidAwake makes no other network requests and contains no analytics. The helper does not use the network.
 
@@ -259,7 +286,7 @@ You need macOS and Xcode; the scripts call `swift build`, `xcrun actool` and `co
 scripts/build-app.sh                # builds build/LidAwake.app
 ARCH=x86_64 scripts/build-app.sh    # builds an Intel app in build/x86_64/LidAwake.app
 scripts/install-app.sh              # quits a running LidAwake and copies the app to /Applications
-scripts/check-localizations.sh      # checks that every interface string exists in all four languages
+scripts/check-localizations.sh      # checks that every interface string exists in all ten languages
 ```
 
 `build-app.sh` signs with a Developer ID Application certificate of team `ZW984867UC` from the keychain, or with the identity in `SIGN_IDENTITY`. Without such a certificate it signs ad hoc and prints a warning that the privileged helper will not work in this build. The app and the helper accept each other only with a Developer ID signature of that team. Run with Lid Closed has not been tested in a build signed any other way.
@@ -270,7 +297,9 @@ scripts/check-localizations.sh      # checks that every interface string exists 
 
 ## Languages
 
-The interface is in English, German, Russian and Simplified Chinese. The language follows the system settings. To use Simplified Chinese for this app only, choose LidAwake in System Settings > General > Language & Region > Applications and select Simplified Chinese.
+The interface is in English, German, Russian, Simplified Chinese, Japanese, French, Spanish, Brazilian Portuguese, Korean and Italian. The language follows the system settings. To use another of these languages for this app only, choose LidAwake in System Settings > General > Language & Region > Applications and select the language.
+
+Korean translation reviewed by Moon.
 
 ## License
 

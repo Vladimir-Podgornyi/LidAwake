@@ -41,13 +41,13 @@
 "Turn off after" = "Выключить через";
 "Counts from the moment you switch on" = "Отсчёт с момента включения";
 "Sleep when idle" = "Сон после простоя";
-"After the work is done" = "Когда работа закончена";
+"After the work is done · for one session" = "Когда работа закончена · на один сеанс";
 "Kept awake by %@" = "Не даёт уснуть: %@";
 "Kept awake by CPU load" = "Не даёт уснуть: нагрузка процессора";
 "Kept awake by keyboard or mouse" = "Не даёт уснуть: клавиатура или мышь";
 "Idle for %lld of %lld min" = "Простой: %lld из %lld мин";
 "Wake at" = "Проснуться в";
-"Every day, on power only" = "Каждый день, только от сети";
+"If the Mac is asleep, every day, on power only" = "Если Mac спит, каждый день, только от сети";
 "Could not set the wake" = "Не удалось назначить пробуждение";
 "Lock screen when the lid closes" = "Блокировать при закрытии крышки";
 "Screen lock is not available on this macOS version." = "Блокировка экрана недоступна в этой версии macOS.";
@@ -69,10 +69,10 @@
 /* Helper messages */
 "Permission needed" = "Нужно разрешение";
 "Allow LidAwake in System Settings > General > Login Items & Extensions. The mode turns on as soon as you do." = "Разрешите LidAwake: «Системные настройки» > «Основные» > «Объекты входа и расширения». Режим включится сразу после этого.";
-"Allow LidAwake in System Settings > General > Login Items & Extensions, then choose Run with Lid Closed again." = "Разрешите LidAwake: «Системные настройки» > «Основные» > «Объекты входа и расширения». Затем снова выберите «С закрытой крышкой».";
+"Allow LidAwake in System Settings > General > Login Items & Extensions, then choose %@ again." = "Разрешите LidAwake: «Системные настройки» > «Основные» > «Объекты входа и расширения». Затем снова выберите «%@».";
 "Allow LidAwake in System Settings > General > Login Items & Extensions." = "Разрешите LidAwake: «Системные настройки» > «Основные» > «Объекты входа и расширения».";
 "Move LidAwake to Applications" = "Переместить LidAwake в «Программы»";
-"Run with Lid Closed needs the app in the Applications folder." = "Для режима «С закрытой крышкой» приложение должно лежать в папке «Программы».";
+"%@ needs the app in the Applications folder." = "Для режима «%@» приложение должно лежать в папке «Программы».";
 "LidAwake must be in /Applications to install the helper." = "Чтобы установить помощник, LidAwake должен лежать в папке «Программы».";
 "The helper did not start" = "Помощник не запустился";
 "Install the helper to run with the lid closed." = "Для работы с закрытой крышкой нужно установить помощник.";
@@ -103,6 +103,7 @@
 "Nothing was working for a while." = "Какое-то время ничего не работало.";
 "LidAwake paused" = "LidAwake на паузе";
 "Running on battery. It resumes when you plug in." = "Mac работает от батареи. Режим продолжится после подключения зарядки.";
+"Only while charging is on, so %@ waits until power is connected." = "Включено «Только от зарядки», поэтому режим «%@» ждёт подключения зарядки.";
 
 /* Updates */
 "Check for updates" = "Проверять обновления";
@@ -150,6 +151,8 @@
 "Watched Apps" = "Программы под наблюдением";
 "None" = "Нет";
 "While a watched app runs programs it started, such as a coding agent, a build or a script, Sleep when idle keeps counting it as work. Typing in the app and its own windows do not count." = "Пока программа под наблюдением выполняет запущенные ею программы — агента для кода, сборку или скрипт, — «Сон после простоя» считает это работой. Набор текста в самой программе и её окна не считаются.";
+"Turn off after is set to 4 hours, so a stuck app can't keep the Mac awake forever. You can change it in Settings." = "«Выключить через» стоит на 4 часа, чтобы зависшая программа не держала Mac без сна бесконечно. Это можно изменить в Настройках.";
+"Turn off after will be set to 4 hours when LidAwake stops keeping the Mac awake. You can change it in Settings." = "«Выключить через» встанет на 4 часа, когда LidAwake перестанет держать Mac без сна. Это можно изменить в Настройках.";
 "Open now" = "Открыты сейчас";
 "Watched, not open" = "Под наблюдением, не открыты";
 "Started programs are working now" = "Запущенные программы сейчас работают";
@@ -159,4 +162,49 @@
 "Done" = "Готово";
 
 /* LidAwake Pro */
-"Movie on a TV, waits for downloads and exports" = "Фильм на телевизоре, ждёт загрузки и экспорт";
+"Movie on a TV, In a Bag, waits for downloads and exports" = "«Фильм на телевизоре», «В сумке», ждёт загрузки и экспорт";
+
+"−%lld%%" = "−%lld%%";
+"until %@" = "до %@";
+
+/* What's new and How to use LidAwake */
+"What's new" = "Что нового";
+"How to use LidAwake" = "Как пользоваться LidAwake";
+"What's new in %@" = "Что нового в %@";
+"Version %@" = "Версия %@";
+"and %lld earlier updates" = "и ещё обновлений: %lld";
+"Six new languages" = "Шесть новых языков";
+"Only in LidAwake Pro %@" = "Только в LidAwake Pro %@";
+"Movie on a TV" = "Фильм на телевизоре";
+"Close the lid and the movie keeps playing on the TV." = "Закройте крышку — фильм продолжит идти на телевизоре.";
+"Waits for downloads" = "Ждёт загрузки";
+"Stays awake until a big download is done, then sleeps." = "Не даёт заснуть, пока не закончится большая загрузка, потом Mac засыпает.";
+"Waits for video exports" = "Ждёт экспорт видео";
+"Stays awake while a video renders, then sleeps." = "Не даёт заснуть, пока рендерится видео, потом Mac засыпает.";
+"In a Bag" = "В сумке";
+"One switch with stricter protections for a Mac in a bag." = "Один переключатель с более строгими защитами для Mac в сумке.";
+"New" = "Новое";
+"Updates in one click" = "Обновление в один клик";
+"The Download button opens your purchases, where the new version is ready." = "Кнопка «Скачать» открывает ваши покупки, где новая версия уже готова.";
+"−%lld%% on LidAwake Pro" = "−%lld%% на LidAwake Pro";
+"one-time" = "разовая покупка";
+"one-time · until %@" = "разовая покупка · до %@";
+"Get Pro" = "Купить Pro";
+"Continue" = "Продолжить";
+"Pick a mode" = "Выберите режим";
+"Keep Screen On when you step away from the desk. Run with Lid Closed when the Mac should keep working with the lid shut. Only one mode is on at a time; Off brings normal sleep back." = "«Не гасить экран» — когда отходите от стола. «С закрытой крышкой» — когда Mac должен работать с закрытой крышкой. Включён всегда только один режим; «Выкл.» возвращает обычный сон.";
+"Allow the helper once" = "Один раз разрешите помощника";
+"The first time you choose Run with Lid Closed, allow LidAwake in System Settings › General › Login Items & Extensions. No password is needed." = "Когда вы впервые выберете «С закрытой крышкой», разрешите LidAwake: «Системные настройки» › «Основные» › «Объекты входа и расширения». Пароль не нужен.";
+"Let it end by itself" = "Пусть режим заканчивается сам";
+"In Settings, Sleep when idle lets the Mac sleep once the work is done, and Turn off after ends the mode after a set time. With Sleep when idle on, adding the first watched app sets Turn off after to 4 hours, so a stuck app can't keep the Mac awake forever. The mode also stops when the Mac gets hot or the battery runs low." = "В настройках «Сон после простоя» даёт Mac заснуть, когда работа закончена, а «Выключить через» завершает режим через заданное время. Когда «Сон после простоя» включён, первая программа, добавленная под наблюдение, ставит «Выключить через» на 4 часа, чтобы зависшая программа не держала Mac без сна бесконечно. Режим также останавливается при перегреве или низком заряде.";
+"Avoid packing a running Mac in a closed bag" = "Не кладите работающий Mac в закрытую сумку";
+"A closed laptop in a bag cools poorly. The protections reduce the risk; they do not remove it. If you must carry it running, prefer a short session and keep an eye on the temperature. You use LidAwake at your own risk." = "Закрытый ноутбук в сумке плохо охлаждается. Защиты снижают риск, но не устраняют его. Если всё же нужно нести его включённым, пусть сеанс будет коротким, и следите за температурой. Вы пользуетесь LidAwake на свой страх и риск.";
+"Website" = "Сайт";
+"Source code" = "Исходный код";
+"Works only with Sleep when idle in Run with Lid Closed." = "Действует только при «Сон после простоя» в режиме «С закрытой крышкой».";
+"The Mac is on battery, so the wake will not turn the mode on." = "Mac работает от батареи, поэтому пробуждение не включит режим.";
+"On for this session, turned on by Wake at." = "Включён на этот сеанс через «Проснуться в».";
+"This Mac has no battery." = "У этого Mac нет батареи.";
+"Set to 4 hours for watched apps." = "Стоит на 4 часа для программ под наблюдением.";
+"Will be set to 4 hours for watched apps when the mode ends." = "Встанет на 4 часа для программ под наблюдением, когда режим выключится.";
+"%@ The timer keeps counting." = "%@ Таймер продолжает считать.";

@@ -15,12 +15,20 @@ struct ContentView: View {
     @ObservedObject var autoLogout: AutoLogoutMonitor
     @ObservedObject var wake: WakeScheduler
     @ObservedObject var wakePreferences: WakePreferences
+    @ObservedObject var powerStatus: PowerStatus
     let idleSource: IdleStatusReading
     let openActivityLog: () -> Void
     let openWatchedApps: () -> Void
+    let openWhatsNew: () -> Void
+    let openHowToUse: () -> Void
     var heightLimit: HeightLimit = .screen
+    /// Switches modes without animation, as with Reduce motion on.
+    var reducesMotion = false
+    /// Told the height of each mode card each time it changes, for `--measure-mode-switch`.
+    var reportCardHeight: ((Mode, CGFloat) -> Void)?
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var screenLimit: CGFloat?
     @State private var fixedHeight: CGFloat = 0
@@ -46,7 +54,7 @@ struct ContentView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        WindowColumn(maxHeight: maxHeight, isScrolling: scrollHeight != nil, contentHeight: scrollingContentHeight) {
             VStack(alignment: .leading, spacing: 12) {
                 header
                 modeCards
@@ -54,22 +62,24 @@ struct ContentView: View {
             .padding(.top, 14)
             .padding(.bottom, 12)
             .padding(.horizontal, 14)
-            .background(HeightReader(height: $fixedHeight))
-            if let scrollHeight {
+            .background(HeightReader(height: $fixedHeight, waitsForRest: true))
+            if scrollHeight != nil {
                 // No background of its own, so Glass and Solid look the same as without scrolling.
                 ScrollView(.vertical) {
                     scrollingContent
                 }
-                .frame(height: scrollHeight)
             } else {
                 scrollingContent
             }
         }
         .frame(width: 320, alignment: .leading)
+        .clipped()
         .background(WindowGeometryReader(limit: $screenLimit, isScrolling: scrollHeight != nil))
         .background(WindowKeyReader(isKey: $isWindowKey))
         .background(look.drawsOwnBackground ? Palette.solidWindowBackground : .clear)
         .tint(accentColor)
+        // The cards fold and unfold together, and the window follows them.
+        .animation(reduceMotion || reducesMotion ? nil : .easeInOut(duration: 0.2), value: controller.shownMode)
         .onAppear {
             launchAtLogin.refresh()
             autoLogout.refresh()
@@ -80,6 +90,7 @@ struct ContentView: View {
             guard isKey else { return }
             launchAtLogin.refresh()
             autoLogout.refresh()
+            powerStatus.refresh()
             // After AppKit has given focus to the first card as the window opens.
             DispatchQueue.main.async {
                 followedMode = controller.mode
@@ -145,7 +156,7 @@ struct ContentView: View {
 
     private var idleNote: IdleSleepNote {
         IdleSleepNote.make(
-            mode: controller.mode,
+            mode: controller.shownMode,
             isEnabled: preferences.idleSleepEnabled,
             isPaused: controller.isPaused,
             status: idleStatus
@@ -158,19 +169,18 @@ struct ContentView: View {
             if !messages.isEmpty {
                 messageBlock
             }
-            ForEach(WindowBlockGroup.groups(blocks), id: \.self) { group in
+            ForEach(WindowBlockGroup.groups(blocks.filter { $0 != .timer }), id: \.self) { group in
                 switch group {
                 case .block(let block):
                     view(for: block)
                 case .compactRows(let rows):
                     VStack(alignment: .leading, spacing: 0) {
                         ForEach(rows, id: \.self) { block in
-                            view(for: block, isCompact: true)
+                            view(for: block, isCompact: true, isFirst: block == rows.first)
                         }
                     }
                 }
             }
-            quitRow
         }
         .padding(.horizontal, 14)
         .padding(.bottom, 8)
@@ -184,6 +194,8 @@ struct ContentView: View {
         }
     }
 
+    /// Whether the part under the cards scrolls. It is decided from the cards' height once they
+    /// stop changing; `WindowColumn` gives the scrolling part its height in every frame.
     private var scrollHeight: CGFloat? {
         WindowHeightLimit.scrollHeight(
             fixedHeight: fixedHeight,
@@ -212,10 +224,10 @@ struct ContentView: View {
 
     private var statusLine: String? {
         StatusLine.text(
-            mode: controller.mode,
+            mode: controller.shownMode,
             isPaused: controller.isPaused,
             timerRemaining: controller.timerRemaining(),
-            battery: controller.mode == .lidClosed ? power.read().battery : .none
+            battery: controller.shownMode == .lidClosed ? power.read().battery : .none
         )
     }
 
@@ -224,7 +236,8 @@ struct ContentView: View {
             ForEach(Mode.allCases, id: \.self) { mode in
                 ModeCard(
                     mode: mode,
-                    isSelected: controller.mode == mode,
+                    isSelected: controller.shownMode == mode,
+                    showsFocusRing: CardFocusRing.isShown(card: mode, focused: focusedCard, selected: controller.shownMode),
                     accent: accentColor,
                     onAccent: Palette.onAccent(accent.theme),
                     look: look
@@ -232,6 +245,15 @@ struct ContentView: View {
                     Task { await helperSetup.select(mode) }
                 }
                 .focused($focusedCard, equals: mode)
+                .background {
+                    if let reportCardHeight {
+                        GeometryReader { proxy in
+                            Color.clear
+                                .onAppear { reportCardHeight(mode, proxy.size.height) }
+                                .onChange(of: proxy.size.height) { reportCardHeight(mode, $0) }
+                        }
+                    }
+                }
             }
         }
         .disabled(controller.isBusy)
@@ -242,8 +264,11 @@ struct ContentView: View {
             helper: helperSetup.prompt,
             helperForWake: helperSetup.isPromptForWake,
             mode: controller.message,
+            isPausedOnBattery: controller.shownMode == .lidClosed && controller.isPaused,
+            pausedMode: controller.shownMode,
+            timerIsOn: preferences.timerEnabled,
             autoLogout: autoLogout.notice(
-                mode: controller.mode,
+                mode: controller.shownMode,
                 timerSeconds: preferences.timerEnabled ? preferences.timerSeconds : nil
             ),
             update: updates.notice
@@ -284,38 +309,69 @@ struct ContentView: View {
 
     private var blocks: [WindowBlock] {
         WindowBlock.list(
-            mode: controller.mode,
+            mode: controller.shownMode,
             isExpanded: disclosure.isExpanded,
             showsAppearance: WindowLook.showsStyleSetting(isSystem26OrLater: isSystem26OrLater),
-            showsProOffer: ProOffer.isShown
+            showsProOffer: ProOffer.isShown,
+            isGeneralExpanded: disclosure.isGeneralExpanded
         )
     }
 
     @ViewBuilder
-    private func view(for block: WindowBlock, isCompact: Bool = false) -> some View {
+    private func view(for block: WindowBlock, isCompact: Bool = false, isFirst: Bool = false) -> some View {
         switch block {
-        case .timer: timerSection
-        case .settingsToggle: SettingsToggleRow(isExpanded: $disclosure.isExpanded)
+        // Drawn with the settings toggle, so that it folds with the mode cards.
+        case .timer: EmptyView()
+        case .settingsToggle:
+            VStack(alignment: .leading, spacing: 0) {
+                timerSection
+                    .padding(.bottom, 12)
+                    .unfolded(blocks.contains(.timer))
+                    .disabled(!blocks.contains(.timer))
+                SettingsToggleRow(isExpanded: $disclosure.isExpanded)
+            }
         case .safety: safetySection
         case .dimmedSafety: dimmedSafetySection
         case .sleepAndWake: sleepAndWakeSection
         // Among compact rows the stack has no spacing, so the dividers and the header keep their own gap.
         case .settingsDivider: Divider().padding(.bottom, isCompact ? 8 : 0)
-        case .generalHeader: SectionHeader(title: "General").padding(.bottom, isCompact ? 4 : 0)
-        case .closingDivider: Divider().padding(.top, isCompact ? 8 : 0)
+        case .generalHeader:
+            SectionToggleHeader(title: "General", isExpanded: $disclosure.isGeneralExpanded)
+                .padding(.bottom, isCompact ? 4 : 0)
+        // At the top of its group the divider has the spacing between the blocks above it.
+        case .closingDivider: Divider().padding(.top, isCompact && !isFirst ? 8 : 0).padding(.bottom, isCompact ? 4 : 0)
         case .lockScreen: lockRow(minHeight: 36)
         case .launchAtLogin: launchRow
         case .checkForUpdates: updatesRow
         case .appearance: appearanceRow
         case .accent: accentRow
         case .activityLog: ActivityLogOpenRow(action: openActivityLog)
-        case .proOffer: ProOfferRow(accent: accentColor) { NSWorkspace.shared.open(ProOffer.page) }
+        case .proOffer: proOfferCard
+        case .whatsNew: WindowOpenRow(symbol: "star", title: "What's new", action: openWhatsNew)
+        case .howToUse: WindowOpenRow(symbol: "info.circle", title: "How to use LidAwake", action: openHowToUse)
+        case .quit: quitRow
+        }
+    }
+
+    @ViewBuilder
+    private var proOfferCard: some View {
+        switch ProOfferCard.card(isShown: ProOffer.isShown, offer: updates.offer) {
+        case .plain:
+            ProOfferRow(accent: accentColor) { NSWorkspace.shared.open(ProOffer.page) }
+        case .discount(let offer):
+            ProDiscountRow(offer: offer, language: Bundle.main.preferredLocalizations.first, accent: accentColor) {
+                NSWorkspace.shared.open(offer.url)
+            }
+        case nil:
+            EmptyView()
         }
     }
 
     // Off and Run with Lid Closed.
     private var safetySection: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        let hasBattery = !SettingNotice.hasNoBattery(powerStatus.reading.battery)
+        let batteryLimitUsable = preferences.batteryLimitApplies && hasBattery
+        return VStack(alignment: .leading, spacing: 4) {
             SectionHeader(title: "Safety")
             SettingRow(title: "Stop when the Mac gets hot", detail: "Ends the session under thermal pressure") {
                 thermalToggle
@@ -329,10 +385,14 @@ struct ContentView: View {
                 batteryValue
                 batteryToggle
             }
-            .opacity(preferences.batteryLimitApplies ? 1 : 0.45)
-            .disabled(!preferences.batteryLimitApplies)
-            SettingRow(title: "Only while charging", detail: "Pauses on battery, resumes on power") {
-                chargingToggle
+            .opacity(batteryLimitUsable ? 1 : 0.45)
+            .disabled(!batteryLimitUsable)
+            NoticedRow(notice: hasBattery ? nil : SettingNotice.noBattery) {
+                SettingRow(title: "Only while charging", detail: "Pauses on battery, resumes on power") {
+                    chargingToggle
+                }
+                .opacity(hasBattery ? 1 : 0.45)
+                .disabled(!hasBattery)
             }
             timerRow
         }
@@ -368,8 +428,8 @@ struct ContentView: View {
     // Wake at and Watched apps work in every position; Sleep when idle not in Keep Screen On.
     private var sleepAndWakeSection: some View {
         VStack(alignment: .leading, spacing: 4) {
-            SectionHeader(title: "Sleep and wake")
-            ForEach(SleepAndWakeRow.list(mode: controller.mode), id: \.self) { row in
+            SectionToggleHeader(title: "Sleep and wake", isExpanded: $disclosure.isSleepAndWakeExpanded)
+            ForEach(SleepAndWakeRow.list(mode: controller.shownMode, isExpanded: disclosure.isSleepAndWakeExpanded), id: \.self) { row in
                 switch row {
                 case .wakeAt:
                     wakeRow
@@ -383,28 +443,43 @@ struct ContentView: View {
                     .opacity(0.45)
                     .disabled(true)
                 case .watchedApps:
-                    WatchedAppsOpenRow(
-                        summary: WatchedAppsSummary.text(paths: preferences.watchedAppPaths, name: AppDisplayName.of),
-                        action: openWatchedApps
-                    )
+                    watchedAppsRow
                 }
             }
         }
     }
 
-    private var wakeRow: some View {
-        SettingRow(title: "Wake at", detail: wakeDetail) {
-            WakeTimePill(minuteOfDay: $wakePreferences.wakeMinuteOfDay)
-            SwitchToggle(
-                title: "Wake at",
-                isOn: Binding(get: { wakePreferences.wakeEnabled }, set: setWakeEnabled)
+    // The window opens as before; dimming only tells that the list is not used now.
+    private var watchedAppsRow: some View {
+        let applies = SettingNotice.watchedAppsApply(mode: controller.shownMode, idleSleepEnabled: preferences.idleSleepEnabled)
+        return NoticedRow(notice: applies ? nil : SettingNotice.watchedAppsUnused) {
+            WatchedAppsOpenRow(
+                summary: WatchedAppsSummary.text(paths: preferences.watchedAppPaths, name: AppDisplayName.of),
+                action: openWatchedApps
             )
+            .opacity(applies ? 1 : 0.45)
+        }
+    }
+
+    private var wakeRow: some View {
+        NoticedRow(
+            notice: SettingNotice.showsWakeOnBattery(wakeEnabled: wakePreferences.wakeEnabled, power: powerStatus.reading.source)
+                ? SettingNotice.wakeOnBattery
+                : nil
+        ) {
+            SettingRow(title: "Wake at", detail: wakeDetail) {
+                WakeTimePill(minuteOfDay: $wakePreferences.wakeMinuteOfDay)
+                SwitchToggle(
+                    title: "Wake at",
+                    isOn: Binding(get: { wakePreferences.wakeEnabled }, set: setWakeEnabled)
+                )
+            }
         }
     }
 
     private var wakeDetail: LocalizedStringKey {
         switch WakeRow.detail(lastError: wake.lastError) {
-        case .everyDay: return "Every day, on power only"
+        case .everyDay: return "If the Mac is asleep, every day, on power only"
         case .couldNotSet: return "Could not set the wake"
         }
     }
@@ -419,22 +494,35 @@ struct ContentView: View {
     }
 
     private var timerRow: some View {
-        SettingRow(title: "Turn off after", detail: "Counts from the moment you switch on") {
-            ValueMenu(
-                label: "Turn off after",
-                selection: $preferences.timerSeconds,
-                choices: MenuChoices.list(SafetyPreferences.timerChoices, current: preferences.timerSeconds),
-                title: DurationFormat.choice
+        NoticedRow(
+            notice: SettingNotice.timer(
+                setForWatchedApps: preferences.showsWatchedAppsTimerNote,
+                pendingForWatchedApps: preferences.showsWatchedAppsTimerPendingNote
             )
-            SwitchToggle(title: "Turn off after", isOn: $preferences.timerEnabled)
+        ) {
+            SettingRow(title: "Turn off after", detail: "Counts from the moment you switch on") {
+                ValueMenu(
+                    label: "Turn off after",
+                    selection: $preferences.timerSeconds,
+                    choices: MenuChoices.list(SafetyPreferences.timerChoices, current: preferences.timerSeconds),
+                    title: DurationFormat.choice
+                )
+                SwitchToggle(title: "Turn off after", isOn: $preferences.timerEnabled)
+            }
         }
     }
 
     private var idleRow: some View {
         let note = idleNote
-        return SettingRow(title: "Sleep when idle", note: note.text, noteDot: note.dot.map(idleDotColor)) {
-            idleValue
-            idleToggle
+        let byWake = SettingNotice.showsIdleSleepByWake(
+            idleSleepEnabled: preferences.idleSleepEnabled,
+            forSessionOnly: preferences.idleSleepForSessionOnly
+        )
+        return NoticedRow(notice: byWake ? SettingNotice.idleSleepByWake : nil) {
+            SettingRow(title: "Sleep when idle", note: note.text, noteDot: note.dot.map(idleDotColor)) {
+                idleValue
+                idleToggle
+            }
         }
     }
 
@@ -618,6 +706,7 @@ private extension WindowAppearance {
 private struct ModeCard: View {
     let mode: Mode
     let isSelected: Bool
+    let showsFocusRing: Bool
     let accent: Color
     let onAccent: Color
     let look: WindowLook
@@ -632,12 +721,19 @@ private struct ModeCard: View {
                 ModeIconView(mode: mode)
                     .frame(width: 22, height: 22)
                     .foregroundStyle(isSelected ? accent : Color.primary)
-                VStack(alignment: .leading, spacing: 2) {
+                // As tall as the icon at least.
+                TitleWithDetail(isShown: isSelected, minHeight: 22) {
                     Text(mode.title)
                         .font(.system(size: 13, weight: .semibold))
+                } detail: {
+                    // Only the chosen mode is described, to keep the window short; the others
+                    // tell it on hover.
                     Text(mode.summary)
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .keepingWidthOfCheckmark(isShown: isSelected)
+                        .padding(.top, 2)
                 }
                 .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
@@ -647,6 +743,7 @@ private struct ModeCard: View {
                         .foregroundStyle(onAccent)
                         .frame(width: 18, height: 18)
                         .background(Circle().fill(accent))
+                        .transition(.opacity)
                         .accessibilityHidden(true)
                 }
             }
@@ -658,7 +755,10 @@ private struct ModeCard: View {
             .contentShape(shape)
         }
         .buttonStyle(.plain)
+        .cardFocusRing(showsFocusRing, color: accent)
+        .withoutSystemFocusRing()
         .opacity(isEnabled ? 1 : 0.6)
+        .help(Text(mode.summary))
         .accessibilityLabel(Text(mode.title))
         .accessibilityHint(Text(mode.summary))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
@@ -817,6 +917,37 @@ private struct ActivityLogOpenRow: View {
     }
 }
 
+/// A row at the bottom of the window that opens a window of its own.
+private struct WindowOpenRow: View {
+    let symbol: String
+    let title: LocalizedStringKey
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: symbol)
+                    .font(.system(size: 15))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 18)
+                    .accessibilityHidden(true)
+                Text(title)
+                    .font(.system(size: 13))
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 14)
+                    .accessibilityHidden(true)
+            }
+            .frame(minHeight: 36)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(title))
+    }
+}
+
 private struct ProOfferRow: View {
     let accent: Color
     let action: () -> Void
@@ -829,7 +960,7 @@ private struct ProOfferRow: View {
                     Text(verbatim: "LidAwake Pro")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(Color.primary)
-                    Text("Movie on a TV, waits for downloads and exports")
+                    Text("Movie on a TV, In a Bag, waits for downloads and exports")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -849,7 +980,85 @@ private struct ProOfferRow: View {
             .contentShape(shape)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(Text(verbatim: "LidAwake Pro, ") + Text("Movie on a TV, waits for downloads and exports"))
+        .accessibilityLabel(Text(verbatim: "LidAwake Pro, ") + Text("Movie on a TV, In a Bag, waits for downloads and exports"))
+    }
+}
+
+/// The LidAwake Pro card while an offer from the update file runs. Only the numbers, the date and
+/// the link come from the file.
+private struct ProDiscountRow: View {
+    let offer: UpdateOffer
+    let language: String?
+    let accent: Color
+    let action: () -> Void
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
+        Button(action: action) {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 6) {
+                        Text(verbatim: "LidAwake Pro")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Color.primary)
+                        Text("−\(offer.percent)%")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(Color.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 1)
+                            .background(Capsule().fill(accent))
+                    }
+                    Text("Movie on a TV, In a Bag, waits for downloads and exports")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(verbatim: oldPrice)
+                            .font(.system(size: 11))
+                            .strikethrough()
+                            .foregroundStyle(.secondary)
+                        Text(verbatim: newPrice)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Color.primary)
+                        if let lastDay {
+                            Text("until \(lastDay)")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(accent)
+                    .frame(width: 14)
+                    .accessibilityHidden(true)
+            }
+            .padding(.vertical, 12)
+            .padding(.horizontal, 13)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(shape.fill(accent.opacity(0.10)))
+            .overlay(shape.strokeBorder(accent.opacity(0.45), lineWidth: 1))
+            .contentShape(shape)
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityText)
+        .accessibilityAddTraits(.isButton)
+    }
+
+    private var oldPrice: String { OfferFormat.price(offer.priceAmount, language: language) }
+    private var newPrice: String { OfferFormat.price(offer.saleAmount, language: language) }
+    private var lastDay: String? { offer.lastDay().map { OfferFormat.day($0, language: language) } }
+
+    private var accessibilityText: Text {
+        var text = Text(verbatim: "LidAwake Pro, ") + Text("−\(offer.percent)%") + Text(verbatim: ", ")
+            + Text("Movie on a TV, In a Bag, waits for downloads and exports")
+            + Text(verbatim: ", \(oldPrice) → \(newPrice)")
+        if let lastDay {
+            text = text + Text(verbatim: ", ") + Text("until \(lastDay)")
+        }
+        return text
     }
 }
 
@@ -882,6 +1091,69 @@ private struct WatchedAppsOpenRow: View {
         .buttonStyle(.plain)
         .accessibilityLabel(Text("Watched apps"))
         .accessibilityValue(Text(verbatim: summary))
+    }
+}
+
+/// A line under a setting that does nothing now or was changed by another one.
+private struct NoticeLine: View {
+    let text: String
+
+    var body: some View {
+        Text(verbatim: text)
+            .font(.system(size: 11))
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+/// A row with a line under it. The line takes the row's bottom inset, so the gap below the
+/// line is the gap below a row without one.
+private struct NoticedRow<Row: View>: View {
+    let notice: String?
+    @ViewBuilder let row: Row
+
+    var body: some View {
+        if let notice {
+            VStack(alignment: .leading, spacing: 2) {
+                row.padding(.bottom, -SettingRowLayout.inset)
+                NoticeLine(text: notice)
+            }
+            .padding(.bottom, SettingRowLayout.inset)
+        } else {
+            row
+        }
+    }
+}
+
+/// A section header that collapses and expands its section, with the arrow of the Settings row.
+private struct SectionToggleHeader: View {
+    let title: LocalizedStringKey
+    @Binding var isExpanded: Bool
+
+    var body: some View {
+        Button {
+            isExpanded.toggle()
+        } label: {
+            HStack {
+                Text(title)
+                    .font(.system(size: 11, weight: .semibold))
+                    .kerning(0.6)
+                    .textCase(.uppercase)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer()
+                Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 14)
+                    .accessibilityHidden(true)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(title))
+        .accessibilityValue(Text(isExpanded ? "Expanded" : "Collapsed"))
+        .accessibilityAddTraits(.isHeader)
     }
 }
 
@@ -949,6 +1221,10 @@ private struct SettingRow<Controls: View>: View {
 /// width left of them. Sizing and placing use the same widths, so the row is always as tall
 /// as the wrapped text, and the text wraps only where it meets the controls.
 private struct SettingRowLayout: Layout {
+    /// Kept free above and below the text however tall it gets: the space a 44-point row
+    /// leaves around a title and a detail line.
+    static let inset: CGFloat = 6
+
     var minHeight: CGFloat
     var spacing: CGFloat = 12
 
@@ -976,7 +1252,7 @@ private struct SettingRowLayout: Layout {
         let rowWidth = width ?? (subviews[0].sizeThatFits(.unspecified).width + spacing + controls.width)
         let textWidth = max(0, rowWidth - spacing - controls.width)
         let textHeight = subviews[0].sizeThatFits(ProposedViewSize(width: textWidth, height: nil)).height
-        let height = max(minHeight, textHeight, controls.height)
+        let height = max(minHeight, textHeight + 2 * Self.inset, controls.height)
         return (rowWidth, height, textWidth, textHeight, controls)
     }
 }
@@ -1072,15 +1348,63 @@ struct WakeTimePicker: View {
     }
 }
 
+/// The header and the mode cards on top, the rest under them, cut to the height that keeps the
+/// whole within `maxHeight`. It is laid out anew in every frame of the cards' animation, so the
+/// part under the cards gives way to them frame by frame and the window never grows past the
+/// limit, even before the part under the cards becomes a scroll view.
+private struct WindowColumn: Layout {
+    let maxHeight: CGFloat?
+    /// Whether the part under the cards is a scroll view; its content is `contentHeight` tall.
+    let isScrolling: Bool
+    let contentHeight: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let (fixed, lower) = heights(width: proposal.width, subviews: subviews)
+        return CGSize(width: proposal.width ?? 320, height: fixed + lower)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        guard subviews.count == 2 else { return }
+        let (fixed, lower) = heights(width: bounds.width, subviews: subviews)
+        subviews[0].place(at: bounds.origin, anchor: .topLeading, proposal: ProposedViewSize(width: bounds.width, height: nil))
+        subviews[1].place(
+            at: CGPoint(x: bounds.minX, y: bounds.minY + fixed),
+            anchor: .topLeading,
+            proposal: ProposedViewSize(width: bounds.width, height: isScrolling ? lower : nil)
+        )
+    }
+
+    private func heights(width: CGFloat?, subviews: Subviews) -> (fixed: CGFloat, lower: CGFloat) {
+        guard subviews.count == 2 else { return (0, 0) }
+        let fixed = subviews[0].sizeThatFits(ProposedViewSize(width: width, height: nil)).height
+        let natural = isScrolling
+            ? contentHeight
+            : subviews[1].sizeThatFits(ProposedViewSize(width: width, height: nil)).height
+        let lower = WindowHeightLimit.scrollHeight(fixedHeight: fixed, contentHeight: natural, maxHeight: maxHeight) ?? natural
+        return (fixed, lower)
+    }
+}
+
 /// Reports the height of the view it is the background of.
 private struct HeightReader: View {
     @Binding var height: CGFloat
+    /// While the height keeps changing, as when the mode cards fold and unfold, it is reported
+    /// once it stops: each report redraws the whole window, which would slow the animation down.
+    var waitsForRest = false
+
+    @State private var rest = RestTimer()
 
     var body: some View {
         GeometryReader { proxy in
             Color.clear
                 .onAppear { update(proxy.size.height) }
-                .onChange(of: proxy.size.height) { update($0) }
+                .onChange(of: proxy.size.height) { value in
+                    if waitsForRest {
+                        rest.restart { update(value) }
+                    } else {
+                        update(value)
+                    }
+                }
         }
     }
 
@@ -1088,6 +1412,17 @@ private struct HeightReader: View {
         if value != height {
             height = value
         }
+    }
+}
+
+private final class RestTimer {
+    private var pending: DispatchWorkItem?
+
+    func restart(_ action: @escaping () -> Void) {
+        pending?.cancel()
+        let item = DispatchWorkItem(block: action)
+        pending = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: item)
     }
 }
 

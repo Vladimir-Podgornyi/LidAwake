@@ -32,6 +32,14 @@ public enum OpeningFocus {
     }
 }
 
+public enum CardFocusRing {
+    /// Whether a mode card draws its own focus ring: only when it has the keyboard focus and is
+    /// not the selected card, whose border already marks it.
+    public static func isShown(card: Mode, focused: Mode?, selected: Mode) -> Bool {
+        focused == card && card != selected
+    }
+}
+
 public enum StatusLine {
     /// The text next to the app name; nil when there is nothing to show.
     public static func text(mode: Mode, isPaused: Bool, timerRemaining: TimeInterval?, battery: BatteryLevel) -> String? {
@@ -102,7 +110,7 @@ public enum HelperPrompt: Equatable {
     }
 
     /// For Wake at the approval texts promise nothing about the mode: it does not turn on.
-    public func text(forWake: Bool) -> String {
+    public func text(forWake: Bool, mode: Mode = .lidClosed) -> String {
         switch self {
         case .approval where forWake, .approvalExpired where forWake:
             return String(localized: "Allow LidAwake in System Settings > General > Login Items & Extensions.")
@@ -112,10 +120,10 @@ public enum HelperPrompt: Equatable {
             )
         case .approvalExpired:
             return String(
-                localized: "Allow LidAwake in System Settings > General > Login Items & Extensions, then choose Run with Lid Closed again."
+                localized: "Allow LidAwake in System Settings > General > Login Items & Extensions, then choose \(mode.name) again."
             )
         case .moveToApplications:
-            return String(localized: "Run with Lid Closed needs the app in the Applications folder.")
+            return String(localized: "\(mode.name) needs the app in the Applications folder.")
         case .failed(let message):
             return message
         }
@@ -200,11 +208,15 @@ public struct WindowMessage: Equatable, Identifiable {
     public var isDismissible: Bool { source == .autoLogout }
 
     /// The notices to show, helper first, then the mode, the logout warning and the update;
-    /// empty when there is nothing to say.
+    /// empty when there is nothing to say. The pause of `pausedMode` takes the mode's place
+    /// while the mode has nothing else to say.
     public static func list(
         helper: HelperPrompt?,
         helperForWake: Bool = false,
         mode: ModeMessage?,
+        isPausedOnBattery: Bool = false,
+        pausedMode: Mode = .lidClosed,
+        timerIsOn: Bool = false,
         autoLogout: AutoLogoutNotice? = nil,
         update: UpdateNotice? = nil
     ) -> [WindowMessage] {
@@ -226,6 +238,16 @@ public struct WindowMessage: Equatable, Identifiable {
                 kind: mode.kind,
                 title: mode.title,
                 text: mode.text,
+                hint: nil,
+                action: nil,
+                actionTitle: nil
+            ))
+        } else if isPausedOnBattery {
+            messages.append(WindowMessage(
+                source: .mode,
+                kind: .info,
+                title: PauseNotice.title,
+                text: PauseNotice.windowText(for: pausedMode, timerIsOn: timerIsOn),
                 hint: nil,
                 action: nil,
                 actionTitle: nil
@@ -322,7 +344,7 @@ public struct IdleSleepNote: Equatable {
 
     /// `status` is nil until the helper has answered, or when it could not be asked.
     public static func make(mode: Mode, isEnabled: Bool, isPaused: Bool, status: IdleStatus?) -> IdleSleepNote {
-        let plain = IdleSleepNote(text: String(localized: "After the work is done"), dot: nil)
+        let plain = IdleSleepNote(text: String(localized: "After the work is done · for one session"), dot: nil)
         guard mode == .lidClosed, isEnabled, !isPaused, let status else { return plain }
         // The watched apps come right after the programs that ask macOS not to sleep, as in the count.
         if status.state != .off, status.state != .busyApp,

@@ -6,7 +6,7 @@ final class LocalizationTests: XCTestCase {
         .deletingLastPathComponent()
         .deletingLastPathComponent()
         .deletingLastPathComponent()
-    private static let languages = ["en", "de", "ru", "zh-Hans"]
+    private static let languages = ["en", "de", "ru", "zh-Hans", "ja", "fr", "es", "pt-BR", "ko", "it"]
 
     private func table(_ language: String) throws -> [String: String] {
         let url = Self.root.appendingPathComponent("Resources/\(language).lproj/Localizable.strings")
@@ -53,6 +53,60 @@ final class LocalizationTests: XCTestCase {
         }
     }
 
+    /// The plural forms of `key` in `language`, resolved the way the app resolves them.
+    private func plural(_ key: String, _ language: String, _ count: Int) throws -> String {
+        let folder = Self.root.appendingPathComponent("Resources/\(language).lproj")
+        let bundle = try XCTUnwrap(Bundle(url: folder), language)
+        let format = bundle.localizedString(forKey: key, value: "", table: nil)
+        return String(format: format, locale: Locale(identifier: language), count)
+    }
+
+    private func pluralTable(_ language: String) throws -> [String: [String: Any]] {
+        let url = Self.root.appendingPathComponent("Resources/\(language).lproj/Localizable.stringsdict")
+        let plist = try PropertyListSerialization.propertyList(from: Data(contentsOf: url), format: nil)
+        return try XCTUnwrap(plist as? [String: [String: Any]], "\(language) is not a plural table")
+    }
+
+    func testEveryLanguageHasThePluralsOfTheStringsTable() throws {
+        let english = try pluralTable("en")
+        XCTAssertFalse(english.isEmpty)
+        for language in Self.languages {
+            let plurals = try pluralTable(language)
+            XCTAssertEqual(Set(plurals.keys), Set(english.keys), language)
+            let strings = try table(language)
+            for (key, entry) in plurals {
+                XCTAssertNotNil(strings[key], "\(language): \(key) has no fallback in the strings table")
+                let rule = try XCTUnwrap(entry["updates"] as? [String: String], "\(language): \(key)")
+                XCTAssertNotNil(rule["other"], "\(language): \(key)")
+                for (category, value) in rule where !category.hasPrefix("NSString") {
+                    XCTAssertEqual(try placeholders(value), try placeholders(key), "\(language): \(key) \(category)")
+                }
+            }
+        }
+    }
+
+    func testEarlierUpdatesLine() throws {
+        let key = "and %lld earlier updates"
+        let expected: [String: [Int: String]] = [
+            "en": [1: "and 1 earlier update", 2: "and 2 earlier updates", 5: "and 5 earlier updates"],
+            "de": [1: "und 1 früheres Update", 2: "und 2 frühere Updates", 5: "und 5 frühere Updates"],
+            "ru": [1: "и ещё 1 обновление", 2: "и ещё 2 обновления", 5: "и ещё 5 обновлений", 21: "и ещё 21 обновление"],
+            "zh-Hans": [1: "以及另外 1 次更新", 2: "以及另外 2 次更新", 5: "以及另外 5 次更新"],
+            "ja": [1: "ほか以前のアップデート1件", 2: "ほか以前のアップデート2件"],
+            "fr": [1: "et 1 mise à jour précédente", 2: "et 2 mises à jour précédentes"],
+            "es": [1: "y 1 actualización anterior", 2: "y 2 actualizaciones anteriores"],
+            "pt-BR": [1: "e 1 atualização anterior", 2: "e 2 atualizações anteriores"],
+            "ko": [1: "이전 업데이트 1개 더", 2: "이전 업데이트 2개 더"],
+            "it": [1: "e 1 aggiornamento precedente", 2: "e 2 aggiornamenti precedenti"],
+        ]
+        XCTAssertEqual(Set(expected.keys), Set(Self.languages))
+        for (language, forms) in expected {
+            for (count, text) in forms {
+                XCTAssertEqual(try plural(key, language, count), text, "\(language): \(count)")
+            }
+        }
+    }
+
     func testFormattedValuesUseANoBreakSpaceBeforePercentAndUnits() throws {
         XCTAssertEqual(String(format: try table("en")["Battery %lld%%"]!, 82), "Battery 82%")
         XCTAssertEqual(String(format: try table("de")["Battery %lld%%"]!, 82), "Akku 82\u{00A0}%")
@@ -89,14 +143,60 @@ final class LocalizationTests: XCTestCase {
     }
 
     func testNumbersAreNotSplitFromPercentOrUnits() throws {
-        let ordinarySpace = try NSRegularExpression(
-            pattern: "(%lld|\\d) (%|Min\\.|Std\\.|Stunden?|мин|ч|час|часа|часов)(?!\\p{L})"
-        )
-        for language in ["de", "ru"] {
+        // Italian and Brazilian Portuguese write the percent sign without a space.
+        let units = [
+            "de": "%|Min\\.|Std\\.|Stunden?",
+            "ru": "%|мин|ч|час|часа|часов",
+            "fr": "%|min|h|heures?|minutes?",
+            "es": "%|min|h|horas?|minutos?",
+            "it": "min|h|ore|ora|minuti",
+            "pt-BR": "min|h|horas?|minutos?",
+        ]
+        for (language, unit) in units {
+            let ordinarySpace = try NSRegularExpression(pattern: "(%lld|\\d) (\(unit))(?!\\p{L})")
             for (key, value) in try table(language) {
                 let range = NSRange(value.startIndex..., in: value)
                 XCTAssertNil(ordinarySpace.firstMatch(in: value, range: range), "\(language): \(key)")
             }
+        }
+        XCTAssertEqual(String(format: try table("fr")["Battery %lld%%"]!, 82), "Batterie 82\u{00A0}%")
+        XCTAssertEqual(String(format: try table("es")["Battery %lld%%"]!, 82), "Batería 82\u{00A0}%")
+        XCTAssertEqual(String(format: try table("it")["Battery %lld%%"]!, 82), "Batteria 82%")
+        XCTAssertEqual(String(format: try table("pt-BR")["Battery %lld%%"]!, 82), "Bateria 82%")
+        XCTAssertEqual(String(format: try table("ja")["%lld h %lld min"]!, 1, 20), "1時間20分")
+        XCTAssertEqual(String(format: try table("ko")["%lld h %lld min"]!, 1, 20), "1시간 20분")
+    }
+
+    func testFrenchSpacesBeforeHighPunctuationAndInsideQuotes() throws {
+        let ordinarySpace = try NSRegularExpression(pattern: "( [:;!?»])|(« )")
+        let missingSpace = try NSRegularExpression(pattern: "([^\\u00A0][:;!?»])|(«[^\\u00A0])")
+        for (key, value) in try table("fr") {
+            let range = NSRange(value.startIndex..., in: value)
+            XCTAssertNil(ordinarySpace.firstMatch(in: value, range: range), "fr: \(key)")
+            XCTAssertNil(missingSpace.firstMatch(in: value, range: range), "fr: \(key)")
+        }
+    }
+
+    func testEachLanguageUsesItsOwnQuotes() throws {
+        let foreign: [String: String] = [
+            "fr": "[\"“”„]", "es": "[\"“”„]", "it": "[\"“”„]",
+            "pt-BR": "[\"«»„]", "ja": "[\"“”«»]", "ko": "[\"«»„「」]",
+        ]
+        for (language, pattern) in foreign {
+            let regex = try NSRegularExpression(pattern: pattern)
+            for (key, value) in try table(language) {
+                let range = NSRange(value.startIndex..., in: value)
+                XCTAssertNil(regex.firstMatch(in: value, range: range), "\(language): \(key)")
+                XCTAssertFalse(value.contains("'"), "\(language): \(key)")
+            }
+        }
+    }
+
+    func testJapaneseUsesFullWidthPunctuation() throws {
+        let halfWidth = try NSRegularExpression(pattern: "[,.:;!?()]|[^ -~] >|> [^ -~]")
+        for (key, value) in try table("ja") {
+            let range = NSRange(value.startIndex..., in: value)
+            XCTAssertNil(halfWidth.firstMatch(in: value, range: range), "ja: \(key)")
         }
     }
 
@@ -154,10 +254,10 @@ final class LocalizationTests: XCTestCase {
                 "ru": "Сон после простоя",
                 "zh-Hans": "空闲时睡眠",
             ],
-            "After the work is done": [
-                "de": "Wenn die Arbeit erledigt ist",
-                "ru": "Когда работа закончена",
-                "zh-Hans": "任务完成后",
+            "After the work is done · for one session": [
+                "de": "Wenn die Arbeit erledigt ist · für eine Sitzung",
+                "ru": "Когда работа закончена · на один сеанс",
+                "zh-Hans": "任务完成后 · 仅限一次会话",
             ],
             "Kept awake by %@": [
                 "de": "Wach gehalten von %@",
@@ -276,6 +376,60 @@ final class LocalizationTests: XCTestCase {
         }
     }
 
+    func testSettingNoticeStrings() throws {
+        let expected: [String: [String: String]] = [
+            "Works only with Sleep when idle in Run with Lid Closed.": [
+                "de": "Wirkt nur mit „Ruhezustand bei Leerlauf“ in „Mit geschlossenem Deckel“.",
+                "ru": "Действует только при «Сон после простоя» в режиме «С закрытой крышкой».",
+                "zh-Hans": "仅在“合盖运行”中开启“空闲时睡眠”时生效。",
+            ],
+            "The Mac is on battery, so the wake will not turn the mode on.": [
+                "de": "Der Mac läuft mit Akku, daher schaltet das Aufwachen den Modus nicht ein.",
+                "ru": "Mac работает от батареи, поэтому пробуждение не включит режим.",
+                "zh-Hans": "Mac 正在使用电池，唤醒后不会开启该模式。",
+            ],
+            "If the Mac is asleep, every day, on power only": [
+                "de": "Wenn der Mac schläft, täglich, nur am Netzteil",
+                "ru": "Если Mac спит, каждый день, только от сети",
+                "zh-Hans": "如果 Mac 处于睡眠，每天，仅在接通电源时",
+            ],
+            "On for this session, turned on by Wake at.": [
+                "de": "Für diese Sitzung an, eingeschaltet durch „Aufwachen um“.",
+                "ru": "Включён на этот сеанс через «Проснуться в».",
+                "zh-Hans": "已由“唤醒时间”为本次会话开启。",
+            ],
+            "%@ The timer keeps counting.": [
+                "de": "%@ Der Timer läuft weiter.",
+                "ru": "%@ Таймер продолжает считать.",
+                "zh-Hans": "%@计时器会继续计时。",
+            ],
+            "Set to 4 hours for watched apps.": [
+                "de": "Für beobachtete Apps auf 4\u{00A0}Stunden gestellt.",
+                "ru": "Стоит на 4\u{00A0}часа для программ под наблюдением.",
+                "zh-Hans": "已因监视的应用设为 4 小时。",
+            ],
+            "Will be set to 4 hours for watched apps when the mode ends.": [
+                "de": "Wird für beobachtete Apps auf 4\u{00A0}Stunden gestellt, wenn der Modus endet.",
+                "ru": "Встанет на 4\u{00A0}часа для программ под наблюдением, когда режим выключится.",
+                "zh-Hans": "模式结束后，将因监视的应用设为 4 小时。",
+            ],
+            "This Mac has no battery.": [
+                "de": "Dieser Mac hat keinen Akku.",
+                "ru": "У этого Mac нет батареи.",
+                "zh-Hans": "此 Mac 没有电池。",
+            ],
+        ]
+        let english = try table("en")
+        for (key, translations) in expected {
+            XCTAssertEqual(english[key], key)
+            for (language, value) in translations {
+                XCTAssertEqual(try table(language)[key], value, "\(language): \(key)")
+            }
+        }
+        XCTAssertNil(english["Every day, on power only"])
+        XCTAssertNil(english["After the work is done"])
+    }
+
     func testBatteryLimitNoticeWithOnlyWhileCharging() throws {
         let key = "Not used with Only while charging"
         let expected = [
@@ -283,6 +437,12 @@ final class LocalizationTests: XCTestCase {
             "de": "Ohne Wirkung bei „Nur am Netzteil“",
             "ru": "Не действует при «Только от зарядки»",
             "zh-Hans": "开启“仅在接通电源时运行”后不生效",
+            "ja": "「電源接続時のみ」がオンのときは無効",
+            "fr": "Sans effet avec «\u{00A0}Sur secteur uniquement\u{00A0}»",
+            "es": "Sin efecto con «Solo con corriente»",
+            "pt-BR": "Sem efeito com “Só na tomada”",
+            "ko": "‘전원 연결 시에만’이 켜져 있으면 사용되지 않음",
+            "it": "Senza effetto con «Solo con alimentatore»",
         ]
         for language in Self.languages {
             XCTAssertEqual(try table(language)[key], expected[language], language)
@@ -295,12 +455,24 @@ final class LocalizationTests: XCTestCase {
             "de": "Seit %lld\u{00A0}Minuten lief nichts mehr.",
             "ru": "%lld\u{00A0}мин ничего не работало.",
             "zh-Hans": "已有 %lld 分钟没有任务在运行。",
+            "ja": "%lld分間、何も動作していませんでした。",
+            "fr": "Rien n’a fonctionné pendant %lld\u{00A0}minutes.",
+            "es": "No hubo actividad durante %lld\u{00A0}minutos.",
+            "pt-BR": "Nada estava em execução por %lld\u{00A0}minutos.",
+            "ko": "%lld분 동안 아무런 작업도 감지되지 않았습니다.",
+            "it": "Nessuna attività per %lld\u{00A0}minuti.",
         ]
         let withoutMinutes = [
             "en": "Nothing was working for a while.",
             "de": "Es lief längere Zeit nichts mehr.",
             "ru": "Какое-то время ничего не работало.",
             "zh-Hans": "已有一段时间没有任务在运行。",
+            "ja": "しばらく何も動作していませんでした。",
+            "fr": "Rien n’a fonctionné depuis un moment.",
+            "es": "No hubo actividad durante un rato.",
+            "pt-BR": "Nada estava em execução por um tempo.",
+            "ko": "한동안 아무런 작업도 감지되지 않았습니다.",
+            "it": "Nessuna attività da un po’.",
         ]
         for language in Self.languages {
             let table = try self.table(language)
@@ -323,6 +495,67 @@ final class LocalizationTests: XCTestCase {
             try table("ru")[key],
             "«Конфиденциальность и безопасность» > «Дополнительно…» > «Автоматически выходить из\u{00A0}системы после бездействия»"
         )
+        let hints = [
+            "ja": "「プライバシーとセキュリティ」＞「詳細…」＞「操作がなければ自動的にログアウト」",
+            "fr": "Confidentialité et sécurité > Avancé… > Fermer automatiquement la session en cas d’inactivité",
+            "es": "Privacidad y seguridad > Avanzado… > Cerrar sesión automáticamente tras un tiempo de inactividad",
+            "pt-BR": "Privacidade e Segurança > Avançado… > Finalizar sessão automaticamente após inatividade",
+            "ko": "개인정보 보호 및 보안 > 고급… > 비활성 상태 후 자동으로 로그아웃",
+            "it": "Privacy e sicurezza > Avanzate… > Esegui il logout automaticamente dopo l’inattività",
+        ]
+        for (language, hint) in hints {
+            XCTAssertEqual(try table(language)[key], hint, language)
+        }
+    }
+
+    /// Mode names and the main settings in the languages added with 1.2. Login Items, General,
+    /// System Settings, Appearance and Open at Login are the names System Settings uses.
+    func testGlossaryTermsInTheNewLanguages() throws {
+        let glossary: [String: [String]] = [
+            //                       ja, fr, es, pt-BR, ko, it
+            "Off": ["オフ", "Désactivé", "Desactivado", "Desativado", "끔", "Disattivato"],
+            "Keep Screen On": [
+                "画面を消さない", "Garder l’écran allumé", "Mantener la pantalla encendida",
+                "Manter a tela ligada", "화면 켜두기", "Schermo sempre acceso",
+            ],
+            "Run with Lid Closed": [
+                "蓋を閉じたまま", "Capot fermé", "Con la tapa cerrada", "Com a tampa fechada", "덮개 닫고 실행", "A\u{00A0}coperchio chiuso",
+            ],
+            "Movie on a TV": ["テレビで映画", "Film sur la télé", "Película en la tele", "Filme na TV", "TV로 영화 보기", "Film sulla TV"],
+            "In a Bag": ["バッグの中", "Dans un sac", "En la mochila", "Na mochila", "가방 속", "In borsa"],
+            "Safety": ["保護", "Protections", "Protecciones", "Proteções", "보호", "Protezioni"],
+            "Timer": ["タイマー", "Minuteur", "Temporizador", "Timer", "타이머", "Timer"],
+            "Sleep and wake": [
+                "スリープとスリープ解除", "Suspension et réactivation", "Reposo y activación", "Repouso e despertar",
+                "잠자기 및 깨우기", "Standby e riattivazione",
+            ],
+            "General": ["一般", "Général", "General", "Geral", "일반", "Generali"],
+            "Only while charging": [
+                "電源接続時のみ", "Sur secteur uniquement", "Solo con corriente", "Só na tomada", "전원 연결 시에만", "Solo con alimentatore",
+            ],
+            "Turn off after": ["自動オフ", "Désactiver après", "Desactivar tras", "Desativar após", "자동 끄기", "Disattiva dopo"],
+            "Sleep when idle": [
+                "アイドル時にスリープ", "Suspendre si inactif", "Reposo por inactividad", "Repousar se ocioso", "유휴 시 잠자기", "Standby se inattivo",
+            ],
+            "Wake at": ["スリープ解除時刻", "Réactiver à", "Activar a las", "Despertar às", "깨우기 시각", "Riattiva alle"],
+            "Launch at login": [
+                "ログイン時に開く", "Ouvrir avec la session", "Abrir al iniciar sesión", "Abrir no início da sessão",
+                "로그인 시 열기", "Apri al login",
+            ],
+            "Appearance": ["外観", "Apparence", "Aspecto", "Aparência", "화면 모드", "Aspetto"],
+            "Settings": ["設定", "Réglages", "Ajustes", "Ajustes", "설정", "Impostazioni"],
+            "Watched apps": ["監視するアプリ", "Apps surveillées", "Apps vigiladas", "Apps monitorados", "지켜보는 앱", "App monitorate"],
+            "Activity log": ["アクティビティログ", "Journal d’activité", "Registro de actividad", "Registro de atividades", "활동 기록", "Registro attività"],
+            "Quit LidAwake": ["LidAwakeを終了", "Quitter LidAwake", "Salir de LidAwake", "Encerrar LidAwake", "LidAwake 종료", "Esci da LidAwake"],
+        ]
+        let languages = ["ja", "fr", "es", "pt-BR", "ko", "it"]
+        let tables = try languages.map(table)
+        for (key, terms) in glossary {
+            XCTAssertEqual(terms.count, languages.count, key)
+            for (index, term) in terms.enumerated() {
+                XCTAssertEqual(tables[index][key], term, "\(languages[index]): \(key)")
+            }
+        }
     }
 
     func testSettingsPathUsesTheSystemNames() throws {
@@ -330,6 +563,12 @@ final class LocalizationTests: XCTestCase {
         let paths = [
             "de": "Systemeinstellungen > Allgemein > Anmeldeobjekte & Erweiterungen",
             "ru": "«Системные настройки» > «Основные» > «Объекты входа и расширения»",
+            "ja": "「システム設定」＞「一般」＞「ログイン項目と機能拡張」",
+            "fr": "Réglages Système > Général > Ouverture et extensions",
+            "es": "Ajustes del Sistema > General > Ítems de inicio y extensiones",
+            "pt-BR": "Ajustes do Sistema > Geral > Itens de Início de Sessão e Extensões",
+            "ko": "시스템 설정 > 일반 > 로그인 항목 및 확장 프로그램",
+            "it": "Impostazioni di Sistema > Generali > Elementi login ed estensioni",
         ]
         for (language, path) in paths {
             for (key, value) in try table(language) where key.contains(english) {

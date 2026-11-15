@@ -576,7 +576,7 @@ final class UpdateCheckerTests: XCTestCase {
     }
 
     private func checker(_ source: FakeReleaseSource, current: String = "1.0.0") -> UpdateChecker {
-        UpdateChecker(defaults: defaults, source: source, currentVersion: current, now: { [unowned self] in clock })
+        UpdateChecker(defaults: defaults, source: ReleaseOnlyUpdateSource(source), currentVersion: current, now: { [unowned self] in clock })
     }
 
     func testNewerReleaseShowsTheBanner() async {
@@ -644,7 +644,7 @@ final class UpdateCheckerTests: XCTestCase {
         XCTAssertTrue(checker.isEnabled)
         checker.isEnabled = false
         XCTAssertEqual(defaults.object(forKey: "updateCheckEnabled") as? Bool, false)
-        XCTAssertFalse(UpdateChecker(defaults: defaults, source: FakeReleaseSource(.success(.noReleases))).isEnabled)
+        XCTAssertFalse(UpdateChecker(defaults: defaults, source: ReleaseOnlyUpdateSource(FakeReleaseSource(.success(.noReleases)))).isEnabled)
         checker.isEnabled = true
         XCTAssertEqual(defaults.object(forKey: "updateCheckEnabled") as? Bool, true)
     }
@@ -729,7 +729,7 @@ final class UpdateCheckerTests: XCTestCase {
         let finished = expectation(description: "second sleep")
         let checker = UpdateChecker(
             defaults: defaults,
-            source: source,
+            source: ReleaseOnlyUpdateSource(source),
             currentVersion: "1.0.0",
             now: { [unowned self] in clock },
             sleep: { delay in

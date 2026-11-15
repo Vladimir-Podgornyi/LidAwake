@@ -3,7 +3,7 @@ import XCTest
 @testable import LidAwakeCore
 
 final class IdleSleepNoteTests: XCTestCase {
-    private let plain = IdleSleepNote(text: "After the work is done", dot: nil)
+    private let plain = IdleSleepNote(text: "After the work is done · for one session", dot: nil)
 
     private func status(_ state: IdleState, counted: Int = 0, holders: [String]? = []) -> IdleStatus {
         IdleStatus(

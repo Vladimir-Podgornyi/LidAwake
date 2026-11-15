@@ -10,6 +10,13 @@ final class SleepAndWakeRowTests: XCTestCase {
         XCTAssertEqual(SleepAndWakeRow.list(mode: .keepScreenOn), [.wakeAt, .sleepWhenIdle(isDimmed: true), .watchedApps])
     }
 
+    func testCollapsedSectionHasNoRows() {
+        for mode in Mode.allCases {
+            XCTAssertEqual(SleepAndWakeRow.list(mode: mode, isExpanded: false), [], "\(mode)")
+            XCTAssertEqual(SleepAndWakeRow.list(mode: mode, isExpanded: true), SleepAndWakeRow.list(mode: mode), "\(mode)")
+        }
+    }
+
     func testWatchedAppsSitsInTheExpandedSleepAndWakeSection() {
         for mode in Mode.allCases {
             XCTAssertTrue(WindowBlock.list(mode: mode, isExpanded: true, showsAppearance: true).contains(.sleepAndWake))

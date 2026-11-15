@@ -39,6 +39,42 @@ final class SettingsDisclosurePreferenceTests: XCTestCase {
         XCTAssertFalse(SettingsDisclosurePreference(defaults: defaults).isExpanded)
     }
 
+    func testSectionsExpandedWithoutStoredValue() {
+        let preference = SettingsDisclosurePreference(defaults: defaults)
+        XCTAssertTrue(preference.isSleepAndWakeExpanded)
+        XCTAssertTrue(preference.isGeneralExpanded)
+    }
+
+    func testSectionChoicesAreStoredApart() {
+        let preference = SettingsDisclosurePreference(defaults: defaults)
+        preference.isSleepAndWakeExpanded = false
+        XCTAssertEqual(defaults.object(forKey: "sleepAndWakeExpanded") as? Bool, false)
+        XCTAssertNil(defaults.object(forKey: "generalExpanded"))
+        XCTAssertNil(defaults.object(forKey: "settingsExpanded"))
+        var reread = SettingsDisclosurePreference(defaults: defaults)
+        XCTAssertFalse(reread.isSleepAndWakeExpanded)
+        XCTAssertTrue(reread.isGeneralExpanded)
+        XCTAssertFalse(reread.isExpanded)
+
+        preference.isGeneralExpanded = false
+        preference.isSleepAndWakeExpanded = true
+        XCTAssertEqual(defaults.object(forKey: "generalExpanded") as? Bool, false)
+        XCTAssertEqual(defaults.object(forKey: "sleepAndWakeExpanded") as? Bool, true)
+        reread = SettingsDisclosurePreference(defaults: defaults)
+        XCTAssertTrue(reread.isSleepAndWakeExpanded)
+        XCTAssertFalse(reread.isGeneralExpanded)
+    }
+
+    func testSettingsChoiceLeavesTheSectionsAlone() {
+        let preference = SettingsDisclosurePreference(defaults: defaults)
+        preference.isGeneralExpanded = false
+        preference.isExpanded = true
+        preference.isExpanded = false
+        let reread = SettingsDisclosurePreference(defaults: defaults)
+        XCTAssertTrue(reread.isSleepAndWakeExpanded)
+        XCTAssertFalse(reread.isGeneralExpanded)
+    }
+
     func testChoiceDoesNotTouchSafetySettings() {
         let safety = SafetyPreferences(defaults: defaults)
         let before = safety.helperSettings
@@ -47,6 +83,8 @@ final class SettingsDisclosurePreferenceTests: XCTestCase {
         let preference = SettingsDisclosurePreference(defaults: defaults)
         preference.isExpanded = true
         preference.isExpanded = false
+        preference.isSleepAndWakeExpanded = false
+        preference.isGeneralExpanded = false
         XCTAssertFalse(fired)
         XCTAssertEqual(SafetyPreferences(defaults: defaults).helperSettings, before)
         subscription.cancel()
@@ -54,12 +92,14 @@ final class SettingsDisclosurePreferenceTests: XCTestCase {
 }
 
 final class WindowBlockTests: XCTestCase {
+    private let bottom: [WindowBlock] = [.closingDivider, .whatsNew, .howToUse, .quit]
+
     func testOffAndLidClosedCollapsed() {
         for mode in [Mode.off, .lidClosed] {
             for appearance in [false, true] {
                 XCTAssertEqual(
                     WindowBlock.list(mode: mode, isExpanded: false, showsAppearance: appearance),
-                    [.settingsToggle, .closingDivider],
+                    [.settingsToggle] + bottom,
                     "\(mode)"
                 )
             }
@@ -70,12 +110,12 @@ final class WindowBlockTests: XCTestCase {
         for mode in [Mode.off, .lidClosed] {
             XCTAssertEqual(
                 WindowBlock.list(mode: mode, isExpanded: true, showsAppearance: true),
-                [.settingsToggle, .safety, .sleepAndWake, .settingsDivider, .generalHeader, .lockScreen, .launchAtLogin, .checkForUpdates, .appearance, .accent, .activityLog, .closingDivider],
+                [.settingsToggle, .safety, .sleepAndWake, .settingsDivider, .generalHeader, .lockScreen, .launchAtLogin, .checkForUpdates, .appearance, .accent, .activityLog] + bottom,
                 "\(mode)"
             )
             XCTAssertEqual(
                 WindowBlock.list(mode: mode, isExpanded: true, showsAppearance: false),
-                [.settingsToggle, .safety, .sleepAndWake, .settingsDivider, .generalHeader, .lockScreen, .launchAtLogin, .checkForUpdates, .accent, .activityLog, .closingDivider],
+                [.settingsToggle, .safety, .sleepAndWake, .settingsDivider, .generalHeader, .lockScreen, .launchAtLogin, .checkForUpdates, .accent, .activityLog] + bottom,
                 "\(mode)"
             )
         }
@@ -85,7 +125,7 @@ final class WindowBlockTests: XCTestCase {
         for appearance in [false, true] {
             XCTAssertEqual(
                 WindowBlock.list(mode: .keepScreenOn, isExpanded: false, showsAppearance: appearance),
-                [.timer, .settingsToggle, .closingDivider]
+                [.timer, .settingsToggle] + bottom
             )
         }
     }
@@ -93,11 +133,11 @@ final class WindowBlockTests: XCTestCase {
     func testKeepScreenOnExpanded() {
         XCTAssertEqual(
             WindowBlock.list(mode: .keepScreenOn, isExpanded: true, showsAppearance: true),
-            [.timer, .settingsToggle, .dimmedSafety, .sleepAndWake, .settingsDivider, .generalHeader, .launchAtLogin, .checkForUpdates, .appearance, .accent, .activityLog, .closingDivider]
+            [.timer, .settingsToggle, .dimmedSafety, .sleepAndWake, .settingsDivider, .generalHeader, .launchAtLogin, .checkForUpdates, .appearance, .accent, .activityLog] + bottom
         )
         XCTAssertEqual(
             WindowBlock.list(mode: .keepScreenOn, isExpanded: true, showsAppearance: false),
-            [.timer, .settingsToggle, .dimmedSafety, .sleepAndWake, .settingsDivider, .generalHeader, .launchAtLogin, .checkForUpdates, .accent, .activityLog, .closingDivider]
+            [.timer, .settingsToggle, .dimmedSafety, .sleepAndWake, .settingsDivider, .generalHeader, .launchAtLogin, .checkForUpdates, .accent, .activityLog] + bottom
         )
     }
 
@@ -105,25 +145,39 @@ final class WindowBlockTests: XCTestCase {
         for mode in Mode.allCases {
             for appearance in [false, true] {
                 let blocks = WindowBlock.list(mode: mode, isExpanded: true, showsAppearance: appearance)
-                XCTAssertEqual(blocks.suffix(3), [.accent, .activityLog, .closingDivider], "\(mode)")
+                XCTAssertEqual(Array(blocks.suffix(6)), [.accent, .activityLog] + bottom, "\(mode)")
                 XCTAssertEqual(blocks.filter(\.isGeneralSettingRow).last, .activityLog, "\(mode)")
             }
         }
     }
 
-    func testProOfferIsTheLastBlockAboveQuitWhenShown() {
+    func testProOfferIsTheFirstBlockAboveTheSettingsWhenShown() {
         for mode in Mode.allCases {
             let timer: [WindowBlock] = SafetyLayout(mode: mode) == .timerOnly ? [.timer] : []
             XCTAssertEqual(
                 WindowBlock.list(mode: mode, isExpanded: false, showsAppearance: true, showsProOffer: true),
-                timer + [.settingsToggle, .proOffer, .closingDivider],
+                [.proOffer] + timer + [.settingsToggle] + bottom,
                 "\(mode)"
             )
-            for appearance in [false, true] {
-                let with = WindowBlock.list(mode: mode, isExpanded: true, showsAppearance: appearance, showsProOffer: true)
-                XCTAssertEqual(with.suffix(4), [.accent, .activityLog, .proOffer, .closingDivider], "\(mode)")
-                XCTAssertEqual(with.filter(\.isGeneralSettingRow).last, .activityLog, "\(mode)")
+            for expanded in [false, true] {
+                for appearance in [false, true] {
+                    for general in [false, true] {
+                        let with = WindowBlock.list(
+                            mode: mode,
+                            isExpanded: expanded,
+                            showsAppearance: appearance,
+                            showsProOffer: true,
+                            isGeneralExpanded: general
+                        )
+                        XCTAssertEqual(with.first, .proOffer, "\(mode)")
+                        XCTAssertEqual(Array(with.prefix(timer.count + 2)), [.proOffer] + timer + [.settingsToggle], "\(mode)")
+                        XCTAssertLessThan(with.firstIndex(of: .proOffer)!, with.firstIndex(of: .settingsToggle)!, "\(mode)")
+                    }
+                }
             }
+            let expanded = WindowBlock.list(mode: mode, isExpanded: true, showsAppearance: true, showsProOffer: true)
+            XCTAssertEqual(Array(expanded.suffix(6)), [.accent, .activityLog] + bottom, "\(mode)")
+            XCTAssertEqual(expanded.filter(\.isGeneralSettingRow).last, .activityLog, "\(mode)")
         }
     }
 
@@ -132,7 +186,7 @@ final class WindowBlockTests: XCTestCase {
             let timer: [WindowBlock] = SafetyLayout(mode: mode) == .timerOnly ? [.timer] : []
             XCTAssertEqual(
                 WindowBlock.list(mode: mode, isExpanded: false, showsAppearance: true),
-                timer + [.settingsToggle, .closingDivider],
+                timer + [.settingsToggle] + bottom,
                 "\(mode)"
             )
             for expanded in [false, true] {
@@ -153,6 +207,27 @@ final class WindowBlockTests: XCTestCase {
 
     func testProOfferIsNotAGeneralSettingRow() {
         XCTAssertFalse(WindowBlock.proOffer.isGeneralSettingRow)
+    }
+
+    func testWhatsNewHowToUseAndQuitEndTheWindowInEveryPosition() {
+        for mode in Mode.allCases {
+            for expanded in [false, true] {
+                for appearance in [false, true] {
+                    for proOffer in [false, true] {
+                        let blocks = WindowBlock.list(mode: mode, isExpanded: expanded, showsAppearance: appearance, showsProOffer: proOffer)
+                        XCTAssertEqual(Array(blocks.suffix(4)), bottom, "\(mode) \(expanded) \(proOffer)")
+                        XCTAssertEqual(blocks.filter(bottom.contains), bottom, "each once, \(mode) \(expanded) \(proOffer)")
+                    }
+                }
+            }
+        }
+    }
+
+    func testBottomRowsAreNotGeneralSettings() {
+        for block in [WindowBlock.whatsNew, .howToUse, .quit] {
+            XCTAssertFalse(block.isGeneralSettingRow, "\(block)")
+            XCTAssertTrue(block.isCompactRow, "\(block)")
+        }
     }
 
     func testActivityLogCollapsesWithTheSettings() {
@@ -189,12 +264,51 @@ final class WindowBlockTests: XCTestCase {
         }
     }
 
+    func testCollapsedGeneralKeepsItsHeaderAndHidesItsRows() {
+        for mode in Mode.allCases {
+            for proOffer in [false, true] {
+                let expanded = WindowBlock.list(mode: mode, isExpanded: true, showsAppearance: true, showsProOffer: proOffer)
+                let collapsed = WindowBlock.list(
+                    mode: mode,
+                    isExpanded: true,
+                    showsAppearance: true,
+                    showsProOffer: proOffer,
+                    isGeneralExpanded: false
+                )
+                XCTAssertEqual(collapsed, expanded.filter { !$0.isGeneralSettingRow }, "\(mode)")
+                XCTAssertFalse(collapsed.contains(where: \.isGeneralSettingRow), "\(mode)")
+                XCTAssertTrue(collapsed.contains(.generalHeader), "\(mode)")
+                XCTAssertTrue(collapsed.contains(.sleepAndWake), "\(mode)")
+                XCTAssertTrue(collapsed.contains(SafetyLayout(mode: mode) == .all ? .safety : .dimmedSafety), "\(mode)")
+                XCTAssertEqual(Array(collapsed.suffix(4)), bottom, "\(mode)")
+            }
+        }
+    }
+
+    func testGeneralChoiceDoesNothingWhileTheSettingsAreCollapsed() {
+        for mode in Mode.allCases {
+            XCTAssertEqual(
+                WindowBlock.list(mode: mode, isExpanded: false, showsAppearance: true, isGeneralExpanded: false),
+                WindowBlock.list(mode: mode, isExpanded: false, showsAppearance: true),
+                "\(mode)"
+            )
+        }
+    }
+
     func testBlocksAreUnique() {
         for mode in Mode.allCases {
             for expanded in [false, true] {
                 for proOffer in [false, true] {
-                    let blocks = WindowBlock.list(mode: mode, isExpanded: expanded, showsAppearance: true, showsProOffer: proOffer)
-                    XCTAssertEqual(Set(blocks).count, blocks.count)
+                    for general in [false, true] {
+                        let blocks = WindowBlock.list(
+                            mode: mode,
+                            isExpanded: expanded,
+                            showsAppearance: true,
+                            showsProOffer: proOffer,
+                            isGeneralExpanded: general
+                        )
+                        XCTAssertEqual(Set(blocks).count, blocks.count)
+                    }
                 }
             }
         }

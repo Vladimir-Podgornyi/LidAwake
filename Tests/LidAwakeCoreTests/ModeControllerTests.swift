@@ -50,7 +50,11 @@ private final class FakeSessions: LidSessionService {
     private(set) var statusRequests: [Int] = []
     private(set) var safety: [SafetySettings] = []
 
+    /// Called when a session starts.
+    var probeAtStart: (() -> Void)?
+
     func startSession(leaseSeconds: Int, safety: SafetySettings) async throws {
+        probeAtStart?()
         calls.append("start \(leaseSeconds)")
         self.safety.append(safety)
         if let startError { throw startError }
@@ -278,6 +282,68 @@ final class ModeControllerTests: XCTestCase {
         let controller = makeController()
         XCTAssertEqual(controller.mode, .off)
         XCTAssertFalse(assertion.isHeld)
+    }
+
+    func testShownModeChangesOnlyOnceASwitchIsOver() async throws {
+        let controller = makeController()
+        var shown: [Mode] = []
+        let subscription = controller.$shownMode.dropFirst().sink { shown.append($0) }
+        defer { subscription.cancel() }
+        // Read when the session starts, while the switch is still running.
+        var shownAtStart: Mode?
+        sessions.probeAtStart = { shownAtStart = controller.shownMode }
+
+        try await controller.select(.keepScreenOn)
+        try await controller.select(.lidClosed)
+        XCTAssertEqual(shownAtStart, .keepScreenOn)
+        try await controller.select(.off)
+
+        XCTAssertEqual(shown, [.keepScreenOn, .lidClosed, .off])
+        XCTAssertEqual(controller.shownMode, .off)
+    }
+
+    func testShownModeIsOffWhenTheModeDoesNotTurnOn() async throws {
+        let controller = makeController()
+        sessions.startError = HelperError.helper(.noSession, "")
+
+        try? await controller.select(.lidClosed)
+
+        XCTAssertEqual(controller.mode, .off)
+        XCTAssertEqual(controller.shownMode, .off)
+    }
+
+    // The menu bar icon follows shownMode: leaving Run with Lid Closed for Keep Screen On goes
+    // through Off, which the icon must not show.
+    func testShownModeSkipsOffBetweenRunWithLidClosedAndKeepScreenOn() async throws {
+        let controller = makeController()
+        try await controller.select(.lidClosed)
+        var modes: [Mode] = []
+        var shown: [Mode] = []
+        let modeSubscription = controller.$mode.dropFirst().sink { modes.append($0) }
+        let shownSubscription = controller.$shownMode.dropFirst().sink { shown.append($0) }
+        defer {
+            modeSubscription.cancel()
+            shownSubscription.cancel()
+        }
+
+        try await controller.select(.keepScreenOn)
+
+        XCTAssertEqual(modes, [.off, .keepScreenOn])
+        XCTAssertEqual(shown, [.keepScreenOn])
+    }
+
+    func testShownModeEndsAtTheSelectedModeForEverySwitch() async throws {
+        let controller = makeController()
+        let path: [Mode] = [.keepScreenOn, .lidClosed, .keepScreenOn, .off, .lidClosed, .off, .keepScreenOn, .off]
+        for target in path {
+            let from = controller.shownMode
+            var shown: [Mode] = []
+            let subscription = controller.$shownMode.dropFirst().sink { shown.append($0) }
+            try await controller.select(target)
+            subscription.cancel()
+            XCTAssertEqual(shown, [target], "\(from) → \(target)")
+            XCTAssertEqual(controller.shownMode, controller.mode)
+        }
     }
 
     func testKeepScreenOnAcquiresAndOffReleases() async throws {
@@ -648,6 +714,52 @@ final class ModeControllerTests: XCTestCase {
         )
     }
 
+    func testFirstWatchedAppDuringLongSessionKeepsItRunning() async throws {
+        preferences.idleSleepEnabled = true
+        let controller = makeController()
+        try await controller.select(.lidClosed)
+        time.now += 20_000
+
+        preferences.watchedAppPaths = ["/Applications/Editor.app"]
+        await settle { sessions.calls.count >= 2 }
+        XCTAssertEqual(sessions.calls, ["start 120", "renew 120"])
+        XCTAssertEqual(sessions.safety.last?.timerSeconds, 0)
+        await controller.checkTimer()
+        XCTAssertEqual(controller.mode, .lidClosed)
+        XCTAssertNil(controller.timerRemaining())
+
+        try await controller.select(.off)
+        XCTAssertTrue(preferences.timerEnabled)
+        XCTAssertEqual(preferences.timerSeconds, 14_400)
+
+        try await controller.select(.keepScreenOn)
+        XCTAssertEqual(controller.timerRemaining(), 14_400)
+    }
+
+    func testFirstWatchedAppInOffSetsTimerAtOnce() {
+        preferences.idleSleepEnabled = true
+        _ = makeController()
+        preferences.watchedAppPaths = ["/Applications/Editor.app"]
+        XCTAssertTrue(preferences.timerEnabled)
+        XCTAssertEqual(preferences.timerSeconds, 14_400)
+    }
+
+    func testPendingTimerIsSetWhenTheHelperEndsTheSession() async throws {
+        preferences.idleSleepEnabled = true
+        let controller = makeController()
+        try await controller.select(.lidClosed)
+        preferences.watchedAppPaths = ["/Applications/Editor.app"]
+        XCTAssertTrue(preferences.showsWatchedAppsTimerPendingNote)
+
+        sessions.stopRecord = StopRecord(reason: .thermal, time: Date())
+        sessions.renewError = HelperError.helper(.noSession, "No active session.")
+        await controller.renew()
+        XCTAssertEqual(controller.mode, .off)
+        XCTAssertTrue(preferences.timerEnabled)
+        XCTAssertEqual(preferences.timerSeconds, 14_400)
+        XCTAssertFalse(preferences.showsWatchedAppsTimerPendingNote)
+    }
+
     func testWatchedAppsChangeSendsRenewal() async throws {
         preferences.idleSleepEnabled = true
         let controller = makeController()
@@ -929,6 +1041,10 @@ final class ModeControllerTests: XCTestCase {
         )
         XCTAssertEqual(PauseNotice.title, "LidAwake paused")
         XCTAssertEqual(PauseNotice.body, "Running on battery. It resumes when you plug in.")
+        XCTAssertEqual(
+            PauseNotice.windowText(for: .lidClosed, timerIsOn: false),
+            "Only while charging is on, so Run with Lid Closed waits until power is connected."
+        )
     }
 
     // MARK: Charging only
@@ -1742,6 +1858,33 @@ final class ModeControllerTests: XCTestCase {
             .modeOnBySchedule(.lidClosed),
             .modeOff(.lidClosed, .user),
         ])
+    }
+
+    func testScheduledTurnOnMarksSleepWhenIdleAsTurnedOnByWake() async throws {
+        let controller = makeController()
+        await controller.turnOnBySchedule()
+        XCTAssertTrue(SettingNotice.showsIdleSleepByWake(
+            idleSleepEnabled: preferences.idleSleepEnabled,
+            forSessionOnly: preferences.idleSleepForSessionOnly
+        ))
+
+        try await controller.select(.off)
+        XCTAssertFalse(SettingNotice.showsIdleSleepByWake(
+            idleSleepEnabled: preferences.idleSleepEnabled,
+            forSessionOnly: preferences.idleSleepForSessionOnly
+        ))
+    }
+
+    func testFirstWatchedAppInScheduledSessionLeavesTimerAlone() async throws {
+        let controller = makeController()
+        await controller.turnOnBySchedule()
+        XCTAssertTrue(preferences.idleSleepEnabled)
+
+        preferences.watchedAppPaths = ["/Applications/Editor.app"]
+        XCTAssertFalse(preferences.showsWatchedAppsTimerPendingNote)
+        try await controller.select(.off)
+        XCTAssertFalse(preferences.timerEnabled)
+        XCTAssertEqual(preferences.timerSeconds, 7200)
     }
 
     func testScheduledTurnOnDoesNotSendTheSettingTwice() async {

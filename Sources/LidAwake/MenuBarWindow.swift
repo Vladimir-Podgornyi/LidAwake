@@ -17,7 +17,7 @@ enum MenuBarWindow {
     }
 
     /// The app has one menu bar icon.
-    private static func statusButton() -> NSStatusBarButton? {
+    static func statusButton() -> NSStatusBarButton? {
         for window in NSApp.windows {
             if let button = firstStatusButton(in: window.contentView) {
                 return button

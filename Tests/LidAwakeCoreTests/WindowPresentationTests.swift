@@ -90,6 +90,29 @@ final class WindowMessageTests: XCTestCase {
         XCTAssertEqual(WindowMessage.list(helper: nil, mode: nil), [])
     }
 
+    func testPauseOnBatteryTakesTheModePlace() {
+        let messages = WindowMessage.list(helper: .approval, mode: nil, isPausedOnBattery: true)
+        XCTAssertEqual(messages.map(\.source), [.helper, .mode])
+        XCTAssertEqual(messages.last?.kind, .info)
+        XCTAssertEqual(messages.last?.title, "LidAwake paused")
+        XCTAssertEqual(
+            messages.last?.text,
+            "Only while charging is on, so Run with Lid Closed waits until power is connected."
+        )
+        XCTAssertNil(messages.last?.actionTitle)
+        XCTAssertFalse(messages.last?.isDismissible ?? true)
+    }
+
+    func testModeMessageWinsOverThePause() {
+        let messages = WindowMessage.list(helper: nil, mode: .failed("Boom"), isPausedOnBattery: true)
+        XCTAssertEqual(messages.count, 1)
+        XCTAssertEqual(messages.first?.title, "Something went wrong")
+    }
+
+    func testNoPauseNoBanner() {
+        XCTAssertEqual(WindowMessage.list(helper: nil, mode: nil, isPausedOnBattery: false), [])
+    }
+
     func testApproval() {
         let message = only(helper: .approval)
         XCTAssertEqual(message?.kind, .actionNeeded)
@@ -220,5 +243,20 @@ final class OpeningFocusTests: XCTestCase {
         XCTAssertEqual(OpeningFocus.card(focused: .off, previous: .keepScreenOn, selected: .keepScreenOn), .off)
         XCTAssertEqual(OpeningFocus.card(focused: .lidClosed, previous: .lidClosed, selected: .lidClosed), .lidClosed)
         XCTAssertNil(OpeningFocus.card(focused: nil, previous: .keepScreenOn, selected: .keepScreenOn))
+    }
+}
+
+final class CardFocusRingTests: XCTestCase {
+    func testSelectedCardWithFocusHasNoRingOfItsOwn() {
+        XCTAssertFalse(CardFocusRing.isShown(card: .lidClosed, focused: .lidClosed, selected: .lidClosed))
+    }
+
+    func testOtherCardWithFocusHasRing() {
+        XCTAssertTrue(CardFocusRing.isShown(card: .lidClosed, focused: .lidClosed, selected: .off))
+    }
+
+    func testCardWithoutFocusHasNoRing() {
+        XCTAssertFalse(CardFocusRing.isShown(card: .lidClosed, focused: .off, selected: .keepScreenOn))
+        XCTAssertFalse(CardFocusRing.isShown(card: .lidClosed, focused: nil, selected: .off))
     }
 }

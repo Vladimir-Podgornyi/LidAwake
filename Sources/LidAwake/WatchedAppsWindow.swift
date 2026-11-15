@@ -267,6 +267,8 @@ struct WatchedAppsScreen: View {
             list: list,
             busy: monitor.busy,
             canAdd: WatchedAppSelection.canAdd(to: preferences.watchedAppPaths),
+            showsTimerNote: preferences.showsWatchedAppsTimerNote,
+            showsPendingTimerNote: preferences.showsWatchedAppsTimerPendingNote,
             accent: Palette.accent(accent.theme),
             icon: AppDisplayName.icon,
             keyboard: keyboard,
@@ -309,6 +311,8 @@ struct WatchedAppsContent: View {
     let list: WatchedAppList
     let busy: Set<String>?
     let canAdd: Bool
+    let showsTimerNote: Bool
+    let showsPendingTimerNote: Bool
     let accent: Color
     let icon: (String) -> NSImage
     @ObservedObject var keyboard: WatchedAppsKeyboard
@@ -379,6 +383,19 @@ struct WatchedAppsContent: View {
                 ForEach(list.notOpen) { entry in
                     row(entry, state: .notOpen)
                 }
+            }
+            if showsPendingTimerNote {
+                Text("Turn off after will be set to 4 hours when LidAwake stops keeping the Mac awake. You can change it in Settings.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 14)
+            } else if showsTimerNote {
+                Text("Turn off after is set to 4 hours, so a stuck app can't keep the Mac awake forever. You can change it in Settings.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 14)
             }
         }
         .padding(.horizontal, 16)

@@ -41,13 +41,13 @@
 "Turn off after" = "定时关闭";
 "Counts from the moment you switch on" = "从开启模式时开始计时";
 "Sleep when idle" = "空闲时睡眠";
-"After the work is done" = "任务完成后";
+"After the work is done · for one session" = "任务完成后 · 仅限一次会话";
 "Kept awake by %@" = "%@ 正在阻止睡眠";
 "Kept awake by CPU load" = "CPU 负载正在阻止睡眠";
 "Kept awake by keyboard or mouse" = "键盘或鼠标操作正在阻止睡眠";
 "Idle for %lld of %lld min" = "已空闲 %lld / %lld 分钟";
 "Wake at" = "唤醒时间";
-"Every day, on power only" = "每天，仅在接通电源时";
+"If the Mac is asleep, every day, on power only" = "如果 Mac 处于睡眠，每天，仅在接通电源时";
 "Could not set the wake" = "无法设置唤醒";
 "Lock screen when the lid closes" = "合盖时锁定屏幕";
 "Screen lock is not available on this macOS version." = "当前 macOS 版本不支持此锁屏功能。";
@@ -69,10 +69,10 @@
 /* Helper messages */
 "Permission needed" = "需要授权";
 "Allow LidAwake in System Settings > General > Login Items & Extensions. The mode turns on as soon as you do." = "请在“系统设置 > 通用 > 登录项与扩展”中允许 LidAwake。授权后将自动开启合盖运行。";
-"Allow LidAwake in System Settings > General > Login Items & Extensions, then choose Run with Lid Closed again." = "请在“系统设置 > 通用 > 登录项与扩展”中允许 LidAwake，然后重新选择“合盖运行”。";
+"Allow LidAwake in System Settings > General > Login Items & Extensions, then choose %@ again." = "请在“系统设置 > 通用 > 登录项与扩展”中允许 LidAwake，然后重新选择“%@”。";
 "Allow LidAwake in System Settings > General > Login Items & Extensions." = "请在“系统设置 > 通用 > 登录项与扩展”中允许 LidAwake。";
 "Move LidAwake to Applications" = "将 LidAwake 移至“应用程序”";
-"Run with Lid Closed needs the app in the Applications folder." = "使用合盖运行前，请将应用移至“应用程序”文件夹。";
+"%@ needs the app in the Applications folder." = "使用“%@”前，请将应用移至“应用程序”文件夹。";
 "LidAwake must be in /Applications to install the helper." = "安装辅助程序前，请将 LidAwake 移至 /Applications。";
 "The helper did not start" = "辅助程序未启动";
 "Install the helper to run with the lid closed." = "请先安装辅助程序，再使用合盖运行。";
@@ -103,6 +103,7 @@
 "Nothing was working for a while." = "已有一段时间没有任务在运行。";
 "LidAwake paused" = "LidAwake 已暂停";
 "Running on battery. It resumes when you plug in." = "当前使用电池供电，接通电源后将恢复运行。";
+"Only while charging is on, so %@ waits until power is connected." = "已开启“仅在接通电源时运行”，因此“%@”会等到接通电源后再开始。";
 
 /* Updates */
 "Check for updates" = "检查更新";
@@ -150,6 +151,8 @@
 "Watched Apps" = "监视的应用";
 "None" = "无";
 "While a watched app runs programs it started, such as a coding agent, a build or a script, Sleep when idle keeps counting it as work. Typing in the app and its own windows do not count." = "当被监视的应用正在运行由它启动的程序（例如编程助手、构建或脚本）时，“空闲时睡眠”会将其视为工作。在应用中打字以及应用自身的窗口不计入。";
+"Turn off after is set to 4 hours, so a stuck app can't keep the Mac awake forever. You can change it in Settings." = "“定时关闭”已设为 4 小时，以免卡住的应用让 Mac 一直保持唤醒。你可以在设置中更改。";
+"Turn off after will be set to 4 hours when LidAwake stops keeping the Mac awake. You can change it in Settings." = "LidAwake 停止让 Mac 保持唤醒后，“定时关闭”将设为 4 小时。你可以在设置中更改。";
 "Open now" = "当前打开";
 "Watched, not open" = "已监视，未打开";
 "Started programs are working now" = "已启动的程序正在运行";
@@ -159,4 +162,49 @@
 "Done" = "完成";
 
 /* LidAwake Pro */
-"Movie on a TV, waits for downloads and exports" = "电视观影，等待下载和导出完成";
+"Movie on a TV, In a Bag, waits for downloads and exports" = "“电视观影”，“放进包里”，等待下载和导出";
+
+"−%lld%%" = "−%lld%%";
+"until %@" = "截至 %@";
+
+/* What's new and How to use LidAwake */
+"What's new" = "新功能";
+"How to use LidAwake" = "如何使用 LidAwake";
+"What's new in %@" = "%@ 新功能";
+"Version %@" = "版本 %@";
+"and %lld earlier updates" = "以及另外 %lld 次更新";
+"Six new languages" = "新增六种语言";
+"Only in LidAwake Pro %@" = "仅限 LidAwake Pro %@";
+"Movie on a TV" = "电视观影";
+"Close the lid and the movie keeps playing on the TV." = "合上屏幕，电影仍在电视上继续播放。";
+"Waits for downloads" = "等待下载完成";
+"Stays awake until a big download is done, then sleeps." = "保持唤醒直到大文件下载完成，然后进入睡眠。";
+"Waits for video exports" = "等待视频导出";
+"Stays awake while a video renders, then sleeps." = "在视频渲染期间保持唤醒，然后进入睡眠。";
+"In a Bag" = "放进包里";
+"One switch with stricter protections for a Mac in a bag." = "一个开关，为包里的 Mac 启用更严格的保护。";
+"New" = "新";
+"Updates in one click" = "一键更新";
+"The Download button opens your purchases, where the new version is ready." = "“下载”按钮会打开你的购买记录，新版本已在那里准备好。";
+"−%lld%% on LidAwake Pro" = "LidAwake Pro 优惠 %lld%%";
+"one-time" = "一次性购买";
+"one-time · until %@" = "一次性购买 · 截至 %@";
+"Get Pro" = "获取 Pro";
+"Continue" = "继续";
+"Pick a mode" = "选择模式";
+"Keep Screen On when you step away from the desk. Run with Lid Closed when the Mac should keep working with the lid shut. Only one mode is on at a time; Off brings normal sleep back." = "暂时离开时选“保持屏幕常亮”。需要 Mac 合盖继续工作时选“合盖运行”。同一时间只能开启一种模式；选“关闭”即恢复正常睡眠。";
+"Allow the helper once" = "允许辅助程序（仅需一次）";
+"The first time you choose Run with Lid Closed, allow LidAwake in System Settings › General › Login Items & Extensions. No password is needed." = "首次选择“合盖运行”时，请在“系统设置 › 通用 › 登录项与扩展”中允许 LidAwake。无需输入密码。";
+"Let it end by itself" = "让它自动结束";
+"In Settings, Sleep when idle lets the Mac sleep once the work is done, and Turn off after ends the mode after a set time. With Sleep when idle on, adding the first watched app sets Turn off after to 4 hours, so a stuck app can't keep the Mac awake forever. The mode also stops when the Mac gets hot or the battery runs low." = "在设置中，“空闲时睡眠”会在工作完成后让 Mac 睡眠，“定时关闭”会在设定时间后结束模式。开启“空闲时睡眠”后，添加第一个监视的应用会将“定时关闭”设为 4 小时，以免卡住的应用让 Mac 一直保持唤醒。Mac 过热或电量不足时，模式也会停止。";
+"Avoid packing a running Mac in a closed bag" = "不要把运行中的 Mac 放进封闭的包里";
+"A closed laptop in a bag cools poorly. The protections reduce the risk; they do not remove it. If you must carry it running, prefer a short session and keep an eye on the temperature. You use LidAwake at your own risk." = "合上的笔记本放在包里散热很差。保护功能可以降低风险，但无法消除风险。如果必须在运行状态下携带，请尽量缩短时间并留意温度。使用 LidAwake 的风险由你自行承担。";
+"Website" = "网站";
+"Source code" = "源代码";
+"Works only with Sleep when idle in Run with Lid Closed." = "仅在“合盖运行”中开启“空闲时睡眠”时生效。";
+"The Mac is on battery, so the wake will not turn the mode on." = "Mac 正在使用电池，唤醒后不会开启该模式。";
+"On for this session, turned on by Wake at." = "已由“唤醒时间”为本次会话开启。";
+"This Mac has no battery." = "此 Mac 没有电池。";
+"Set to 4 hours for watched apps." = "已因监视的应用设为 4 小时。";
+"Will be set to 4 hours for watched apps when the mode ends." = "模式结束后，将因监视的应用设为 4 小时。";
+"%@ The timer keeps counting." = "%@计时器会继续计时。";

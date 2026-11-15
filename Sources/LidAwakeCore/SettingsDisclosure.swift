@@ -1,7 +1,7 @@
 import Combine
 import Foundation
 
-/// The blocks between the messages and the Quit row, top to bottom.
+/// The blocks below the messages, top to bottom, down to the Quit row.
 public enum WindowBlock: Hashable {
     /// Keep Screen On: the TIMER section with the timer row.
     case timer
@@ -23,29 +23,48 @@ public enum WindowBlock: Hashable {
     case accent
     /// Opens the activity log window.
     case activityLog
-    /// Opens the page of LidAwake Pro in the browser; a card of its own, shown collapsed too.
+    /// Opens the page of LidAwake Pro in the browser; a card of its own above the settings,
+    /// shown collapsed too.
     case proOffer
-    /// The divider above the Quit row.
+    /// The divider above What's new, How to use LidAwake and Quit.
     case closingDivider
+    /// Opens the What's new window.
+    case whatsNew
+    /// Opens the How to use LidAwake window.
+    case howToUse
+    case quit
 
-    public static func list(mode: Mode, isExpanded: Bool, showsAppearance: Bool, showsProOffer: Bool = false) -> [WindowBlock] {
+    /// `isGeneralExpanded` hides the general rows under their header; the SLEEP AND WAKE
+    /// section keeps its header and hides its rows itself (`SleepAndWakeRow.list`).
+    public static func list(
+        mode: Mode,
+        isExpanded: Bool,
+        showsAppearance: Bool,
+        showsProOffer: Bool = false,
+        isGeneralExpanded: Bool = true
+    ) -> [WindowBlock] {
         let layout = SafetyLayout(mode: mode)
-        var blocks: [WindowBlock] = layout == .timerOnly ? [.timer, .settingsToggle] : [.settingsToggle]
+        // Above the settings, so it stays in view while they are expanded.
+        var blocks: [WindowBlock] = showsProOffer ? [.proOffer] : []
+        blocks += layout == .timerOnly ? [.timer, .settingsToggle] : [.settingsToggle]
         if isExpanded {
             switch layout {
-            case .all: blocks += [.safety, .sleepAndWake, .settingsDivider, .generalHeader, .lockScreen]
+            case .all: blocks += [.safety, .sleepAndWake, .settingsDivider, .generalHeader]
             case .timerOnly: blocks += [.dimmedSafety, .sleepAndWake, .settingsDivider, .generalHeader]
             }
-            blocks += [.launchAtLogin, .checkForUpdates]
-            if showsAppearance {
-                blocks.append(.appearance)
+            if isGeneralExpanded {
+                if layout == .all {
+                    blocks.append(.lockScreen)
+                }
+                blocks += [.launchAtLogin, .checkForUpdates]
+                if showsAppearance {
+                    blocks.append(.appearance)
+                }
+                blocks += [.accent, .activityLog]
             }
-            blocks += [.accent, .activityLog]
         }
-        if showsProOffer {
-            blocks.append(.proOffer)
-        }
-        blocks.append(.closingDivider)
+        // Shown in every position and every build, collapsed too.
+        blocks += [.closingDivider, .whatsNew, .howToUse, .quit]
         return blocks
     }
 }
@@ -54,9 +73,22 @@ public enum WindowBlock: Hashable {
 @MainActor
 public final class SettingsDisclosurePreference: ObservableObject {
     public static let key = "settingsExpanded"
+    public static let sleepAndWakeKey = "sleepAndWakeExpanded"
+    public static let generalKey = "generalExpanded"
 
+    /// The settings as a whole; collapsed until chosen otherwise.
     @Published public var isExpanded: Bool {
         didSet { defaults.set(isExpanded, forKey: Self.key) }
+    }
+
+    /// The SLEEP AND WAKE section within the expanded settings; expanded until chosen otherwise.
+    @Published public var isSleepAndWakeExpanded: Bool {
+        didSet { defaults.set(isSleepAndWakeExpanded, forKey: Self.sleepAndWakeKey) }
+    }
+
+    /// The GENERAL section within the expanded settings; expanded until chosen otherwise.
+    @Published public var isGeneralExpanded: Bool {
+        didSet { defaults.set(isGeneralExpanded, forKey: Self.generalKey) }
     }
 
     private let defaults: UserDefaults
@@ -64,21 +96,23 @@ public final class SettingsDisclosurePreference: ObservableObject {
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         isExpanded = defaults.bool(forKey: Self.key)
+        isSleepAndWakeExpanded = defaults.object(forKey: Self.sleepAndWakeKey) as? Bool ?? true
+        isGeneralExpanded = defaults.object(forKey: Self.generalKey) as? Bool ?? true
     }
 }
 
-/// Blocks drawn together. The general setting rows sit closer to each other, to their header
-/// and to the dividers around them than the other blocks do.
+/// Blocks drawn together. The general setting rows and the rows at the bottom sit closer to
+/// each other, to their header and to the dividers around them than the other blocks do.
 public enum WindowBlockGroup: Hashable {
     case block(WindowBlock)
-    /// Dividers, the general header and general setting rows, at least one row among them.
+    /// Dividers, the general header and compact rows, at least one row among them.
     case compactRows([WindowBlock])
 
     public static func groups(_ blocks: [WindowBlock]) -> [WindowBlockGroup] {
         var groups: [WindowBlockGroup] = []
         var run: [WindowBlock] = []
         func flush() {
-            if run.contains(where: \.isGeneralSettingRow) {
+            if run.contains(where: \.isCompactRow) {
                 groups.append(.compactRows(run))
             } else {
                 groups += run.map(WindowBlockGroup.block)
@@ -86,7 +120,7 @@ public enum WindowBlockGroup: Hashable {
             run = []
         }
         for block in blocks {
-            if block.isGeneralSettingRow || [.settingsDivider, .generalHeader, .closingDivider].contains(block) {
+            if block.isCompactRow || [.settingsDivider, .generalHeader, .closingDivider].contains(block) {
                 run.append(block)
             } else {
                 flush()
@@ -103,8 +137,13 @@ extension WindowBlock {
         switch self {
         case .lockScreen, .launchAtLogin, .checkForUpdates, .appearance, .accent, .activityLog: return true
         case .timer, .settingsToggle, .safety, .dimmedSafety, .sleepAndWake, .settingsDivider, .generalHeader,
-             .proOffer, .closingDivider:
+             .proOffer, .closingDivider, .whatsNew, .howToUse, .quit:
             return false
         }
+    }
+
+    /// Rows of the menu-like lists: the general settings and the rows at the bottom.
+    var isCompactRow: Bool {
+        isGeneralSettingRow || [.whatsNew, .howToUse, .quit].contains(self)
     }
 }
