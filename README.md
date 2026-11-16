@@ -78,7 +78,7 @@ Each minute the helper looks for four signs of work:
 
 A minute with none of them is a quiet minute. When the chosen number of quiet minutes is reached, the mode ends. A sleep request, work in a watched app or input starts the count over. A short burst of load only holds the count where it is; load that lasts three minutes in a row starts it over.
 
-Not counted: network and disk activity, so a long download does not keep the Mac awake; sleep requests from the services of macOS itself; a program that has stopped and is waiting for your answer.
+Not counted: network and disk activity by itself, so a download keeps the Mac awake only if the program downloading asks macOS not to sleep, as Safari does; sleep requests from the services of macOS itself; a program that has stopped and is waiting for your answer.
 
 While the mode is on, the row in Settings shows what is keeping the Mac awake or how many quiet minutes have been counted.
 
