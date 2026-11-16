@@ -11,11 +11,14 @@ public struct SleepRequest: Equatable {
     public let processName: String
     /// Nil when the executable of the process could not be read.
     public let executablePath: String?
+    /// The name the process gave the request; nil when it gave none.
+    public let requestName: String?
 
-    public init(kind: String, processName: String, executablePath: String?) {
+    public init(kind: String, processName: String, executablePath: String?, requestName: String? = nil) {
         self.kind = kind
         self.processName = processName
         self.executablePath = executablePath
+        self.requestName = requestName
     }
 }
 
@@ -63,10 +66,17 @@ public enum BusyRules {
         "/sbin/",
     ]
 
+    /// Requests from programs in the system directories that still mean work. Safari runs from
+    /// /System/Volumes/Preboot/Cryptexes/ and holds this request only while a download is running.
+    public static let systemExceptions: [(pathSuffix: String, requestName: String)] = [
+        ("/Safari.app/Contents/MacOS/Safari", "Safari Downloads In Progress"),
+    ]
+
     public static func counts(_ request: SleepRequest, ownPathPrefix: String?) -> Bool {
         guard countedKinds.contains(request.kind), let path = request.executablePath else { return false }
         if let ownPathPrefix, path.hasPrefix(ownPathPrefix) { return false }
-        return !systemPaths.contains { path.hasPrefix($0) }
+        guard systemPaths.contains(where: { path.hasPrefix($0) }) else { return true }
+        return systemExceptions.contains { path.hasSuffix($0.pathSuffix) && request.requestName == $0.requestName }
     }
 
     /// Names of the processes whose requests count, each one once, in the order they came in.
@@ -181,7 +191,12 @@ public struct SystemBusySignals: BusySignalSource {
             let name = processName(of: pid) ?? path.map { ($0 as NSString).lastPathComponent } ?? ""
             for request in held {
                 guard let kind = request[kIOPMAssertionTypeKey] as? String else { continue }
-                requests.append(SleepRequest(kind: kind, processName: name, executablePath: path))
+                requests.append(SleepRequest(
+                    kind: kind,
+                    processName: name,
+                    executablePath: path,
+                    requestName: request[kIOPMAssertionNameKey] as? String
+                ))
             }
         }
         return .success(requests)

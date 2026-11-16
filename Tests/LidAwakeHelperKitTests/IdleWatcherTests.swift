@@ -60,9 +60,10 @@ final class IdleWatcherTests: XCTestCase {
     private func request(
         kind: String = "PreventUserIdleSystemSleep",
         name: String = "worker",
-        path: String? = "/usr/bin/worker"
+        path: String? = "/usr/bin/worker",
+        requestName: String? = nil
     ) -> SleepRequest {
-        SleepRequest(kind: kind, processName: name, executablePath: path)
+        SleepRequest(kind: kind, processName: name, executablePath: path, requestName: requestName)
     }
 
     // MARK: The count
@@ -384,6 +385,56 @@ final class IdleWatcherTests: XCTestCase {
         runMinute(watcher)
         XCTAssertEqual(watcher.countedMinutes, 0)
         XCTAssertEqual(watcher.status().holders, ["worker"])
+    }
+
+    private let safariPath = "/System/Volumes/Preboot/Cryptexes/App/System/Applications/Safari.app/Contents/MacOS/Safari"
+    private let safariDownload = "Safari Downloads In Progress"
+
+    func testSafariDownloadCounts() {
+        let download = request(name: "Safari", path: safariPath, requestName: safariDownload)
+        XCTAssertTrue(BusyRules.counts(download, ownPathPrefix: "/Programs/Own.app/"))
+        XCTAssertEqual(BusyRules.holders(in: [download, download], ownPathPrefix: nil), ["Safari"])
+    }
+
+    func testOtherSafariRequestsDoNotCount() {
+        let ignored = [
+            request(name: "Safari", path: safariPath, requestName: "com.apple.WebCore: HTMLMediaElement playback"),
+            request(name: "Safari", path: safariPath, requestName: nil),
+            request(kind: "PreventUserIdleDisplaySleep", name: "Safari", path: safariPath, requestName: safariDownload),
+            request(kind: "UserIsActive", name: "Safari", path: safariPath, requestName: safariDownload),
+        ]
+        for item in ignored {
+            XCTAssertFalse(BusyRules.counts(item, ownPathPrefix: nil), "\(item)")
+        }
+    }
+
+    func testDownloadNameFromAnotherSystemProcessDoesNotCount() {
+        let ignored = [
+            request(path: "/System/Library/CoreServices/service", requestName: safariDownload),
+            request(path: "/usr/libexec/service", requestName: safariDownload),
+            request(
+                name: "com.apple.WebKit.Networking",
+                path: "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/"
+                    + "com.apple.WebKit.Networking.xpc/Contents/MacOS/com.apple.WebKit.Networking",
+                requestName: safariDownload
+            ),
+            request(path: "/System/Applications/Safari.app/Contents/MacOS/SafariHelper", requestName: safariDownload),
+            request(path: nil, requestName: safariDownload),
+        ]
+        for item in ignored {
+            XCTAssertFalse(BusyRules.counts(item, ownPathPrefix: nil), "\(item)")
+        }
+    }
+
+    func testRequestNameDoesNotChangeTheOtherRules() {
+        let own = "/Programs/Own.app/"
+        XCTAssertTrue(BusyRules.counts(request(path: "/usr/bin/worker", requestName: "anything"), ownPathPrefix: own))
+        XCTAssertTrue(BusyRules.counts(request(path: "/usr/bin/worker", requestName: safariDownload), ownPathPrefix: own))
+        XCTAssertFalse(BusyRules.counts(request(path: "/usr/libexec/service", requestName: "anything"), ownPathPrefix: own))
+        XCTAssertFalse(BusyRules.counts(
+            request(path: own + "Contents/MacOS/Safari.app/Contents/MacOS/Safari", requestName: safariDownload),
+            ownPathPrefix: own
+        ))
     }
 
     func testWithoutAnOwnPathEveryRequestCounts() {
