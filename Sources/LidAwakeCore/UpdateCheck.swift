@@ -441,6 +441,9 @@ public struct UpdateNotice: Equatable {
 public final class UpdateChecker: ObservableObject {
     public static let enabledKey = "updateCheckEnabled"
     public static let lastCheckKey = "updateLastCheck"
+    /// The app version that made the last check. A different version checks at once, so an
+    /// update does not wait out the day the previous version started.
+    public static let lastCheckVersionKey = "updateLastCheckVersion"
     public static let latestVersionKey = "updateLatestVersion"
     /// The last offer read from the update file, kept so the window shows it offline until it ends.
     public static let offerKey = "updateOffer"
@@ -496,7 +499,8 @@ public final class UpdateChecker: ObservableObject {
         return UpdateNotice(latest: latest.description, current: currentText)
     }
 
-    /// Checks 10 seconds after launch, then whenever a day has passed since the last check.
+    /// Checks 10 seconds after launch, then whenever a day has passed since the last check
+    /// or the last check was made by another app version.
     public func start() {
         guard loop == nil else { return }
         loop = Task { [weak self, sleep] in
@@ -516,6 +520,7 @@ public final class UpdateChecker: ObservableObject {
     }
 
     public var isDue: Bool {
+        guard defaults.string(forKey: Self.lastCheckVersionKey) == currentText else { return true }
         guard let last = defaults.object(forKey: Self.lastCheckKey) as? Date else { return true }
         let elapsed = now().timeIntervalSince(last)
         // A last check in the future means the clock was set back; waiting for it could take years.
@@ -527,6 +532,7 @@ public final class UpdateChecker: ObservableObject {
     public func checkIfDue() async {
         guard isEnabled, isDue else { return }
         defaults.set(now(), forKey: Self.lastCheckKey)
+        defaults.set(currentText, forKey: Self.lastCheckVersionKey)
         let answer = await source.answer()
         guard case .tag(let tag)? = try? answer.result.get(), let latest = AppVersion(tag) else {
             return

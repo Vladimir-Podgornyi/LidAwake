@@ -701,6 +701,42 @@ final class UpdateCheckerTests: XCTestCase {
         XCTAssertNotNil(checker.notice)
     }
 
+    func testNewAppVersionChecksAtOnce() async {
+        defaults.set(clock, forKey: "updateLastCheck")
+        defaults.set("1.0.0", forKey: "updateLastCheckVersion")
+        let source = FakeReleaseSource(.success(.noReleases))
+        await checker(source, current: "1.0.1").checkIfDue()
+        XCTAssertEqual(source.calls, 1)
+        XCTAssertEqual(defaults.string(forKey: "updateLastCheckVersion"), "1.0.1")
+    }
+
+    func testCheckWithoutStoredVersionIsDueAtOnce() async {
+        defaults.set(clock, forKey: "updateLastCheck")
+        let source = FakeReleaseSource(.success(.noReleases))
+        await checker(source).checkIfDue()
+        XCTAssertEqual(source.calls, 1)
+        XCTAssertEqual(defaults.string(forKey: "updateLastCheckVersion"), "1.0.0")
+    }
+
+    func testSameAppVersionWaitsADay() async {
+        defaults.set(clock, forKey: "updateLastCheck")
+        defaults.set("1.0.0", forKey: "updateLastCheckVersion")
+        clock += 23 * 3600
+        let source = FakeReleaseSource(.success(.noReleases))
+        await checker(source).checkIfDue()
+        XCTAssertEqual(source.calls, 0)
+    }
+
+    func testNewAppVersionMakesNoRequestWhenDisabled() async {
+        defaults.set(false, forKey: "updateCheckEnabled")
+        defaults.set(clock, forKey: "updateLastCheck")
+        defaults.set("1.0.0", forKey: "updateLastCheckVersion")
+        let source = FakeReleaseSource(.success(.tag("v2.0.0")))
+        await checker(source, current: "1.0.1").checkIfDue()
+        XCTAssertEqual(source.calls, 0)
+        XCTAssertEqual(defaults.string(forKey: "updateLastCheckVersion"), "1.0.0")
+    }
+
     func testClockSetBackMakesTheCheckDue() async {
         defaults.set(clock + 7 * 24 * 3600, forKey: "updateLastCheck")
         let source = FakeReleaseSource(.success(.noReleases))
