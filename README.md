@@ -9,6 +9,10 @@
 <p align="center">macOS 13+ · Apple silicon · MIT</p>
 
 <p align="center">
+  <a href="https://www.producthunt.com/products/lidawake?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-lidawake" target="_blank" rel="noopener noreferrer"><img alt="LidAwake - Close your MacBook. Your Mac keeps working | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1318804&amp;theme=light&amp;t=1795339173448"></a>
+</p>
+
+<p align="center">
   <img src="docs/images/demo.gif" width="360" alt="Animation in dark mode with the Amber accent: Keep Screen On and then Run with Lid Closed are selected, the settings are expanded, protections and Sleep when idle are switched on and off, and the settings are collapsed">
 </p>
 
